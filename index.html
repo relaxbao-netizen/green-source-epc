@@ -638,11 +638,13 @@ const sites = [
 
 const wbsCats = {
   solar: [
-    { name:'土建工程',   weight:15, subs:['整地工程','基礎工程'] },
-    { name:'結構工程',   weight:20, subs:['支架安裝','模組安裝'] },
-    { name:'電氣工程',   weight:25, subs:['電纜敷設','逆變器安裝','變壓器安裝'] },
-    { name:'系統工程',   weight:20, subs:['監控系統','保護系統'] },
-    { name:'試運轉驗收', weight:20, subs:['單項測試','系統整合測試','竣工驗收'] },
+    { name:'土建工程',   weight:15, subs:[{name:'整地工程',weight:5},{name:'基礎工程',weight:10}] },
+    { name:'結構工程',   weight:20, subs:[{name:'支架安裝',weight:18},{name:'品質檢查',weight:2}] },
+    { name:'模組工程',   weight:25, subs:[{name:'模組安裝',weight:18},{name:'DC配線',weight:7}] },
+    { name:'電氣工程',   weight:25, subs:[{name:'DC側',weight:7},{name:'AC側',weight:15},{name:'接地系統',weight:3}] },
+    { name:'監控系統',   weight:5,  subs:[{name:'通訊工程',weight:5}] },
+    { name:'試運轉',     weight:5,  subs:[{name:'單機測試',weight:1},{name:'系統測試',weight:1},{name:'台電測試',weight:3}] },
+    { name:'驗收與移交', weight:5,  subs:[] },
   ],
   storage: [
     { name:'土建工程',   weight:15, subs:['整地工程','基礎工程'] },
@@ -690,14 +692,16 @@ function computeWBS2(pct, type) {
     if (rem >= cat.weight)      { catPct = 100; rem -= cat.weight; }
     else if (rem > 0)           { catPct = Math.round((rem / cat.weight) * 100); rem = 0; }
     else                        { catPct = 0; }
-    const subStep = 100 / cat.subs.length;
     let subRem = catPct;
-    const subs = cat.subs.map(subName => {
+    const subs = cat.subs.map(sub => {
+      const subName = typeof sub === 'string' ? sub : sub.name;
+      const subW = typeof sub === 'string' ? (100 / cat.subs.length) : (sub.weight / cat.weight * 100);
       let subPct;
-      if (subRem >= subStep)    { subPct = 100; subRem -= subStep; }
-      else if (subRem > 0)      { subPct = Math.round((subRem / subStep) * 100); subRem = 0; }
-      else                      { subPct = 0; }
-      return { name: subName, pct: subPct };
+      if (subRem >= subW)    { subPct = 100; subRem -= subW; }
+      else if (subRem > 0)   { subPct = Math.round((subRem / subW) * 100); subRem = 0; }
+      else                   { subPct = 0; }
+      const subWeight = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
+      return { name: subName, pct: subPct, weight: subWeight };
     });
     return { ...cat, catPct, subs };
   });
@@ -759,8 +763,8 @@ function showPage(id, btn) {
 
 // ===================== HOME =====================
 (function renderHome() {
-  // Progress list (top 8 by pct)
-  const sorted = [...sites].sort((a,b) => b.pct - a.pct).slice(0, 8);
+  // Progress list (top 10 by pct)
+  const sorted = [...sites].sort((a,b) => b.pct - a.pct).slice(0, 10);
   const el = document.getElementById('home-progress-list');
   el.innerHTML = sorted.map(s => `
     <div class="progress-item" onclick="openModal(${s.id})" style="cursor:pointer">
@@ -952,7 +956,7 @@ function openModal(id) {
       const sc = sub.pct === 100 ? '#16a34a' : sub.pct > 0 ? '#d97706' : '#94a3b8';
       return `<tr style="background:#fafafa">
         <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${sub.name}</td>
-        <td></td>
+        <td style="color:var(--muted);font-size:12px">${sub.weight}%</td>
         <td style="font-size:12px;font-weight:700;color:${sc}">${sub.pct}%</td>
         <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
           <div style="width:${sub.pct}%;height:100%;border-radius:3px;background:${sc}"></div></div></td>
