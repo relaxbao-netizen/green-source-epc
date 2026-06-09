@@ -806,7 +806,7 @@ function filterProgress(region, btn) {
 }
 
 function renderProgressTable(filter) {
-  const filtered = filter === 'all' ? sites : sites.filter(s => s.region === filter);
+  const filtered = (filter === 'all' ? sites : sites.filter(s => s.region === filter)).slice().sort((a,b) => b.pct - a.pct);
   const regionName = { north:'北部', center:'中部', south:'南部', east:'東部' };
   const html = `
   <table class="prog-table">
@@ -873,7 +873,7 @@ function renderHR() {
     const barColor = overload ? '#ef4444' : n === maxLoad ? '#d97706' : '#16a34a';
     const siteNames = sv.sites.map(i => sites[i].name).join('、');
     return `
-    <div class="hr-full-row">
+    <div class="hr-full-row" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
       <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color}">${sv.name[0]}</div>
       <div class="hr-info">
         <div class="hr-name">
@@ -898,7 +898,7 @@ function renderHR() {
     const siteRows = sv.sites.map(idx => {
       const s = sites[idx];
       return `
-      <div class="hd-site-row">
+      <div class="hd-site-row" onclick="openModal(${s.id})" style="cursor:pointer">
         <span class="hd-site-name">${s.name}</span>
         <div class="hd-bar-wrap">
           <div class="hd-bar">
@@ -975,7 +975,7 @@ function openModal(id) {
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-grid">
-      <div class="modal-info" style="background:transparent;padding:0">
+      <div class="modal-info" style="background:#f8fafc;border-radius:10px;padding:16px">
         <div class="info-row"><span class="info-label">業主</span><span class="info-val">${s.owner}</span></div>
         <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${s.pm}</span></div>
         <div class="info-row"><span class="info-label">案場地址</span><span class="info-val" style="font-size:12px">${s.addr}</span></div>
