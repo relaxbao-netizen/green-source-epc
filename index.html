@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>綠源EPC戰情室</title>
+<style>
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface2: #f8fafc;
+  --border: #e2e8f0;
+  --accent: #059669;
+  --accent2: #0ea5e9;
+  --accent3: #7c3aed;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --text: #0f172a;
+  --muted: #64748b;
+  --font: 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; overflow-x: hidden; }
+
+/* NAV */
+nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; height: 56px; gap: 8px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.logo {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 700; color: var(--accent);
+  margin-right: 16px; white-space: nowrap;
+  background: none; border: none; cursor: pointer;
+  padding: 6px 10px; border-radius: 8px; font-family: var(--font);
+  transition: background .15s;
+}
+.logo:hover { background: #f0fdf4; }
+.nav-btn {
+  background: none; border: none; color: var(--muted);
+  padding: 8px 14px; border-radius: 6px 6px 0 0; cursor: pointer;
+  font-size: 13px; font-family: var(--font); transition: all .2s;
+  white-space: nowrap; border-bottom: 2px solid transparent;
+}
+.nav-btn:hover { background: var(--surface2); color: var(--text); }
+.nav-btn.active { background: #f0fdf4; color: var(--accent); font-weight: 600; border-bottom: 2px solid var(--accent); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.clock { font-size: 12px; color: var(--muted); }
+.badge-alert { background: var(--danger); color: white; border-radius: 10px; padding: 2px 8px; font-size: 11px; display: none; }
+
+/* LAYOUT */
+.page { display: none; padding: 24px; max-width: 1600px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* KPI CARDS */
+.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
+.kpi-card {
+  border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: default;
+}
+.kpi-card.clickable { cursor: pointer; transition: filter .15s, transform .15s; }
+.kpi-card.clickable:hover { filter: brightness(1.06); transform: translateY(-2px); }
+.kpi-card.blue   { background: #4f8fde; }
+.kpi-card.green  { background: #1aaa84; }
+.kpi-card.red    { background: #e84545; }
+.kpi-card.orange { background: #f07820; }
+.kpi-card.teal   { background: #0fb8a8; }
+.kpi-card.purple { background: #7c3aed; }
+.kpi-label { font-size: 12px; color: rgba(255,255,255,.9); margin-bottom: 8px; font-weight: 600; }
+.kpi-value { font-size: 34px; font-weight: 800; line-height: 1; color: #fff; }
+.kpi-unit  { font-size: 16px; font-weight: 600; }
+.kpi-sub   { font-size: 11px; color: rgba(255,255,255,.75); margin-top: 5px; }
+
+/* SECTION TITLE */
+.section-title {
+  font-size: 14px; font-weight: 600; color: var(--muted);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* MAIN GRID */
+.main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+.side-grid { display: flex; flex-direction: column; gap: 16px; }
+
+/* CARD */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+/* TAIWAN MAP */
+.map-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; position: relative; min-height: 520px;
+}
+.map-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+.taiwan-svg-wrap { position: relative; }
+.taiwan-svg-wrap svg { width: 100%; max-width: 380px; display: block; margin: 0 auto; }
+
+.map-pin {
+  position: absolute; transform: translate(-50%, -50%);
+  cursor: pointer; z-index: 10;
+}
+.map-pin .dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.6);
+  transition: transform .2s; position: relative;
+}
+.map-pin:hover .dot { transform: scale(1.5); }
+.map-pin .dot.normal  { background: var(--success);  box-shadow: 0 0 8px var(--success); }
+.map-pin .dot.warn    { background: var(--warn);      box-shadow: 0 0 8px var(--warn); }
+.map-pin .dot.danger  { background: var(--danger);    box-shadow: 0 0 8px var(--danger); }
+.map-pin .dot.done    { background: var(--accent2);   box-shadow: 0 0 8px var(--accent2); }
+.map-pin .pin-label {
+  position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; white-space: nowrap;
+  background: rgba(15,23,42,.82); color: #fff;
+  padding: 2px 5px; border-radius: 3px; pointer-events: none;
+}
+.map-pin .dot.danger::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid var(--danger); animation: pulse 1.5s infinite; opacity: .6;
+}
+@keyframes pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.7);opacity:0} }
+
+/* POPUP */
+.pin-popup {
+  position: absolute; background: #fff; border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; min-width: 210px; z-index: 50;
+  display: none; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.14);
+}
+.pin-popup.visible { display: block; }
+.pin-popup h4 { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+.pp-row { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; font-size: 12px; color: var(--muted); }
+.pp-row span:last-child { color: var(--text); font-weight: 500; }
+.pp-bar-wrap { height: 5px; background: var(--border); border-radius: 3px; margin-top: 8px; }
+.pp-bar-fill { height: 100%; border-radius: 3px; }
+.pp-btn {
+  margin-top: 10px; width: 100%; padding: 7px; border-radius: 6px;
+  border: none; background: var(--accent); color: #fff;
+  font-weight: 600; cursor: pointer; font-size: 12px; font-family: var(--font);
+}
+
+/* PROGRESS ITEMS (side panel) */
+.progress-item { margin-bottom: 12px; }
+.progress-item:last-child { margin-bottom: 0; }
+.progress-header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.progress-name { color: var(--text); font-weight: 500; }
+.progress-pct { font-weight: 700; }
+.progress-bar { height: 6px; background: var(--border); border-radius: 3px; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width .6s; }
+.fill-green  { background: linear-gradient(90deg, #16a34a, #4ade80); }
+.fill-blue   { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
+.fill-yellow { background: linear-gradient(90deg, #d97706, #fcd34d); }
+.fill-red    { background: linear-gradient(90deg, #dc2626, #f87171); }
+
+/* HR SIDE LIST */
+.hr-row-sm {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.hr-row-sm:last-child { border-bottom: none; }
+.hr-avatar-sm {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.hr-name-sm { font-size: 12px; font-weight: 600; flex: 1; }
+.hr-count-sm { font-size: 12px; font-weight: 700; width: 30px; text-align: right; }
+.load-bar-wrap { width: 80px; }
+.load-bar { height: 5px; background: var(--border); border-radius: 3px; }
+.load-fill { height: 100%; border-radius: 3px; }
+.overload-badge { font-size: 10px; color: var(--danger); font-weight: 700; background: #fef2f2; padding: 1px 5px; border-radius: 3px; }
+
+/* PROGRESS PAGE TABLE */
+.tab-row { display: flex; gap: 6px; margin-bottom: 16px; }
+.tab-btn { padding: 6px 14px; border: none; border-radius: 20px; font-size: 12px; cursor: pointer; background: var(--surface2); color: var(--muted); font-family: var(--font); transition: all .15s; }
+.tab-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
+.prog-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+.prog-table th { text-align: left; padding: 10px 12px; font-size: 12px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.prog-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.prog-table tr:hover td { background: var(--surface2); cursor: pointer; }
+.prog-table tr:last-child td { border-bottom: none; }
+.status-badge { padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.s-done    { background: #dbeafe; color: #1d4ed8; }
+.s-normal  { background: #dcfce7; color: #15803d; }
+.s-warn    { background: #fef9c3; color: #a16207; }
+.s-danger  { background: #fee2e2; color: #b91c1c; }
+.table-bar-wrap { width: 120px; }
+.table-bar { height: 6px; background: var(--border); border-radius: 3px; }
+.table-bar-fill { height: 100%; border-radius: 3px; }
+
+/* HR PAGE */
+.alert-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.alert-box strong { color: var(--danger); }
+.hr-full-row {
+  display: flex; align-items: center; gap: 14px; padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.hr-full-row:last-child { border-bottom: none; }
+.hr-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; flex-shrink: 0;
+}
+.hr-info { flex: 1; }
+.hr-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.hr-sites-text { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.load-bar-full { width: 140px; }
+.load-bar-full .load-bar { height: 6px; }
+.hr-case-count { font-size: 13px; font-weight: 700; width: 40px; text-align: right; }
+.hr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+.hr-detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.hd-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.hd-name { font-size: 15px; font-weight: 700; flex: 1; }
+.hd-overload { font-size: 11px; color: var(--danger); background: #fef2f2; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+.hd-site-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.hd-site-row:last-child { margin-bottom: 0; }
+.hd-site-name { font-size: 13px; flex: 1; }
+.hd-pct { font-size: 12px; font-weight: 700; width: 36px; text-align: right; }
+.hd-bar-wrap { width: 100px; }
+.hd-bar { height: 5px; background: var(--border); border-radius: 3px; }
+.hd-fill { height: 100%; border-radius: 3px; }
+
+/* ADVANCED PAGE */
+.region-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.region-kpi-card { border-radius: 14px; padding: 20px 22px; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.rkpi-region { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.rkpi-mw { font-size: 40px; font-weight: 800; line-height: 1; }
+.rkpi-unit { font-size: 18px; font-weight: 600; }
+.owner-section { margin-top: 24px; }
+.owner-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.owner-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px; cursor: pointer;
+  transition: box-shadow .15s, transform .15s;
+}
+.owner-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-2px); }
+.owner-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.owner-mw { font-size: 28px; font-weight: 800; color: var(--accent2); line-height: 1; }
+.owner-mw-unit { font-size: 14px; font-weight: 600; }
+.owner-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 16px; width: 700px; max-width: 95vw;
+  max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  animation: modalIn .22s ease;
+}
+@keyframes modalIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+.modal-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: #fff;
+  border-radius: 16px 16px 0 0; z-index: 1;
+}
+.modal-title { font-size: 18px; font-weight: 700; flex: 1; }
+.modal-close {
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: #f1f5f9; color: var(--muted); font-size: 18px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { background: #e2e8f0; }
+.modal-body { padding: 20px 24px 24px; }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.modal-info { background: #f8fafc; border-radius: 10px; padding: 16px; }
+.modal-info-title { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
+.info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.info-row:last-child { border-bottom: none; }
+.info-label { color: var(--muted); }
+.info-val { font-weight: 500; }
+.modal-progress-box { background: #f8fafc; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.big-pct { font-size: 52px; font-weight: 800; line-height: 1; }
+.big-pct-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.wbs-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+.wbs-table { width: 100%; border-collapse: collapse; }
+.wbs-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.wbs-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.wbs-table tr:last-child td { border-bottom: none; }
+.wbs-mini-wrap { width: 100px; }
+.wbs-mini-bar { height: 5px; background: var(--border); border-radius: 3px; }
+.wbs-mini-fill { height: 100%; border-radius: 3px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.btn-sec { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text); font-size: 13px; cursor: pointer; font-family: var(--font); }
+.btn-pri { padding: 8px 20px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--font); }
+
+/* SVG MAP styles */
+#taiwan-map .cn { stroke: #fff; stroke-width: 1.5; cursor: pointer; transition: opacity .18s; }
+#taiwan-map .cn:hover { opacity: .72; }
+#taiwan-map .lbl { font-size: 7.5px; fill: #1e3a8a; font-family: sans-serif; text-anchor: middle; pointer-events: none; font-weight: 700; }
+#taiwan-map .lbl-e { fill: #4c1d95; }
+#taiwan-map .lbl-s { fill: #7c2d12; }
+
+.scroll-x { overflow-x: auto; }
+
+@media(max-width:960px) {
+  .kpi-row { grid-template-columns: repeat(3,1fr); }
+  .main-grid { grid-template-columns: 1fr; }
+  .hr-grid { grid-template-columns: 1fr; }
+  .region-kpi-row { grid-template-columns: repeat(2,1fr); }
+  .owner-grid { grid-template-columns: repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <button class="logo" onclick="showPage('home')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    綠源EPC戰情室
+  </button>
+  <button class="nav-btn active" data-page="home"    onclick="showPage('home',this)">🏠 首頁總覽</button>
+  <button class="nav-btn"        data-page="progress" onclick="showPage('progress',this)">📊 工程進度</button>
+  <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
+  <button class="nav-btn"        data-page="advanced" onclick="showPage('advanced',this)">📈 進階分析</button>
+  <div class="nav-right">
+    <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
+    <span class="clock" id="clock"></span>
+  </div>
+</nav>
+
+<!-- ===== HOME ===== -->
+<div id="page-home" class="page active">
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi-card blue clickable" onclick="showPage('progress',document.querySelector('[data-page=progress]'))">
+      <div class="kpi-label">執行中案場</div>
+      <div class="kpi-value">12<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">施工進行中</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">本月完工</div>
+      <div class="kpi-value">1<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">基隆外木山</div>
+    </div>
+    <div class="kpi-card red clickable" onclick="showPage('progress',document.querySelector('[data-page=progress]'))">
+      <div class="kpi-label">延遲案場</div>
+      <div class="kpi-value">2<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">需立即關注</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">本週開工</div>
+      <div class="kpi-value">0<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">本週無新開工</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-label">本月併網</div>
+      <div class="kpi-value">1<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">外木山8MW</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">在建容量</div>
+      <div class="kpi-value">340<span class="kpi-unit">MW</span></div>
+      <div class="kpi-sub">不含已完工</div>
+    </div>
+  </div>
+
+  <!-- MAP + SIDE -->
+  <div class="main-grid">
+    <!-- MAP -->
+    <div class="map-card">
+      <div class="map-card-title">🗺 案場地圖</div>
+      <div class="map-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>正常施工</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>即將落後</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>進度落後</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>已完工</div>
+      </div>
+      <div class="taiwan-svg-wrap" id="mapWrap">
+        <svg id="taiwan-map" viewBox="0 0 260 510" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Off-shore islands -->
+          <ellipse class="cn" fill="#bae6fd" cx="40" cy="308" rx="13" ry="19"/>
+          <text class="lbl" x="40" y="311">澎湖</text>
+          <ellipse class="cn" fill="#bae6fd" cx="19" cy="248" rx="11" ry="6"/>
+          <text class="lbl" x="19" y="251">馬祖</text>
+          <ellipse class="cn" fill="#bae6fd" cx="18" cy="185" rx="7" ry="11"/>
+          <text class="lbl" x="18" y="188">金門</text>
+
+          <!-- North (blue) -->
+          <path class="cn" fill="#bfdbfe" d="M 195 38 L 228 30 L 240 55 L 238 98 L 220 114 L 205 110 L 196 92 L 185 128 L 178 55 L 185 38 Z"/>
+          <text class="lbl lbl-e" x="218" y="76">宜蘭</text>
+          <path class="cn" fill="#93c5fd" d="M 185 38 L 205 30 L 218 42 L 212 60 L 198 62 L 185 52 Z"/>
+          <text class="lbl" x="202" y="49">基隆</text>
+          <path class="cn" fill="#60a5fa" d="M 168 50 L 185 52 L 198 62 L 196 78 L 178 83 L 162 76 L 158 60 Z"/>
+          <text class="lbl" x="178" y="68">台北</text>
+          <path class="cn" fill="#bfdbfe" d="M 118 22 L 178 18 L 205 30 L 218 42 L 212 60 L 198 62 L 185 52 L 168 50 L 158 60 L 162 76 L 178 83 L 196 78 L 196 92 L 205 110 L 195 118 L 178 120 L 160 115 L 148 108 L 135 98 L 118 90 L 108 76 L 108 50 Z"/>
+          <text class="lbl" x="138" y="52">新北</text>
+          <path class="cn" fill="#bfdbfe" d="M 108 76 L 118 90 L 135 98 L 148 108 L 148 128 L 130 132 L 112 124 L 100 108 L 98 90 Z"/>
+          <text class="lbl" x="124" y="108">桃園</text>
+          <path class="cn" fill="#bfdbfe" d="M 98 124 L 112 124 L 130 132 L 128 146 L 112 148 L 98 140 Z"/>
+          <text class="lbl" x="113" y="138">新竹市</text>
+          <path class="cn" fill="#bfdbfe" d="M 130 132 L 148 128 L 160 115 L 178 120 L 195 118 L 205 110 L 220 114 L 226 136 L 208 150 L 188 152 L 168 152 L 148 152 L 128 146 Z"/>
+          <text class="lbl" x="183" y="133">新竹縣</text>
+
+          <!-- Center (green) -->
+          <path class="cn" fill="#bbf7d0" d="M 98 140 L 112 148 L 128 146 L 148 152 L 148 178 L 132 182 L 112 178 L 98 164 L 90 150 Z"/>
+          <text class="lbl" x="118" y="164">苗栗</text>
+          <path class="cn" fill="#bbf7d0" d="M 90 164 L 98 164 L 112 178 L 132 182 L 148 178 L 162 182 L 165 208 L 158 230 L 138 235 L 112 228 L 90 212 L 82 192 Z"/>
+          <text class="lbl" x="124" y="205">台中</text>
+          <path class="cn" fill="#bbf7d0" d="M 148 152 L 168 152 L 188 152 L 208 150 L 226 136 L 235 162 L 240 206 L 228 228 L 210 242 L 195 248 L 178 240 L 165 228 L 165 208 L 162 182 L 148 178 Z"/>
+          <text class="lbl" x="200" y="198">台中</text>
+          <path class="cn" fill="#bbf7d0" d="M 82 212 L 90 212 L 112 228 L 138 235 L 140 256 L 118 262 L 96 256 L 80 240 Z"/>
+          <text class="lbl" x="108" y="245">彰化</text>
+          <path class="cn" fill="#bbf7d0" d="M 80 240 L 96 256 L 118 262 L 120 282 L 100 285 L 78 272 L 75 252 Z"/>
+          <text class="lbl" x="96" y="268">雲林</text>
+          <path class="cn" fill="#ddd6fe" d="M 220 114 L 238 98 L 240 55 L 248 125 L 250 215 L 245 272 L 230 282 L 215 270 L 212 248 L 210 242 L 228 228 L 240 206 L 235 162 L 226 136 Z"/>
+          <text class="lbl lbl-e" x="238" y="190">花蓮</text>
+
+          <!-- South (orange) -->
+          <path class="cn" fill="#fed7aa" d="M 75 272 L 78 272 L 100 285 L 120 282 L 135 288 L 138 315 L 118 322 L 92 315 L 74 298 Z"/>
+          <text class="lbl lbl-s" x="100" y="300">嘉義縣</text>
+          <path class="cn" fill="#fdba74" d="M 100 280 L 118 276 L 128 280 L 128 294 L 112 296 L 100 288 Z"/>
+          <text class="lbl lbl-s" x="114" y="290">嘉義市</text>
+          <path class="cn" fill="#fed7aa" d="M 74 298 L 92 315 L 118 322 L 138 315 L 152 328 L 152 365 L 130 378 L 105 378 L 80 360 L 68 332 Z"/>
+          <text class="lbl lbl-s" x="103" y="344">台南</text>
+          <path class="cn" fill="#fed7aa" d="M 135 288 L 152 274 L 170 272 L 188 282 L 205 308 L 210 345 L 205 378 L 188 390 L 165 395 L 152 385 L 152 365 L 152 328 L 138 315 Z"/>
+          <text class="lbl lbl-s" x="180" y="338">高雄</text>
+          <path class="cn" fill="#fed7aa" d="M 152 385 L 165 395 L 188 390 L 202 410 L 195 445 L 175 465 L 148 470 L 122 452 L 108 422 L 115 402 L 130 385 Z"/>
+          <text class="lbl lbl-s" x="152" y="428">屏東</text>
+          <path class="cn" fill="#ddd6fe" d="M 245 272 L 250 215 L 255 315 L 252 392 L 238 435 L 215 452 L 202 440 L 195 422 L 202 410 L 188 390 L 205 378 L 210 345 L 205 308 L 188 282 L 188 268 L 202 260 L 215 270 L 230 282 Z"/>
+          <text class="lbl lbl-e" x="232" y="358">台東</text>
+        </svg>
+
+        <!-- Map Pins (top%/left% relative to mapWrap) -->
+        <!-- 台北南港 (北部, normal, 90%) -->
+        <div class="map-pin" style="top:15%;left:62%" onclick="openModal(0)">
+          <div class="dot normal"><div class="pin-label">台北南港</div></div>
+        </div>
+        <!-- 基隆外木山 (北部, done, 100%) -->
+        <div class="map-pin" style="top:10%;left:71%" onclick="openModal(1)">
+          <div class="dot done"><div class="pin-label">基隆外木山</div></div>
+        </div>
+        <!-- 桃園大園 (北部, normal, 83%) -->
+        <div class="map-pin" style="top:22%;left:55%" onclick="openModal(2)">
+          <div class="dot normal"><div class="pin-label">桃園大園</div></div>
+        </div>
+        <!-- 桃園蘆竹 (北部, normal, 74%) -->
+        <div class="map-pin" style="top:24%;left:63%" onclick="openModal(3)">
+          <div class="dot normal"><div class="pin-label">桃園蘆竹</div></div>
+        </div>
+        <!-- 新竹竹北 (北部, warn, 50%) -->
+        <div class="map-pin" style="top:30%;left:54%" onclick="openModal(4)">
+          <div class="dot warn"><div class="pin-label">新竹竹北</div></div>
+        </div>
+        <!-- 台中烏日 (中部, normal, 70%) -->
+        <div class="map-pin" style="top:39%;left:54%" onclick="openModal(5)">
+          <div class="dot normal"><div class="pin-label">台中烏日</div></div>
+        </div>
+        <!-- 彰化溪湖 (中部, warn, 44%) -->
+        <div class="map-pin" style="top:45%;left:52%" onclick="openModal(6)">
+          <div class="dot warn"><div class="pin-label">彰化溪湖</div></div>
+        </div>
+        <!-- 台南七股 (南部, normal, 68%) -->
+        <div class="map-pin" style="top:62%;left:46%" onclick="openModal(7)">
+          <div class="dot normal"><div class="pin-label">台南七股</div></div>
+        </div>
+        <!-- 台南佳里 (南部, warn, 36%) -->
+        <div class="map-pin" style="top:64%;left:54%" onclick="openModal(8)">
+          <div class="dot warn"><div class="pin-label">台南佳里</div></div>
+        </div>
+        <!-- 高雄大寮 (南部, danger, 27%) -->
+        <div class="map-pin" style="top:68%;left:58%" onclick="openModal(9)">
+          <div class="dot danger"><div class="pin-label">高雄大寮</div></div>
+        </div>
+        <!-- 高雄旗山 (南部, danger, 18%) -->
+        <div class="map-pin" style="top:72%;left:51%" onclick="openModal(10)">
+          <div class="dot danger"><div class="pin-label">高雄旗山</div></div>
+        </div>
+        <!-- 花蓮壽豐 (東部, normal, 58%) -->
+        <div class="map-pin" style="top:38%;left:74%" onclick="openModal(11)">
+          <div class="dot normal"><div class="pin-label">花蓮壽豐</div></div>
+        </div>
+        <!-- 新北淡水 (北部, warn, 42%) -->
+        <div class="map-pin" style="top:17%;left:56%" onclick="openModal(12)">
+          <div class="dot warn"><div class="pin-label">新北淡水</div></div>
+        </div>
+
+        <!-- Popup (JS controlled) -->
+        <div class="pin-popup" id="pin-popup"></div>
+      </div>
+    </div>
+
+    <!-- SIDE -->
+    <div class="side-grid">
+      <!-- Progress rank -->
+      <div class="card">
+        <div class="card-title">📊 案場進度排行</div>
+        <div id="home-progress-list"></div>
+      </div>
+      <!-- Workload -->
+      <div class="card">
+        <div class="card-title">👷 工地主任工作負荷</div>
+        <div id="home-hr-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PROGRESS ===== -->
+<div id="page-progress" class="page">
+  <div class="section-title">工程進度總覽</div>
+  <div class="card scroll-x">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="filterProgress('all',this)">全部</button>
+      <button class="tab-btn" onclick="filterProgress('north',this)">北部</button>
+      <button class="tab-btn" onclick="filterProgress('center',this)">中部</button>
+      <button class="tab-btn" onclick="filterProgress('south',this)">南部</button>
+      <button class="tab-btn" onclick="filterProgress('east',this)">東部</button>
+    </div>
+    <div id="progress-table-wrap"></div>
+  </div>
+</div>
+
+<!-- ===== HR ===== -->
+<div id="page-hr" class="page">
+  <div class="section-title">人力資源看板 — 工地主任工作量分析</div>
+  <div class="alert-box" id="hr-alert"></div>
+  <div class="card">
+    <div class="card-title">工地主任負荷一覽</div>
+    <div id="hr-list"></div>
+  </div>
+  <div class="section-title" style="margin-top:20px">主任案場分配詳情</div>
+  <div class="hr-grid" id="hr-detail-grid"></div>
+</div>
+
+<!-- ===== ADVANCED ===== -->
+<div id="page-advanced" class="page">
+  <div class="section-title">依區域容量統計</div>
+  <div class="region-kpi-row">
+    <div class="region-kpi-card" style="background:#4f8fde">
+      <div class="rkpi-region">北部</div>
+      <div class="rkpi-mw">93<span class="rkpi-unit">MW</span></div>
+    </div>
+    <div class="region-kpi-card" style="background:#1aaa84">
+      <div class="rkpi-region">中部</div>
+      <div class="rkpi-mw">80<span class="rkpi-unit">MW</span></div>
+    </div>
+    <div class="region-kpi-card" style="background:#f07820">
+      <div class="rkpi-region">南部</div>
+      <div class="rkpi-mw">155<span class="rkpi-unit">MW</span></div>
+    </div>
+    <div class="region-kpi-card" style="background:#0fb8a8">
+      <div class="rkpi-region">東部</div>
+      <div class="rkpi-mw">20<span class="rkpi-unit">MW</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">業主專案統計</div>
+  <div class="owner-grid" id="owner-grid"></div>
+</div>
+
+<!-- ===== SITE DETAIL MODAL ===== -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <div id="modal-status-badge"></div>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+const sites = [
+  { id:0,  name:'台北南港儲能案',   region:'north',  city:'台北', cap:'10MW / 20MWh', owner:'台電綠能', pm:'張主任', end:'2026/07/31', pct:90,  status:'normal',  mw:10,  mwh:20 },
+  { id:1,  name:'基隆外木山太陽能案', region:'north',  city:'基隆', cap:'8MW',          owner:'OO電力',  pm:'林主任', end:'2026/04/30', pct:100, status:'done',    mw:8,   mwh:0  },
+  { id:2,  name:'桃園大園太陽能案',   region:'north',  city:'桃園', cap:'25MW',         owner:'XX能源',  pm:'張主任', end:'2026/09/30', pct:83,  status:'normal',  mw:25,  mwh:0  },
+  { id:3,  name:'桃園蘆竹儲能案',     region:'north',  city:'桃園', cap:'20MW / 40MWh', owner:'XX能源',  pm:'張主任', end:'2026/10/31', pct:74,  status:'normal',  mw:20,  mwh:40 },
+  { id:4,  name:'新竹竹北太陽能案',   region:'north',  city:'新竹', cap:'15MW',         owner:'OO電力',  pm:'林主任', end:'2026/08/15', pct:50,  status:'warn',    mw:15,  mwh:0  },
+  { id:5,  name:'台中烏日太陽能案',   region:'center', city:'台中', cap:'50MW',         owner:'TT能源',  pm:'陳主任', end:'2026/11/30', pct:70,  status:'normal',  mw:50,  mwh:0  },
+  { id:6,  name:'彰化溪湖太陽能案',   region:'center', city:'彰化', cap:'30MW',         owner:'GG綠能',  pm:'陳主任', end:'2026/09/15', pct:44,  status:'warn',    mw:30,  mwh:0  },
+  { id:7,  name:'台南七股太陽能案',   region:'south',  city:'台南', cap:'80MW',         owner:'XX能源',  pm:'王主任', end:'2026/10/31', pct:68,  status:'normal',  mw:80,  mwh:0  },
+  { id:8,  name:'台南佳里儲能案',     region:'south',  city:'台南', cap:'20MW / 40MWh', owner:'OO電力',  pm:'王主任', end:'2026/08/31', pct:36,  status:'warn',    mw:20,  mwh:40 },
+  { id:9,  name:'高雄大寮太陽能案',   region:'south',  city:'高雄', cap:'35MW',         owner:'TT能源',  pm:'李主任', end:'2026/07/31', pct:27,  status:'danger',  mw:35,  mwh:0  },
+  { id:10, name:'高雄旗山儲能案',     region:'south',  city:'高雄', cap:'20MW / 40MWh', owner:'AA再生能', pm:'李主任', end:'2026/07/31', pct:18,  status:'danger',  mw:20,  mwh:40 },
+  { id:11, name:'花蓮壽豐太陽能案',   region:'east',   city:'花蓮', cap:'20MW',         owner:'XX能源',  pm:'吳主任', end:'2026/12/31', pct:58,  status:'normal',  mw:20,  mwh:0  },
+  { id:12, name:'新北淡水儲能案',     region:'north',  city:'新北', cap:'15MW / 30MWh', owner:'台電綠能', pm:'張主任', end:'2026/11/15', pct:42,  status:'warn',    mw:15,  mwh:30 },
+];
+
+const wbsTemplate = [
+  { name:'設計', weight:10 },
+  { name:'採購', weight:20 },
+  { name:'土建', weight:20 },
+  { name:'結構', weight:15 },
+  { name:'機電', weight:20 },
+  { name:'試運轉', weight:15 },
+];
+
+const supervisors = [
+  { name:'張主任', color:'#3b82f6', sites:[0,2,3,12] },
+  { name:'林主任', color:'#10b981', sites:[1,4] },
+  { name:'陳主任', color:'#8b5cf6', sites:[5,6] },
+  { name:'王主任', color:'#f97316', sites:[7,8] },
+  { name:'李主任', color:'#ef4444', sites:[9,10] },
+  { name:'吳主任', color:'#06b6d4', sites:[11] },
+];
+
+const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
+const statusClass = { normal:'s-normal', warn:'s-warn', danger:'s-danger', done:'s-done' };
+
+// ===================== HELPERS =====================
+function progressColor(pct, status) {
+  if (status === 'done')   return '#0ea5e9';
+  if (status === 'danger') return '#dc2626';
+  if (status === 'warn')   return '#d97706';
+  if (pct >= 70)           return '#16a34a';
+  return '#16a34a';
+}
+
+function fillClass(status) {
+  if (status === 'done')   return 'fill-blue';
+  if (status === 'danger') return 'fill-red';
+  if (status === 'warn')   return 'fill-yellow';
+  return 'fill-green';
+}
+
+function wbsProgress(pct) {
+  const steps = [100, 100, 80, 60, 40, 0];
+  const weights = wbsTemplate.map(w => w.weight);
+  let cumulativeWeight = 0;
+  let totalWeight = weights.reduce((a,b) => a+b, 0);
+  let remainingPct = pct;
+  return wbsTemplate.map((item, i) => {
+    const stepPct = Math.min(100, Math.max(0, remainingPct / item.weight * 100));
+    remainingPct = Math.max(0, remainingPct - item.weight);
+    return Math.min(100, stepPct);
+  });
+}
+
+function computeWBS(pct) {
+  let rem = pct;
+  return wbsTemplate.map(item => {
+    const contrib = Math.min(item.weight, rem);
+    rem -= contrib;
+    return Math.round((contrib / item.weight) * 100);
+  });
+}
+
+// ===================== CLOCK =====================
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.getFullYear() + '/' +
+    String(now.getMonth()+1).padStart(2,'0') + '/' +
+    String(now.getDate()).padStart(2,'0') + ' ' +
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(now.getMinutes()).padStart(2,'0') + ':' +
+    String(now.getSeconds()).padStart(2,'0');
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Show alert badge
+const delayCount = sites.filter(s => s.status === 'danger').length;
+if (delayCount > 0) {
+  const b = document.getElementById('nav-badge');
+  b.style.display = 'inline';
+  b.textContent = `⚠ ${delayCount}案落後`;
+}
+
+// ===================== PAGE NAV =====================
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else {
+    const b = document.querySelector(`[data-page="${id}"]`);
+    if (b) b.classList.add('active');
+  }
+  if (id === 'progress') renderProgressTable('all');
+  if (id === 'hr')       renderHR();
+  if (id === 'advanced') renderAdvanced();
+}
+
+// ===================== HOME =====================
+(function renderHome() {
+  // Progress list (top 8 by pct)
+  const sorted = [...sites].sort((a,b) => b.pct - a.pct).slice(0, 8);
+  const el = document.getElementById('home-progress-list');
+  el.innerHTML = sorted.map(s => `
+    <div class="progress-item" onclick="openModal(${s.id})" style="cursor:pointer">
+      <div class="progress-header">
+        <span class="progress-name">${s.name}</span>
+        <span class="progress-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+      </div>
+    </div>`).join('');
+
+  // HR workload
+  const hrEl = document.getElementById('home-hr-list');
+  hrEl.innerHTML = supervisors.map(sv => {
+    const n = sv.sites.length;
+    const pct = Math.round((n / 3) * 100);
+    const overload = n > 3;
+    const barColor = overload ? '#ef4444' : n >= 3 ? '#d97706' : '#16a34a';
+    return `
+    <div class="hr-row-sm" onclick="showPage('hr');" style="cursor:pointer">
+      <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
+      <span class="hr-name-sm">${sv.name}${overload ? ' <span class="overload-badge">超載</span>' : ''}</span>
+      <div class="load-bar-wrap">
+        <div class="load-bar">
+          <div class="load-fill" style="width:${Math.min(100,pct)}%;background:${barColor}"></div>
+        </div>
+      </div>
+      <span class="hr-count-sm" style="color:${barColor}">${n}案</span>
+    </div>`;
+  }).join('');
+})();
+
+// ===================== PROGRESS TABLE =====================
+function filterProgress(region, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderProgressTable(region);
+}
+
+function renderProgressTable(filter) {
+  const filtered = filter === 'all' ? sites : sites.filter(s => s.region === filter);
+  const regionName = { north:'北部', center:'中部', south:'南部', east:'東部' };
+  const html = `
+  <table class="prog-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>案場名稱</th>
+        <th>區域</th>
+        <th>業主</th>
+        <th>工地主任</th>
+        <th>容量</th>
+        <th>預計完工</th>
+        <th>進度</th>
+        <th>狀態</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filtered.map((s,i) => `
+      <tr onclick="openModal(${s.id})">
+        <td style="color:var(--muted)">${i+1}</td>
+        <td style="font-weight:600">${s.name}</td>
+        <td>${regionName[s.region] || s.region}</td>
+        <td>${s.owner}</td>
+        <td>${s.pm}</td>
+        <td>${s.cap}</td>
+        <td>${s.end}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="table-bar-wrap">
+              <div class="table-bar">
+                <div class="table-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+              </div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+          </div>
+        </td>
+        <td><span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+  document.getElementById('progress-table-wrap').innerHTML = html;
+}
+
+// ===================== HR =====================
+function renderHR() {
+  const maxLoad = 3;
+  const overloaded = supervisors.filter(s => s.sites.length > maxLoad);
+
+  // Alert
+  const alertEl = document.getElementById('hr-alert');
+  if (overloaded.length > 0) {
+    alertEl.style.display = 'flex';
+    alertEl.innerHTML = `⚠ <strong>系統警示：</strong>${overloaded.map(s => `${s.name}目前負責 ${s.sites.length} 個案場，已超過建議上限（${maxLoad}案）`).join('；')}，建議重新分配。`;
+  } else {
+    alertEl.style.display = 'none';
+  }
+
+  // Full list
+  const listEl = document.getElementById('hr-list');
+  listEl.innerHTML = supervisors.map(sv => {
+    const n = sv.sites.length;
+    const overload = n > maxLoad;
+    const barPct = Math.min(100, Math.round((n / maxLoad) * 100));
+    const barColor = overload ? '#ef4444' : n === maxLoad ? '#d97706' : '#16a34a';
+    const siteNames = sv.sites.map(i => sites[i].name).join('、');
+    return `
+    <div class="hr-full-row">
+      <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color}">${sv.name[0]}</div>
+      <div class="hr-info">
+        <div class="hr-name">
+          ${sv.name}
+          ${overload ? '<span class="overload-badge" style="font-size:11px;color:var(--danger);background:#fef2f2;padding:2px 7px;border-radius:10px;font-weight:600">⚠ 超載</span>' : ''}
+        </div>
+        <div class="hr-sites-text">${siteNames}</div>
+      </div>
+      <div class="load-bar-full">
+        <div class="load-bar">
+          <div class="load-fill" style="width:${barPct}%;background:${barColor}"></div>
+        </div>
+      </div>
+      <span class="hr-case-count" style="color:${barColor}">${n}案</span>
+    </div>`;
+  }).join('');
+
+  // Detail cards
+  const detailEl = document.getElementById('hr-detail-grid');
+  detailEl.innerHTML = supervisors.map(sv => {
+    const overload = sv.sites.length > maxLoad;
+    const siteRows = sv.sites.map(idx => {
+      const s = sites[idx];
+      return `
+      <div class="hd-site-row">
+        <span class="hd-site-name">${s.name}</span>
+        <div class="hd-bar-wrap">
+          <div class="hd-bar">
+            <div class="hd-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+          </div>
+        </div>
+        <span class="hd-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+      </div>`;
+    }).join('');
+    return `
+    <div class="hr-detail-card">
+      <div class="hd-header">
+        <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${sv.name[0]}</div>
+        <span class="hd-name">${sv.name}</span>
+        ${overload ? '<span class="hd-overload">超載</span>' : ''}
+      </div>
+      ${siteRows}
+    </div>`;
+  }).join('');
+}
+
+// ===================== ADVANCED =====================
+function renderAdvanced() {
+  // Owner grid
+  const ownerMap = {};
+  sites.forEach(s => {
+    if (!ownerMap[s.owner]) ownerMap[s.owner] = { name:s.owner, cases:0, mw:0 };
+    ownerMap[s.owner].cases++;
+    ownerMap[s.owner].mw += s.mw;
+  });
+  const owners = Object.values(ownerMap).sort((a,b) => b.mw - a.mw);
+  const ownerColors = ['#0ea5e9','#10b981','#f97316','#8b5cf6','#059669','#ef4444'];
+  document.getElementById('owner-grid').innerHTML = owners.map((o,i) => `
+    <div class="owner-card">
+      <div class="owner-name">${o.name}</div>
+      <div><span class="owner-mw" style="color:${ownerColors[i%ownerColors.length]}">${o.mw}</span><span style="font-size:14px;font-weight:600;color:var(--muted)">MW</span></div>
+      <div class="owner-meta">${o.cases}案</div>
+    </div>`).join('');
+}
+
+// ===================== MODAL =====================
+function openModal(id) {
+  const s = sites[id];
+  if (!s) return;
+  document.getElementById('modal-title').textContent = s.name;
+  document.getElementById('modal-status-badge').innerHTML =
+    `<span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span>`;
+
+  const wbsVals = computeWBS(s.pct);
+  const pctColor = progressColor(s.pct, s.status);
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-grid">
+      <div class="modal-info">
+        <div class="modal-info-title">基本資料</div>
+        <div class="info-row"><span class="info-label">案場名稱</span><span class="info-val">${s.name}</span></div>
+        <div class="info-row"><span class="info-label">業主</span><span class="info-val">${s.owner}</span></div>
+        <div class="info-row"><span class="info-label">容量</span><span class="info-val">${s.cap}</span></div>
+        <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${s.pm}</span></div>
+        <div class="info-row"><span class="info-label">區域</span><span class="info-val">${s.city}</span></div>
+        <div class="info-row"><span class="info-label">預計完工</span><span class="info-val">${s.end}</span></div>
+      </div>
+      <div class="modal-progress-box">
+        <div class="big-pct" style="color:${pctColor}">${s.pct}%</div>
+        <div class="big-pct-label">整體進度</div>
+        <div style="width:100%;background:var(--border);border-radius:6px;height:8px;margin-top:14px">
+          <div class="${fillClass(s.status)}" style="height:8px;border-radius:6px;width:${s.pct}%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="wbs-title">施工進度明細 (WBS)</div>
+    <table class="wbs-table">
+      <thead>
+        <tr><th>工項</th><th>權重</th><th>完成率</th><th>進度</th></tr>
+      </thead>
+      <tbody>
+        ${wbsTemplate.map((w,i) => {
+          const v = wbsVals[i];
+          const wcolor = v >= 80 ? '#16a34a' : v >= 50 ? '#d97706' : '#dc2626';
+          return `
+          <tr>
+            <td>${w.name}</td>
+            <td style="color:var(--muted)">${w.weight}%</td>
+            <td style="font-weight:700;color:${wcolor}">${v}%</td>
+            <td>
+              <div class="wbs-mini-wrap">
+                <div class="wbs-mini-bar">
+                  <div class="wbs-mini-fill" style="width:${v}%;background:${wcolor};height:100%;border-radius:3px"></div>
+                </div>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="closeModalDirect()">關閉</button>
+      <button class="btn-pri" onclick="showPage('progress',document.querySelector('[data-page=progress]'));closeModalDirect()">查看進度頁</button>
+    </div>`;
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ===================== INIT =====================
+// Auto-init progress table for first load
+renderProgressTable('all');
+</script>
+</body>
+</html>
