@@ -95,7 +95,7 @@ nav {
 
 /* TAIWAN MAP */
 .map-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: #bfdbfe; border: 1px solid var(--border);
   border-radius: 12px; padding: 20px; position: relative; min-height: 520px;
 }
 .map-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
@@ -302,11 +302,12 @@ nav {
 .btn-pri { padding: 8px 20px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--font); }
 
 /* SVG MAP styles */
-#taiwan-map .cn { stroke: #fff; stroke-width: 1.5; cursor: pointer; transition: opacity .18s; }
-#taiwan-map .cn:hover { opacity: .72; }
-#taiwan-map .lbl { font-size: 7.5px; fill: #1e3a8a; font-family: sans-serif; text-anchor: middle; pointer-events: none; font-weight: 700; }
-#taiwan-map .lbl-e { fill: #4c1d95; }
-#taiwan-map .lbl-s { fill: #7c2d12; }
+#taiwan-map { background: #bfdbfe; border-radius: 10px; }
+#taiwan-map .cn { fill: #dde3ec !important; stroke: #fff; stroke-width: 1.5; cursor: pointer; transition: opacity .18s; }
+#taiwan-map .cn:hover { opacity: .78; }
+#taiwan-map .lbl { font-size: 7.5px; fill: #475569; font-family: sans-serif; text-anchor: middle; pointer-events: none; font-weight: 700; }
+#taiwan-map .lbl-e { fill: #475569; }
+#taiwan-map .lbl-s { fill: #475569; }
 
 .scroll-x { overflow-x: auto; }
 
