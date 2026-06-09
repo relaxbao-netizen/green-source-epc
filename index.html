@@ -58,7 +58,7 @@ nav {
 .page.active { display: block; }
 
 /* KPI CARDS */
-.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
+.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
 .kpi-card {
   border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: default;
@@ -346,25 +346,20 @@ nav {
       <div class="kpi-value">12<span class="kpi-unit">案</span></div>
       <div class="kpi-sub">施工進行中</div>
     </div>
-    <div class="kpi-card green">
-      <div class="kpi-label">本月完工</div>
-      <div class="kpi-value">1<span class="kpi-unit">案</span></div>
-      <div class="kpi-sub">基隆外木山</div>
+    <div class="kpi-card green clickable" onclick="showPage('progress',document.querySelector('[data-page=progress]'))">
+      <div class="kpi-label">正常施工案場</div>
+      <div class="kpi-value">6<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">進度正常</div>
+    </div>
+    <div class="kpi-card orange clickable" onclick="showPage('progress',document.querySelector('[data-page=progress]'))">
+      <div class="kpi-label">即將落後案場</div>
+      <div class="kpi-value">4<span class="kpi-unit">案</span></div>
+      <div class="kpi-sub">需注意追蹤</div>
     </div>
     <div class="kpi-card red clickable" onclick="showPage('progress',document.querySelector('[data-page=progress]'))">
-      <div class="kpi-label">延遲案場</div>
+      <div class="kpi-label">進度落後案場</div>
       <div class="kpi-value">2<span class="kpi-unit">案</span></div>
       <div class="kpi-sub">需立即關注</div>
-    </div>
-    <div class="kpi-card orange">
-      <div class="kpi-label">本週開工</div>
-      <div class="kpi-value">0<span class="kpi-unit">案</span></div>
-      <div class="kpi-sub">本週無新開工</div>
-    </div>
-    <div class="kpi-card teal">
-      <div class="kpi-label">本月併網</div>
-      <div class="kpi-value">1<span class="kpi-unit">案</span></div>
-      <div class="kpi-sub">外木山8MW</div>
     </div>
     <div class="kpi-card purple">
       <div class="kpi-label">在建容量</div>
