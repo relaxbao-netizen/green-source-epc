@@ -281,9 +281,9 @@ nav {
 .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .modal-info { background: #f8fafc; border-radius: 10px; padding: 16px; }
 .modal-info-title { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
-.info-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.info-row { display: flex; align-items: baseline; gap: 20px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .info-row:last-child { border-bottom: none; }
-.info-label { color: var(--muted); }
+.info-label { color: var(--muted); white-space: nowrap; min-width: 96px; flex-shrink: 0; }
 .info-val { font-weight: 500; }
 .modal-progress-box { background: #f8fafc; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .big-pct { font-size: 52px; font-weight: 800; line-height: 1; }
@@ -389,7 +389,7 @@ nav {
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
     </div>
-    <div class="kpi-card purple">
+    <div class="kpi-card purple clickable" onclick="openKpiList('capacity')">
       <div class="kpi-label">在建容量</div>
       <div class="kpi-value">340</div>
       <div class="kpi-sub">MW</div>
@@ -778,7 +778,7 @@ function showPage(id, btn) {
     const overload = n > 3;
     const barColor = overload ? '#ef4444' : n >= 3 ? '#d97706' : '#16a34a';
     return `
-    <div class="hr-row-sm" onclick="showPage('hr');" style="cursor:pointer">
+    <div class="hr-row-sm" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
       <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
       <span class="hr-name-sm">${sv.name}${overload ? ' <span class="overload-badge">超載</span>' : ''}</span>
       <div class="load-bar-wrap">
@@ -1008,23 +1008,29 @@ const statusDotColor = { normal:'#16a34a', warn:'#d97706', danger:'#dc2626', don
 
 function openKpiList(type) {
   const titleMap = {
-    active: '執行中案場',
-    normal: '正常施工案場',
-    warn:   '即將落後案場',
-    danger: '進度落後案場',
+    active:   '執行中案場',
+    normal:   '正常施工案場',
+    warn:     '即將落後案場',
+    danger:   '進度落後案場',
+    capacity: '總在建容量',
   };
   const filtered = type === 'active'
     ? sites.filter(s => s.status !== 'done')
+    : type === 'capacity'
+    ? sites.filter(s => s.status !== 'done')
     : sites.filter(s => s.status === type);
-  const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
+  const sorted = type === 'capacity'
+    ? [...filtered].sort((a,b) => b.mw - a.mw)
+    : [...filtered].sort((a,b) => b.pct - a.pct);
   document.getElementById('kpi-list-title').textContent = `${titleMap[type]}（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
       <div class="kli-top">
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
+        ${type === 'capacity' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}MW</span>` : ''}
       </div>
-      <div class="kli-meta">${s.owner}　${s.pm}　預計完工 ${s.end}</div>
+      <div class="kli-meta">${s.owner}　${s.pm}　${type === 'capacity' ? '容量 ' + s.cap : '預計完工 ' + s.end}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -1040,6 +1046,30 @@ function closeKpiList(e) {
 }
 function closeKpiListDirect() {
   document.getElementById('kpi-list-overlay').classList.remove('open');
+}
+
+// ===================== PM MODAL =====================
+function openPmModal(name) {
+  const sv = supervisors.find(s => s.name === name);
+  if (!sv) return;
+  const pmSites = sv.sites.map(id => sites.find(s => s.id === id)).filter(Boolean);
+  const sorted = [...pmSites].sort((a,b) => b.pct - a.pct);
+  document.getElementById('kpi-list-title').textContent = `${name} 負責案場（${sorted.length}案）`;
+  document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
+    <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
+      <div class="kli-top">
+        <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
+        <div class="kli-name">${s.name}</div>
+      </div>
+      <div class="kli-meta">${s.owner}　${s.cap}　預計完工 ${s.end}</div>
+      <div class="kli-bar-row">
+        <div class="kli-bar-wrap">
+          <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+        </div>
+        <span class="kli-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('kpi-list-overlay').classList.add('open');
 }
 
 // ===================== INIT =====================
