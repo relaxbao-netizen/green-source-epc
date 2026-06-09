@@ -233,7 +233,8 @@ nav {
 
 /* ADVANCED PAGE */
 .region-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
-.region-kpi-card { border-radius: 14px; padding: 20px 22px; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.region-kpi-card { border-radius: 14px; padding: 20px 22px; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); cursor: pointer; transition: filter .15s, transform .15s; }
+.region-kpi-card:hover { filter: brightness(1.08); transform: translateY(-2px); }
 .rkpi-region { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
 .rkpi-mw { font-size: 40px; font-weight: 800; line-height: 1; }
 .rkpi-unit { font-size: 18px; font-weight: 600; }
@@ -326,7 +327,9 @@ nav {
 .kli-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .kli-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .kli-name { font-size: 15px; font-weight: 700; flex: 1; }
-.kli-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; padding-left: 17px; }
+.kli-meta { font-size: 11px; color: var(--muted); margin-bottom: 8px; padding-left: 17px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.kli-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.kli-meta span::before { content: '·'; color: #cbd5e1; }
 .kli-bar-row { display: flex; align-items: center; gap: 10px; padding-left: 17px; }
 .kli-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; }
 .kli-bar-fill { height: 100%; border-radius: 3px; }
@@ -570,19 +573,19 @@ nav {
 <div id="page-advanced" class="page">
   <div class="section-title">依區域容量統計</div>
   <div class="region-kpi-row">
-    <div class="region-kpi-card" style="background:#4f8fde">
+    <div class="region-kpi-card" style="background:#4f8fde" onclick="openRegionModal('north','北部')">
       <div class="rkpi-region">北部</div>
       <div class="rkpi-mw">93<span class="rkpi-unit">MW</span></div>
     </div>
-    <div class="region-kpi-card" style="background:#1aaa84">
+    <div class="region-kpi-card" style="background:#1aaa84" onclick="openRegionModal('center','中部')">
       <div class="rkpi-region">中部</div>
       <div class="rkpi-mw">80<span class="rkpi-unit">MW</span></div>
     </div>
-    <div class="region-kpi-card" style="background:#f07820">
+    <div class="region-kpi-card" style="background:#f07820" onclick="openRegionModal('south','南部')">
       <div class="rkpi-region">南部</div>
       <div class="rkpi-mw">155<span class="rkpi-unit">MW</span></div>
     </div>
-    <div class="region-kpi-card" style="background:#0fb8a8">
+    <div class="region-kpi-card" style="background:#0fb8a8" onclick="openRegionModal('east','東部')">
       <div class="rkpi-region">東部</div>
       <div class="rkpi-mw">20<span class="rkpi-unit">MW</span></div>
     </div>
@@ -923,11 +926,10 @@ function renderAdvanced() {
     ownerMap[s.owner].mw += s.mw;
   });
   const owners = Object.values(ownerMap).sort((a,b) => b.mw - a.mw);
-  const ownerColors = ['#0ea5e9','#10b981','#f97316','#8b5cf6','#059669','#ef4444'];
   document.getElementById('owner-grid').innerHTML = owners.map((o,i) => `
-    <div class="owner-card">
+    <div class="owner-card" onclick="openOwnerModal('${o.name}')">
       <div class="owner-name">${o.name}</div>
-      <div><span class="owner-mw" style="color:${ownerColors[i%ownerColors.length]}">${o.mw}</span><span style="font-size:14px;font-weight:600;color:var(--muted)">MW</span></div>
+      <div><span class="owner-mw" style="color:#0ea5e9">${o.mw}</span><span style="font-size:14px;font-weight:600;color:var(--muted)">MW</span></div>
       <div class="owner-meta">${o.cases}案</div>
     </div>`).join('');
 }
@@ -1030,7 +1032,7 @@ function openKpiList(type) {
         <div class="kli-name">${s.name}</div>
         ${type === 'capacity' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}MW</span>` : ''}
       </div>
-      <div class="kli-meta">${s.owner}　${s.pm}　${type === 'capacity' ? '容量 ' + s.cap : '預計完工 ' + s.end}</div>
+      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span>${type === 'capacity' ? '' : `<span>預計完工 ${s.end}</span>`}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -1061,7 +1063,54 @@ function openPmModal(name) {
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
       </div>
-      <div class="kli-meta">${s.owner}　${s.cap}　預計完工 ${s.end}</div>
+      <div class="kli-meta">${s.owner}<span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
+      <div class="kli-bar-row">
+        <div class="kli-bar-wrap">
+          <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+        </div>
+        <span class="kli-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('kpi-list-overlay').classList.add('open');
+}
+
+// ===================== OWNER MODAL =====================
+function openOwnerModal(owner) {
+  const filtered = sites.filter(s => s.owner === owner);
+  const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
+  const totalMw = filtered.reduce((s,x) => s + x.mw, 0);
+  document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalMw}MW）`;
+  document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
+    <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
+      <div class="kli-top">
+        <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
+        <div class="kli-name">${s.name}</div>
+        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
+      </div>
+      <div class="kli-meta">${s.pm}<span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
+      <div class="kli-bar-row">
+        <div class="kli-bar-wrap">
+          <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+        </div>
+        <span class="kli-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
+      </div>
+    </div>`).join('');
+  document.getElementById('kpi-list-overlay').classList.add('open');
+}
+
+// ===================== REGION MODAL =====================
+function openRegionModal(region, label) {
+  const filtered = sites.filter(s => s.region === region);
+  const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
+  document.getElementById('kpi-list-title').textContent = `${label}案場（${sorted.length}案）`;
+  document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
+    <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
+      <div class="kli-top">
+        <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
+        <div class="kli-name">${s.name}</div>
+        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
+      </div>
+      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
