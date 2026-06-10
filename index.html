@@ -163,6 +163,36 @@ nav {
 .fill-yellow { background: linear-gradient(90deg, #d97706, #fcd34d); }
 .fill-red    { background: linear-gradient(90deg, #dc2626, #f87171); }
 
+/* AVATAR CARD MODAL */
+#avatar-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+#avatar-overlay.open { display: flex; }
+#avatar-card {
+  background: #fff; border-radius: 20px; padding: 32px 36px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  text-align: center; min-width: 200px;
+  animation: modalIn .22s ease;
+  position: relative;
+}
+.ac-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 28px; height: 28px; border-radius: 8px; border: none;
+  background: #f1f5f9; color: #64748b; font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.ac-close:hover { background: #e2e8f0; }
+.ac-avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 800; margin: 0 auto 14px;
+}
+.ac-name { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+.ac-phone { font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ac-phone svg { flex-shrink: 0; }
+
 /* HR SIDE LIST */
 .hr-row-sm {
   display: flex; align-items: center; gap: 10px;
@@ -220,6 +250,8 @@ nav {
 .hr-case-count { font-size: 13px; font-weight: 700; width: 40px; text-align: right; }
 .hr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
 .hr-detail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.hr-detail-card.overloaded { border-color: #ef4444; border-width: 2px; }
+.hr-full-row.overloaded { border-left: 3px solid #ef4444; padding-left: 10px; }
 .hd-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .hd-name { font-size: 15px; font-weight: 700; flex: 1; }
 .hd-overload { font-size: 11px; color: var(--danger); background: #fef2f2; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
@@ -416,56 +448,105 @@ nav {
       <div class="taiwan-svg-wrap" id="mapWrap">
         <svg id="taiwan-map" viewBox="0 0 260 510" fill="none" xmlns="http://www.w3.org/2000/svg">
           <!-- Off-shore islands -->
-          <ellipse class="cn" fill="#f97316" cx="40" cy="308" rx="13" ry="19"/>
-          <text class="lbl" x="40" y="311">澎湖</text>
-          <ellipse class="cn" fill="#3b82f6" cx="19" cy="248" rx="11" ry="6"/>
-          <text class="lbl" x="19" y="251">馬祖</text>
-          <ellipse class="cn" fill="#06b6d4" cx="18" cy="185" rx="7" ry="11"/>
-          <text class="lbl" x="18" y="188">金門</text>
+          <ellipse class="cn" fill="#dde3ec" cx="36" cy="355" rx="11" ry="15"/>
+          <text class="lbl" x="36" y="358">澎湖</text>
+          <ellipse class="cn" fill="#dde3ec" cx="18" cy="72" rx="7" ry="4"/>
+          <text class="lbl" x="18" y="75">馬祖</text>
+          <ellipse class="cn" fill="#dde3ec" cx="18" cy="242" rx="8" ry="5"/>
+          <text class="lbl" x="18" y="245">金門</text>
 
-          <!-- North (blue) -->
-          <path class="cn" fill="#60a5fa" d="M 195 38 L 228 30 L 240 55 L 238 98 L 220 114 L 205 110 L 196 92 L 185 128 L 178 55 L 185 38 Z"/>
-          <text class="lbl lbl-e" x="218" y="76">宜蘭</text>
-          <path class="cn" fill="#3b82f6" d="M 185 38 L 205 30 L 218 42 L 212 60 L 198 62 L 185 52 Z"/>
-          <text class="lbl" x="202" y="49">基隆</text>
-          <path class="cn" fill="#2563eb" d="M 168 50 L 185 52 L 198 62 L 196 78 L 178 83 L 162 76 L 158 60 Z"/>
-          <text class="lbl" x="178" y="68">台北</text>
-          <path class="cn" fill="#3b82f6" d="M 118 22 L 178 18 L 205 30 L 218 42 L 212 60 L 198 62 L 185 52 L 168 50 L 158 60 L 162 76 L 178 83 L 196 78 L 196 92 L 205 110 L 195 118 L 178 120 L 160 115 L 148 108 L 135 98 L 118 90 L 108 76 L 108 50 Z"/>
-          <text class="lbl" x="138" y="52">新北</text>
-          <path class="cn" fill="#0ea5e9" d="M 108 76 L 118 90 L 135 98 L 148 108 L 148 128 L 130 132 L 112 124 L 100 108 L 98 90 Z"/>
-          <text class="lbl" x="124" y="108">桃園</text>
-          <path class="cn" fill="#06b6d4" d="M 98 124 L 112 124 L 130 132 L 128 146 L 112 148 L 98 140 Z"/>
-          <text class="lbl" x="113" y="138">新竹市</text>
-          <path class="cn" fill="#0891b2" d="M 130 132 L 148 128 L 160 115 L 178 120 L 195 118 L 205 110 L 220 114 L 226 136 L 208 150 L 188 152 L 168 152 L 148 152 L 128 146 Z"/>
-          <text class="lbl" x="183" y="133">新竹縣</text>
+          <!-- 南投 (large landlocked center) -->
+          <path class="cn" fill="#dde3ec" d="M 132,192 L 168,178 L 168,355 L 148,350 L 138,332 L 128,315
+            L 122,295 L 120,270 L 122,248 L 125,225 L 130,205 Z"/>
+          <text class="lbl" x="148" y="272">南投</text>
 
-          <!-- Center (green) -->
-          <path class="cn" fill="#0d9488" d="M 98 140 L 112 148 L 128 146 L 148 152 L 148 178 L 132 182 L 112 178 L 98 164 L 90 150 Z"/>
-          <text class="lbl" x="118" y="164">苗栗</text>
-          <path class="cn" fill="#10b981" d="M 90 164 L 98 164 L 112 178 L 132 182 L 148 178 L 162 182 L 165 208 L 158 230 L 138 235 L 112 228 L 90 212 L 82 192 Z"/>
-          <text class="lbl" x="124" y="205">台中</text>
-          <path class="cn" fill="#16a34a" d="M 148 152 L 168 152 L 188 152 L 208 150 L 226 136 L 235 162 L 240 206 L 228 228 L 210 242 L 195 248 L 178 240 L 165 228 L 165 208 L 162 182 L 148 178 Z"/>
-          <text class="lbl" x="200" y="198">南投</text>
-          <path class="cn" fill="#65a30d" d="M 82 212 L 90 212 L 112 228 L 138 235 L 140 256 L 118 262 L 96 256 L 80 240 Z"/>
-          <text class="lbl" x="108" y="245">彰化</text>
-          <path class="cn" fill="#84cc16" d="M 80 240 L 96 256 L 118 262 L 120 282 L 100 285 L 78 272 L 75 252 Z"/>
-          <text class="lbl" x="96" y="268">雲林</text>
-          <path class="cn" fill="#14b8a6" d="M 220 114 L 238 98 L 240 55 L 248 125 L 250 215 L 245 272 L 230 282 L 215 270 L 212 248 L 210 242 L 228 228 L 240 206 L 235 162 L 226 136 Z"/>
-          <text class="lbl lbl-e" x="238" y="190">花蓮</text>
+          <!-- 宜蘭 (NE bulge) -->
+          <path class="cn" fill="#dde3ec" d="M 174,19 L 193,25 L 210,44 L 220,66 L 228,90 L 231,122 L 226,148 L 218,162
+            L 168,162 L 165,135 L 165,108 L 168,78 L 172,48 Z"/>
+          <text class="lbl lbl-e" x="210" y="100">宜蘭</text>
 
-          <!-- South (orange) -->
-          <path class="cn" fill="#d97706" d="M 75 272 L 78 272 L 100 285 L 120 282 L 135 288 L 138 315 L 118 322 L 92 315 L 74 298 Z"/>
-          <text class="lbl lbl-s" x="100" y="300">嘉義縣</text>
-          <path class="cn" fill="#f59e0b" d="M 100 280 L 118 276 L 128 280 L 128 294 L 112 296 L 100 288 Z"/>
-          <text class="lbl lbl-s" x="114" y="290">嘉義市</text>
-          <path class="cn" fill="#f97316" d="M 74 298 L 92 315 L 118 322 L 138 315 L 152 328 L 152 365 L 130 378 L 105 378 L 80 360 L 68 332 Z"/>
-          <text class="lbl lbl-s" x="103" y="344">台南</text>
-          <path class="cn" fill="#ea580c" d="M 135 288 L 152 274 L 170 272 L 188 282 L 205 308 L 210 345 L 205 378 L 188 390 L 165 395 L 152 385 L 152 365 L 152 328 L 138 315 Z"/>
-          <text class="lbl lbl-s" x="180" y="338">高雄</text>
-          <path class="cn" fill="#f97316" d="M 152 385 L 165 395 L 188 390 L 202 410 L 195 445 L 175 465 L 148 470 L 122 452 L 108 422 L 115 402 L 130 385 Z"/>
-          <text class="lbl lbl-s" x="152" y="428">屏東</text>
-          <path class="cn" fill="#fb923c" d="M 245 272 L 250 215 L 255 315 L 252 392 L 238 435 L 215 452 L 202 440 L 195 422 L 202 410 L 188 390 L 205 378 L 210 345 L 205 308 L 188 282 L 188 268 L 202 260 L 215 270 L 230 282 Z"/>
-          <text class="lbl lbl-e" x="232" y="358">台東</text>
+          <!-- 新北 (large N, wraps around 台北 and 基隆) -->
+          <path class="cn" fill="#dde3ec" d="M 65,90 L 80,78 L 98,56 L 112,35 L 127,16 L 143,9 L 158,12 L 174,19
+            L 172,48 L 168,78 L 165,108 L 165,135 L 168,162
+            L 158,158 L 142,148 L 125,135 L 108,122 L 93,115 L 78,108 L 68,100 Z"/>
+          <text class="lbl" x="115" y="58">新北</text>
+
+          <!-- 基隆 -->
+          <path class="cn" fill="#dde3ec" d="M 158,12 L 174,19 L 172,48 L 158,52 L 148,42 L 146,22 Z"/>
+          <text class="lbl" x="162" y="34">基隆</text>
+
+          <!-- 台北 -->
+          <path class="cn" fill="#dde3ec" d="M 130,46 L 148,40 L 160,44 L 162,58 L 152,66 L 137,66 L 126,58 Z"/>
+          <text class="lbl" x="146" y="57">台北</text>
+
+          <!-- 桃園 -->
+          <path class="cn" fill="#dde3ec" d="M 63,90 L 68,100 L 78,108 L 93,115 L 108,122 L 125,135 L 142,148 L 158,158
+            L 158,175 L 145,188 L 128,195 L 110,190 L 92,180 L 75,162 L 62,140 L 57,120 L 57,105 Z"/>
+          <text class="lbl" x="95" y="145">桃園</text>
+
+          <!-- 新竹市 -->
+          <path class="cn" fill="#dde3ec" d="M 56,108 L 68,104 L 80,108 L 80,124 L 68,130 L 56,122 Z"/>
+          <text class="lbl" x="68" y="120">新竹市</text>
+
+          <!-- 新竹縣 (extends to central mountains) -->
+          <path class="cn" fill="#dde3ec" d="M 57,128 L 70,130 L 80,132 L 97,128 L 114,128 L 128,135 L 142,148 L 155,158 L 168,162
+            L 168,178 L 155,185 L 140,188 L 125,192 L 108,192 L 92,185 L 75,172 L 62,155 L 57,142 Z"/>
+          <text class="lbl" x="122" y="158">新竹縣</text>
+
+          <!-- 苗栗 -->
+          <path class="cn" fill="#dde3ec" d="M 57,145 L 65,158 L 78,172 L 92,182 L 108,190 L 124,192 L 132,192
+            L 130,205 L 125,225 L 118,242 L 110,248 L 95,248 L 78,238 L 62,222 L 55,205 L 55,192 Z"/>
+          <text class="lbl" x="88" y="210">苗栗</text>
+
+          <!-- 台中 -->
+          <path class="cn" fill="#dde3ec" d="M 55,192 L 62,222 L 78,238 L 95,248 L 110,252 L 120,252 L 120,270 L 112,278
+            L 95,275 L 78,265 L 62,250 L 54,235 L 53,215 Z"/>
+          <text class="lbl" x="80" y="242">台中</text>
+
+          <!-- 彰化 -->
+          <path class="cn" fill="#dde3ec" d="M 53,238 L 63,252 L 78,265 L 95,275 L 112,278 L 118,290 L 108,298
+            L 90,295 L 70,282 L 53,265 L 52,252 Z"/>
+          <text class="lbl" x="80" y="272">彰化</text>
+
+          <!-- 雲林 -->
+          <path class="cn" fill="#dde3ec" d="M 52,268 L 70,282 L 90,295 L 108,298 L 118,302 L 118,318 L 106,325
+            L 86,320 L 65,308 L 51,290 L 51,278 Z"/>
+          <text class="lbl" x="80" y="300">雲林</text>
+
+          <!-- 嘉義縣 -->
+          <path class="cn" fill="#dde3ec" d="M 51,292 L 65,308 L 86,320 L 106,325 L 120,322 L 138,325 L 140,342
+            L 128,348 L 106,345 L 83,335 L 62,322 L 51,308 Z"/>
+          <text class="lbl lbl-s" x="92" y="325">嘉義縣</text>
+
+          <!-- 嘉義市 -->
+          <path class="cn" fill="#dde3ec" d="M 105,308 L 122,304 L 135,308 L 135,324 L 120,328 L 105,322 Z"/>
+          <text class="lbl lbl-s" x="120" y="318">嘉義市</text>
+
+          <!-- 台南 -->
+          <path class="cn" fill="#dde3ec" d="M 51,310 L 62,322 L 83,335 L 106,345 L 128,348 L 140,342 L 148,350
+            L 148,370 L 135,382 L 112,385 L 88,378 L 67,362 L 51,342 L 50,326 Z"/>
+          <text class="lbl lbl-s" x="95" y="352">台南</text>
+
+          <!-- 高雄 -->
+          <path class="cn" fill="#dde3ec" d="M 128,318 L 148,312 L 162,305 L 178,298 L 194,298 L 210,308 L 218,328
+            L 215,355 L 208,375 L 198,398 L 184,412 L 168,415 L 152,408 L 145,392
+            L 148,372 L 148,352 L 140,342 L 122,335 L 106,328 L 86,322 L 68,312
+            L 80,302 L 100,305 L 120,312 L 135,308 Z"/>
+          <text class="lbl lbl-s" x="178" y="352">高雄</text>
+
+          <!-- 屏東 -->
+          <path class="cn" fill="#dde3ec" d="M 150,408 L 168,415 L 184,412 L 198,420 L 194,458 L 180,478 L 160,490
+            L 143,492 L 125,488 L 108,475 L 94,455 L 80,435 L 67,412 L 86,418 L 108,422 L 130,418 Z"/>
+          <text class="lbl" x="145" y="455">屏東</text>
+
+          <!-- 花蓮 (drawn last so borders appear on top) -->
+          <path class="cn" fill="#dde3ec" d="M 168,162 L 218,162 L 222,182 L 226,218 L 228,268 L 228,318 L 224,355 L 168,355 Z"/>
+          <text class="lbl lbl-e" x="210" y="268">花蓮</text>
+
+          <!-- 台東 (drawn last so borders appear on top) -->
+          <path class="cn" fill="#dde3ec" d="M 162,355 L 224,355 L 216,382 L 205,412 L 188,440 L 170,462 L 153,478
+            L 140,490 L 150,488 L 158,478 L 162,458 L 158,435 L 154,410 L 157,382 Z"/>
+          <text class="lbl lbl-e" x="208" y="415">台東</text>
         </svg>
 
         <!-- Map Pins (top%/left% relative to mapWrap) -->
@@ -607,6 +688,13 @@ nav {
   </div>
 </div>
 
+<!-- ===== AVATAR CARD ===== -->
+<div id="avatar-overlay" onclick="closeAvatarCard(event)">
+  <div id="avatar-card" onclick="event.stopPropagation()">
+    <button class="ac-close" onclick="closeAvatarCard()">✕</button>
+  </div>
+</div>
+
 <!-- ===== SITE DETAIL MODAL ===== -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal-box" onclick="event.stopPropagation()">
@@ -658,12 +746,12 @@ const wbsCats = {
 };
 
 const supervisors = [
-  { name:'張主任', color:'#3b82f6', sites:[0,2,3,12] },
-  { name:'林主任', color:'#10b981', sites:[1,4] },
-  { name:'陳主任', color:'#8b5cf6', sites:[5,6] },
-  { name:'王主任', color:'#f97316', sites:[7,8] },
-  { name:'李主任', color:'#ef4444', sites:[9,10] },
-  { name:'吳主任', color:'#06b6d4', sites:[11] },
+  { name:'張主任', color:'#3b82f6', sites:[0,2,3,12], phone:'0912-345-678' },
+  { name:'林主任', color:'#10b981', sites:[1,4],      phone:'0923-456-789' },
+  { name:'陳主任', color:'#8b5cf6', sites:[5,6],      phone:'0934-567-890' },
+  { name:'王主任', color:'#f97316', sites:[7,8],       phone:'0945-678-901' },
+  { name:'李主任', color:'#ef4444', sites:[9,10],      phone:'0956-789-012' },
+  { name:'吳主任', color:'#06b6d4', sites:[11],        phone:'0967-890-123' },
 ];
 
 const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
@@ -787,7 +875,7 @@ function showPage(id, btn) {
     const barColor = overload ? '#ef4444' : n >= 3 ? '#d97706' : '#16a34a';
     return `
     <div class="hr-row-sm" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
-      <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
+      <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
       <span class="hr-name-sm">${sv.name}${overload ? ' <span class="overload-badge">超載</span>' : ''}</span>
       <div class="load-bar-wrap">
         <div class="load-bar">
@@ -874,8 +962,8 @@ function renderHR() {
     const barColor = overload ? '#ef4444' : n === maxLoad ? '#d97706' : '#16a34a';
     const siteNames = sv.sites.map(i => sites[i].name).join('、');
     return `
-    <div class="hr-full-row" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
-      <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color}">${sv.name[0]}</div>
+    <div class="hr-full-row${overload ? ' overloaded' : ''}" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
+      <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
       <div class="hr-info">
         <div class="hr-name">
           ${sv.name}
@@ -910,7 +998,7 @@ function renderHR() {
       </div>`;
     }).join('');
     return `
-    <div class="hr-detail-card">
+    <div class="hr-detail-card${overload ? ' overloaded' : ''}">
       <div class="hd-header">
         <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${sv.name[0]}</div>
         <span class="hd-name">${sv.name}</span>
@@ -1127,6 +1215,30 @@ function openRegionModal(region, label) {
 // ===================== INIT =====================
 // Auto-init progress table for first load
 renderProgressTable('all');
+
+// ===================== AVATAR CARD =====================
+function showAvatarCard(name, e) {
+  e.stopPropagation();
+  const sv = supervisors.find(s => s.name === name);
+  if (!sv) return;
+  const card = document.getElementById('avatar-card');
+  card.innerHTML = `
+    <button class="ac-close" onclick="closeAvatarCard()">✕</button>
+    <div class="ac-avatar" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
+    <div class="ac-name">${sv.name}</div>
+    <div class="ac-phone">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.04 1.16 2 2 0 012 .01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z"/>
+      </svg>
+      ${sv.phone}
+    </div>`;
+  document.getElementById('avatar-overlay').classList.add('open');
+}
+
+function closeAvatarCard(e) {
+  if (e && e.target !== document.getElementById('avatar-overlay')) return;
+  document.getElementById('avatar-overlay').classList.remove('open');
+}
 </script>
 </body>
 </html>
