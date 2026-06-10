@@ -58,7 +58,7 @@ nav {
 .page.active { display: block; }
 
 /* KPI CARDS */
-.kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
 .kpi-card {
   border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden;
   box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: default;
@@ -403,33 +403,39 @@ nav {
   <div class="kpi-row">
     <div class="kpi-card blue clickable" onclick="openKpiList('active')">
       <div class="kpi-label">執行中案場</div>
-      <div class="kpi-value">12</div>
+      <div class="kpi-value" id="kpi-active">—</div>
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></div>
     </div>
     <div class="kpi-card green clickable" onclick="openKpiList('normal')">
       <div class="kpi-label">正常施工案場</div>
-      <div class="kpi-value">6</div>
+      <div class="kpi-value" id="kpi-normal">—</div>
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
     </div>
     <div class="kpi-card orange clickable" onclick="openKpiList('warn')">
       <div class="kpi-label">即將落後案場</div>
-      <div class="kpi-value">4</div>
+      <div class="kpi-value" id="kpi-warn">—</div>
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
     </div>
     <div class="kpi-card red clickable" onclick="openKpiList('danger')">
       <div class="kpi-label">進度落後案場</div>
-      <div class="kpi-value">2</div>
+      <div class="kpi-value" id="kpi-danger">—</div>
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
     </div>
-    <div class="kpi-card purple clickable" onclick="openKpiList('capacity')">
-      <div class="kpi-label">在建容量</div>
-      <div class="kpi-value">340</div>
-      <div class="kpi-sub">MW</div>
+    <div class="kpi-card purple clickable" onclick="openKpiList('pv-cap')">
+      <div class="kpi-label">光電設置容量（kW）</div>
+      <div class="kpi-value" id="kpi-pv-cap">—</div>
+      <div class="kpi-sub">kW</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    </div>
+    <div class="kpi-card clickable" style="background:linear-gradient(135deg,#0e7490,#0891b2)" onclick="openKpiList('storage-cap')">
+      <div class="kpi-label">儲能設置容量（kW/kWh）</div>
+      <div class="kpi-value" id="kpi-storage-cap">—</div>
+      <div class="kpi-sub" id="kpi-storage-sub">kWh</div>
+      <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="7" x2="14" y2="7"/><line x1="10" y1="11" x2="14" y2="11"/><line x1="12" y1="15" x2="12" y2="19"/></svg></div>
     </div>
   </div>
 
@@ -550,57 +556,73 @@ nav {
         </svg>
 
         <!-- Map Pins (top%/left% relative to mapWrap) -->
-        <!-- 台北南港 (北部, normal, 90%) -->
-        <div class="map-pin" style="top:15%;left:62%" onclick="openModal(0)">
-          <div class="dot normal"><div class="pin-label">台北南港</div></div>
+        <!-- 盛餘屏南 (南部, warn) -->
+        <div class="map-pin" style="top:77%;left:57%" onclick="openModal(0)">
+          <div class="dot warn"><div class="pin-label">盛餘屏南</div></div>
         </div>
-        <!-- 基隆外木山 (北部, done, 100%) -->
-        <div class="map-pin" style="top:10%;left:71%" onclick="openModal(1)">
-          <div class="dot done"><div class="pin-label">基隆外木山</div></div>
+        <!-- 恩盈 (南部屏東, normal) -->
+        <div class="map-pin" style="top:79%;left:53%" onclick="openModal(1)">
+          <div class="dot normal"><div class="pin-label">恩盈</div></div>
         </div>
-        <!-- 桃園大園 (北部, normal, 83%) -->
-        <div class="map-pin" style="top:22%;left:55%" onclick="openModal(2)">
-          <div class="dot normal"><div class="pin-label">桃園大園</div></div>
+        <!-- 臺科大華夏校區 (北部, normal) -->
+        <div class="map-pin" style="top:16%;left:64%" onclick="openModal(2)">
+          <div class="dot normal"><div class="pin-label">臺科大華夏</div></div>
         </div>
-        <!-- 桃園蘆竹 (北部, normal, 74%) -->
-        <div class="map-pin" style="top:24%;left:63%" onclick="openModal(3)">
-          <div class="dot normal"><div class="pin-label">桃園蘆竹</div></div>
+        <!-- 板橋果菜市場 (北部, normal) -->
+        <div class="map-pin" style="top:18%;left:57%" onclick="openModal(3)">
+          <div class="dot normal"><div class="pin-label">板橋果菜</div></div>
         </div>
-        <!-- 新竹竹北 (北部, warn, 50%) -->
-        <div class="map-pin" style="top:30%;left:54%" onclick="openModal(4)">
-          <div class="dot warn"><div class="pin-label">新竹竹北</div></div>
+        <!-- 台以八翁 (北部, warn) -->
+        <div class="map-pin" style="top:10%;left:70%" onclick="openModal(4)">
+          <div class="dot warn"><div class="pin-label">台以八翁</div></div>
         </div>
-        <!-- 台中烏日 (中部, normal, 70%) -->
-        <div class="map-pin" style="top:39%;left:54%" onclick="openModal(5)">
-          <div class="dot normal"><div class="pin-label">台中烏日</div></div>
+        <!-- 兆豐銀行 (南部高雄, normal) -->
+        <div class="map-pin" style="top:72%;left:47%" onclick="openModal(5)">
+          <div class="dot normal"><div class="pin-label">兆豐銀行</div></div>
         </div>
-        <!-- 彰化溪湖 (中部, warn, 44%) -->
-        <div class="map-pin" style="top:45%;left:52%" onclick="openModal(6)">
-          <div class="dot warn"><div class="pin-label">彰化溪湖</div></div>
+        <!-- 創弈學甲 (南部, warn) -->
+        <div class="map-pin" style="top:61%;left:44%" onclick="openModal(6)">
+          <div class="dot warn"><div class="pin-label">創弈學甲</div></div>
         </div>
-        <!-- 台南七股 (南部, normal, 68%) -->
-        <div class="map-pin" style="top:62%;left:46%" onclick="openModal(7)">
-          <div class="dot normal"><div class="pin-label">台南七股</div></div>
+        <!-- 精湛光學 (中部, normal) -->
+        <div class="map-pin" style="top:40%;left:55%" onclick="openModal(7)">
+          <div class="dot normal"><div class="pin-label">精湛光學</div></div>
         </div>
-        <!-- 台南佳里 (南部, warn, 36%) -->
-        <div class="map-pin" style="top:64%;left:54%" onclick="openModal(8)">
-          <div class="dot warn"><div class="pin-label">台南佳里</div></div>
+        <!-- 生原家電 (中部, warn) -->
+        <div class="map-pin" style="top:46%;left:51%" onclick="openModal(8)">
+          <div class="dot warn"><div class="pin-label">生原家電</div></div>
         </div>
-        <!-- 高雄大寮 (南部, danger, 27%) -->
-        <div class="map-pin" style="top:68%;left:58%" onclick="openModal(9)">
-          <div class="dot danger"><div class="pin-label">高雄大寮</div></div>
+        <!-- 東元湖口 (北部, normal) -->
+        <div class="map-pin" style="top:29%;left:53%" onclick="openModal(9)">
+          <div class="dot normal"><div class="pin-label">東元湖口</div></div>
         </div>
-        <!-- 高雄旗山 (南部, danger, 18%) -->
-        <div class="map-pin" style="top:72%;left:51%" onclick="openModal(10)">
-          <div class="dot danger"><div class="pin-label">高雄旗山</div></div>
+        <!-- 東元觀音二廠 (北部, warn) -->
+        <div class="map-pin" style="top:24%;left:51%" onclick="openModal(10)">
+          <div class="dot warn"><div class="pin-label">東元觀音</div></div>
         </div>
-        <!-- 花蓮壽豐 (東部, normal, 58%) -->
-        <div class="map-pin" style="top:38%;left:74%" onclick="openModal(11)">
-          <div class="dot normal"><div class="pin-label">花蓮壽豐</div></div>
+        <!-- 南陽街微電網 (北部, warn) -->
+        <div class="map-pin" style="top:15%;left:61%" onclick="openModal(11)">
+          <div class="dot warn"><div class="pin-label">南陽街</div></div>
         </div>
-        <!-- 新北淡水 (北部, warn, 42%) -->
-        <div class="map-pin" style="top:17%;left:56%" onclick="openModal(12)">
-          <div class="dot warn"><div class="pin-label">新北淡水</div></div>
+        <!-- 台積電AP6B (南部, warn) -->
+        <div class="map-pin" style="top:63%;left:55%" onclick="openModal(12)">
+          <div class="dot warn"><div class="pin-label">台積AP6B</div></div>
+        </div>
+        <!-- 亨叡 (北部, danger) -->
+        <div class="map-pin" style="top:23%;left:60%" onclick="openModal(13)">
+          <div class="dot danger"><div class="pin-label">亨叡</div></div>
+        </div>
+        <!-- 法蘭摩沙 (中部, danger) -->
+        <div class="map-pin" style="top:53%;left:47%" onclick="openModal(14)">
+          <div class="dot danger"><div class="pin-label">法蘭摩沙</div></div>
+        </div>
+        <!-- 台積電AP5B (南部, normal) -->
+        <div class="map-pin" style="top:62%;left:52%" onclick="openModal(15)">
+          <div class="dot normal"><div class="pin-label">台積AP5B</div></div>
+        </div>
+        <!-- 中科友達 (中部, warn) -->
+        <div class="map-pin" style="top:39%;left:58%" onclick="openModal(16)">
+          <div class="dot warn"><div class="pin-label">中科友達</div></div>
         </div>
 
         <!-- Popup (JS controlled) -->
@@ -710,19 +732,24 @@ nav {
 <script>
 // ===================== DATA =====================
 const sites = [
-  { id:0,  name:'台北南港儲能案',    region:'north',  city:'台北', cap:'10MW / 20MWh', owner:'台電綠能',  pm:'張主任', end:'2026/07/31', pct:90,  status:'normal',  mw:10,  mwh:20, type:'儲能',   addr:'台北市南港區忠孝東路六段488號',       start:'2025/07/01' },
-  { id:1,  name:'基隆外木山太陽能案', region:'north',  city:'基隆', cap:'8MW',          owner:'OO電力',   pm:'林主任', end:'2026/04/30', pct:100, status:'done',    mw:8,   mwh:0,  type:'太陽能', addr:'基隆市中山區中山一路101號',             start:'2025/07/01' },
-  { id:2,  name:'桃園大園太陽能案',   region:'north',  city:'桃園', cap:'25MW',         owner:'XX能源',   pm:'張主任', end:'2026/09/30', pct:83,  status:'normal',  mw:25,  mwh:0,  type:'太陽能', addr:'桃園市大園區航勤北路15號',               start:'2025/09/01' },
-  { id:3,  name:'桃園蘆竹儲能案',     region:'north',  city:'桃園', cap:'20MW / 40MWh', owner:'XX能源',   pm:'張主任', end:'2026/10/31', pct:74,  status:'normal',  mw:20,  mwh:40, type:'儲能',   addr:'桃園市蘆竹區南崁路520號',               start:'2025/10/01' },
-  { id:4,  name:'新竹竹北太陽能案',   region:'north',  city:'新竹', cap:'15MW',         owner:'OO電力',   pm:'林主任', end:'2026/08/15', pct:50,  status:'warn',    mw:15,  mwh:0,  type:'太陽能', addr:'新竹縣竹北市光明一路168號',               start:'2025/10/15' },
-  { id:5,  name:'台中烏日太陽能案',   region:'center', city:'台中', cap:'50MW',         owner:'TT能源',   pm:'陳主任', end:'2026/11/30', pct:70,  status:'normal',  mw:50,  mwh:0,  type:'太陽能', addr:'台中市烏日區中山路一段50號',             start:'2025/11/01' },
-  { id:6,  name:'彰化溪湖太陽能案',   region:'center', city:'彰化', cap:'30MW',         owner:'GG綠能',   pm:'陳主任', end:'2026/09/15', pct:44,  status:'warn',    mw:30,  mwh:0,  type:'太陽能', addr:'彰化縣溪湖鎮湖東路20號',                 start:'2025/12/01' },
-  { id:7,  name:'台南七股太陽能案',   region:'south',  city:'台南', cap:'80MW',         owner:'XX能源',   pm:'王主任', end:'2026/10/31', pct:68,  status:'normal',  mw:80,  mwh:0,  type:'太陽能', addr:'台南市七股區大埕里88號',                 start:'2026/01/01' },
-  { id:8,  name:'台南佳里儲能案',     region:'south',  city:'台南', cap:'20MW / 40MWh', owner:'OO電力',   pm:'王主任', end:'2026/08/31', pct:36,  status:'warn',    mw:20,  mwh:40, type:'儲能',   addr:'台南市佳里區中山路600號',               start:'2026/01/15' },
-  { id:9,  name:'高雄大寮太陽能案',   region:'south',  city:'高雄', cap:'35MW',         owner:'TT能源',   pm:'李主任', end:'2026/07/31', pct:27,  status:'danger',  mw:35,  mwh:0,  type:'太陽能', addr:'高雄市大寮區大寮路10號',                 start:'2025/08/01' },
-  { id:10, name:'高雄旗山儲能案',     region:'south',  city:'高雄', cap:'20MW / 40MWh', owner:'AA再生能', pm:'李主任', end:'2026/07/31', pct:18,  status:'danger',  mw:20,  mwh:40, type:'儲能',   addr:'高雄市旗山區中學路80號',                 start:'2025/08/15' },
-  { id:11, name:'花蓮壽豐太陽能案',   region:'east',   city:'花蓮', cap:'20MW',         owner:'XX能源',   pm:'吳主任', end:'2026/12/31', pct:58,  status:'normal',  mw:20,  mwh:0,  type:'太陽能', addr:'花蓮縣壽豐鄉鹽寮路1號',                 start:'2026/01/01' },
-  { id:12, name:'新北淡水儲能案',     region:'north',  city:'新北', cap:'15MW / 30MWh', owner:'台電綠能', pm:'張主任', end:'2026/11/15', pct:42,  status:'warn',    mw:15,  mwh:30, type:'儲能',   addr:'新北市淡水區中正路198號',               start:'2026/02/01' },
+  { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01' },
+  { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈',         pm:'林志鴻 Daniel', end:'2025/10/20', pct:85, status:'normal', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01' },
+  { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'張主任', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01' },
+  { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'張主任', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01' },
+  { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01' },
+  { id:5,  name:'兆豐銀行PV及儲能系統建置工程',      region:'south',  city:'高雄', cap:'待確認', owner:'振興',         pm:'蕭宏明 Mark', end:'', pct:33, status:'warn', mw:202.86, mwh:261, skw:100, type:'太陽能+儲能', addr:'高雄市楠梓區加昌路600-2號', start:'',
+    wbs:{ '整地工程':100,'基礎工程':100,'支架安裝':100,'品質檢查':0,'模組安裝':0,'DC配線':0,'DC側':0,'AC側':0,'接地系統':0,'通訊工程':0,'單機測試':0,'系統測試':0,'台電測試':0,'驗收與移交':0 } },
+  { id:6,  name:'創弈學甲儲能系統建置工程',          region:'south',  city:'台南', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/10/31', pct:32, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台南市學甲區',               start:'2026/03/01' },
+  { id:7,  name:'精湛光學PV系統建置工程',            region:'center', city:'台中', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/10/31', pct:65, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台中市',                    start:'2026/01/01' },
+  { id:8,  name:'生原家電太陽光電發電系統工程',      region:'center', city:'彰化', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/09/30', pct:40, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'彰化縣',                    start:'2026/02/01' },
+  { id:9,  name:'東元湖口太陽能建置工程',            region:'north',  city:'新竹', cap:'待確認', owner:'東元電機',     pm:'林主任', end:'2026/09/15', pct:70, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新竹縣湖口鄉',               start:'2025/12/01' },
+  { id:10, name:'東元觀音二廠太陽能建置工程',        region:'north',  city:'桃園', cap:'待確認', owner:'東元電機',     pm:'張主任', end:'2026/10/31', pct:48, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'桃園市觀音區',               start:'2026/01/01' },
+  { id:11, name:'南陽街微電網系統建置工程',          region:'north',  city:'台北', cap:'待確認', owner:'待確認',       pm:'林主任', end:'2026/08/15', pct:45, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台北市中正區南陽街',         start:'2026/01/15' },
+  { id:12, name:'台積電AP6B太陽能配置工程',          region:'south',  city:'台南', cap:'待確認', owner:'台積電',       pm:'李主任', end:'2026/11/30', pct:35, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'台南市新市區',               start:'2026/01/01' },
+  { id:13, name:'亨叡太陽光電系統建置工程',          region:'north',  city:'桃園', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/15', pct:20, status:'danger', mw:0, mwh:0, type:'太陽能',     addr:'桃園市',                    start:'2026/02/01' },
+  { id:14, name:'法蘭摩沙整廠儀電及配管工程',        region:'center', city:'雲林', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/11/30', pct:25, status:'danger', mw:0, mwh:0, type:'儀電配管',   addr:'雲林縣',                    start:'2026/03/01' },
+  { id:15, name:'台積電AP5B太陽能配置工程',          region:'south',  city:'台南', cap:'待確認', owner:'台積電',       pm:'李主任', end:'2026/09/30', pct:60, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台南市新市區',               start:'2025/12/01' },
+  { id:16, name:'中科友達儲能系統建置工程',          region:'center', city:'台中', cap:'待確認', owner:'友達光電',     pm:'李主任', end:'2026/12/31', pct:42, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台中市西屯區中科',           start:'2026/02/01' },
 ];
 
 const wbsCats = {
@@ -746,12 +773,14 @@ const wbsCats = {
 };
 
 const supervisors = [
-  { name:'張主任', color:'#3b82f6', sites:[0,2,3,12], phone:'0912-345-678' },
-  { name:'林主任', color:'#10b981', sites:[1,4],      phone:'0923-456-789' },
-  { name:'陳主任', color:'#8b5cf6', sites:[5,6],      phone:'0934-567-890' },
-  { name:'王主任', color:'#f97316', sites:[7,8],       phone:'0945-678-901' },
-  { name:'李主任', color:'#ef4444', sites:[9,10],      phone:'0956-789-012' },
-  { name:'吳主任', color:'#06b6d4', sites:[11],        phone:'0967-890-123' },
+  { name:'張主任', color:'#3b82f6', sites:[2,3,10],    phone:'0912-345-678' },
+  { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],          phone:'' },
+  { name:'林主任', color:'#10b981', sites:[9,11],       phone:'0923-456-789' },
+  { name:'林志鴻 Daniel', color:'#22c55e', sites:[1],  phone:'' },
+  { name:'陳主任', color:'#8b5cf6', sites:[7,8,14],    phone:'0934-567-890' },
+  { name:'王主任', color:'#f97316', sites:[0,6],        phone:'0945-678-901' },
+  { name:'李主任', color:'#ef4444', sites:[12,15,16],    phone:'0956-789-012' },
+  { name:'吳主任', color:'#06b6d4', sites:[4,13],       phone:'0967-890-123' },
 ];
 
 const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
@@ -771,6 +800,25 @@ function fillClass(status) {
   if (status === 'danger') return 'fill-red';
   if (status === 'warn')   return 'fill-yellow';
   return 'fill-green';
+}
+
+function computeWBSFromData(wbsMap, type) {
+  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+  return cats.map(cat => {
+    let subs = [], catPct;
+    if (cat.subs.length === 0) {
+      catPct = wbsMap[cat.name] ?? 0;
+    } else {
+      subs = cat.subs.map(sub => {
+        const subName = typeof sub === 'string' ? sub : sub.name;
+        const subWeight = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
+        return { name: subName, pct: wbsMap[subName] ?? 0, weight: subWeight };
+      });
+      const totalW = subs.reduce((s, x) => s + x.weight, 0);
+      catPct = totalW ? Math.round(subs.reduce((s, x) => s + x.pct * x.weight, 0) / totalW) : 0;
+    }
+    return { ...cat, catPct, subs };
+  });
 }
 
 function computeWBS2(pct, type) {
@@ -868,7 +916,7 @@ function showPage(id, btn) {
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
-  hrEl.innerHTML = supervisors.map(sv => {
+  hrEl.innerHTML = [...supervisors].sort((a,b) => b.sites.length - a.sites.length).map(sv => {
     const n = sv.sites.length;
     const pct = Math.round((n / 3) * 100);
     const overload = n > 3;
@@ -906,8 +954,8 @@ function renderProgressTable(filter) {
         <th>區域</th>
         <th>業主</th>
         <th>工地主任</th>
-        <th>容量</th>
-        <th>預計完工</th>
+        <th>光電設置容量</th>
+        <th>儲能設置容量</th>
         <th>進度</th>
         <th>狀態</th>
       </tr>
@@ -920,8 +968,8 @@ function renderProgressTable(filter) {
         <td>${regionName[s.region] || s.region}</td>
         <td>${s.owner}</td>
         <td>${s.pm}</td>
-        <td>${s.cap}</td>
-        <td>${s.end}</td>
+        <td>${s.mw ? s.mw + ' kW' : '—'}</td>
+        <td>${(s.skw || s.mwh) ? (s.skw||0)+'kW / '+(s.mwh||0)+'kWh' : '—'}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="table-bar-wrap">
@@ -1037,7 +1085,7 @@ function openModal(id) {
   document.getElementById('modal-status-badge').innerHTML =
     `<span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span>`;
 
-  const wbsData = computeWBS2(s.pct, s.type);
+  const wbsData = s.wbs ? computeWBSFromData(s.wbs, s.type) : computeWBS2(s.pct, s.type);
 
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = cat.catPct === 100 ? '#16a34a' : cat.catPct > 0 ? '#d97706' : '#94a3b8';
@@ -1069,9 +1117,17 @@ function openModal(id) {
         <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${s.pm}</span></div>
         <div class="info-row"><span class="info-label">案場地址</span><span class="info-val" style="font-size:12px">${s.addr}</span></div>
         <div class="info-row"><span class="info-label">類型</span><span class="info-val">${s.type}</span></div>
-        <div class="info-row"><span class="info-label">設置容量</span><span class="info-val">${s.cap}</span></div>
-        <div class="info-row"><span class="info-label">開工日期</span><span class="info-val">${s.start}</span></div>
-        <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${s.end}</span></div>
+        ${(()=>{
+          const hasPV = s.type.includes('太陽能') || s.type.includes('PV');
+          const hasSt = s.type.includes('儲能');
+          let r = '';
+          if (hasPV) r += `<div class="info-row"><span class="info-label">光電設置容量</span><span class="info-val">${s.mw ? s.mw+' kW' : s.cap}</span></div>`;
+          if (hasSt) r += `<div class="info-row"><span class="info-label">儲能設置容量</span><span class="info-val">${(s.skw||s.mwh) ? (s.skw||0)+'kW / '+(s.mwh||0)+'kWh' : s.cap}</span></div>`;
+          if (!r) r = `<div class="info-row"><span class="info-label">設置容量</span><span class="info-val">${s.cap}</span></div>`;
+          return r;
+        })()}
+        <div class="info-row"><span class="info-label">開工日期</span><span class="info-val">${s.start || ''}</span></div>
+        <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${s.end || ''}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border-radius:10px;padding:16px">
         ${ringChart(s.pct, pctColor)}
@@ -1099,21 +1155,39 @@ function closeModalDirect() {
 // ===================== KPI LIST MODAL =====================
 const statusDotColor = { normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
 
+function renderKPIs() {
+  const active = sites.filter(s => s.status !== 'done');
+  document.getElementById('kpi-active').textContent = active.length;
+  document.getElementById('kpi-normal').textContent = sites.filter(s => s.status === 'normal').length;
+  document.getElementById('kpi-warn').textContent   = sites.filter(s => s.status === 'warn').length;
+  document.getElementById('kpi-danger').textContent = sites.filter(s => s.status === 'danger').length;
+  const pvSites = active.filter(s => s.type.includes('太陽能') || s.type === 'PV');
+  const storageSites = active.filter(s => s.type.includes('儲能'));
+  const totalKw  = pvSites.reduce((sum, s) => sum + (s.mw || 0), 0);
+  const totalKwh = storageSites.reduce((sum, s) => sum + (s.mwh || 0), 0);
+  const totalSkw = storageSites.reduce((sum, s) => sum + (s.skw || 0), 0);
+  document.getElementById('kpi-pv-cap').textContent = +totalKw.toFixed(2);
+  document.getElementById('kpi-storage-cap').textContent = totalKwh;
+  document.getElementById('kpi-storage-sub').textContent = 'kWh';
+}
+renderKPIs();
+
 function openKpiList(type) {
   const titleMap = {
-    active:   '執行中案場',
-    normal:   '正常施工案場',
-    warn:     '即將落後案場',
-    danger:   '進度落後案場',
-    capacity: '總在建容量',
+    active:       '執行中案場',
+    normal:       '正常施工案場',
+    warn:         '即將落後案場',
+    danger:       '進度落後案場',
+    'pv-cap':     '光電設置容量',
+    'storage-cap':'儲能設置容量',
   };
-  const filtered = type === 'active'
-    ? sites.filter(s => s.status !== 'done')
-    : type === 'capacity'
-    ? sites.filter(s => s.status !== 'done')
+  const active = sites.filter(s => s.status !== 'done');
+  const filtered = type === 'active'   ? active
+    : type === 'pv-cap'                ? active.filter(s => (s.type.includes('太陽能') || s.type === 'PV') && s.mw > 0)
+    : type === 'storage-cap'           ? active.filter(s => s.type.includes('儲能') && (s.mwh > 0 || s.skw > 0))
     : sites.filter(s => s.status === type);
-  const sorted = type === 'capacity'
-    ? [...filtered].sort((a,b) => b.mw - a.mw)
+  const sorted = type === 'pv-cap'     ? [...filtered].sort((a,b) => b.mw - a.mw)
+    : type === 'storage-cap'           ? [...filtered].sort((a,b) => b.mwh - a.mwh)
     : [...filtered].sort((a,b) => b.pct - a.pct);
   document.getElementById('kpi-list-title').textContent = `${titleMap[type]}（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
@@ -1121,9 +1195,10 @@ function openKpiList(type) {
       <div class="kli-top">
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
-        ${type === 'capacity' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}MW</span>` : ''}
+        ${type === 'pv-cap' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}kW</span>` : ''}
+        ${type === 'storage-cap' ? `<span style="font-size:13px;font-weight:700;color:#0891b2">${s.mw}kW / ${s.mwh}kWh</span>` : ''}
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span>${type === 'capacity' ? '' : `<span>預計完工 ${s.end}</span>`}</div>
+      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span>${(type==='pv-cap'||type==='storage-cap') ? '' : `<span>預計完工 ${s.end}</span>`}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
