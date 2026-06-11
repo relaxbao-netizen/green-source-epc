@@ -284,6 +284,23 @@ nav {
 .owner-mw-unit { font-size: 14px; font-weight: 600; }
 .owner-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
+/* CLOUD FORM */
+.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; }
+.form-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 0; min-width: 0; }
+.form-field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.form-field input, .form-field select {
+  width: 100%; box-sizing: border-box;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; font-family: inherit; background: var(--surface); color: inherit;
+}
+.form-field input:focus, .form-field select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+.btn-primary { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.btn-edit { border: none; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s; }
+.btn-edit:hover { filter: brightness(.93); }
+
 /* MODAL */
 .modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 200;
@@ -490,6 +507,7 @@ nav {
       <button class="tab-btn" onclick="filterProgress('center',this)">中部</button>
       <button class="tab-btn" onclick="filterProgress('south',this)">南部</button>
       <button class="tab-btn" onclick="filterProgress('east',this)">東部</button>
+      <button class="btn-primary" id="btn-add-site-progress" style="display:none;margin-left:auto" onclick="openSiteForm()">＋ 新增案場</button>
     </div>
     <div id="progress-table-wrap"></div>
   </div>
@@ -534,12 +552,46 @@ nav {
   </div>
 </div>
 
+<!-- ===== SITE FORM MODAL（新增/編輯案場） ===== -->
+<div class="modal-overlay" id="site-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="width:760px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="site-form-title">＋ 新增案場</div>
+      <button class="modal-close" onclick="document.getElementById('site-form-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div class="form-grid">
+        <div class="form-field" style="grid-column:1/-1"><label>案場名稱 *</label><input type="text" id="sf-name"></div>
+        <div class="form-field"><label>地圖短標籤</label><input type="text" id="sf-label" placeholder="例：恩盈"></div>
+        <div class="form-field"><label>區域</label><select id="sf-region"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
+        <div class="form-field"><label>縣市</label><input type="text" id="sf-city" placeholder="例：屏東"></div>
+        <div class="form-field"><label>類型</label><select id="sf-type"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
+        <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
+        <div class="form-field"><label>工地主任</label><input type="text" id="sf-pm"></div>
+        <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
+        <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
+        <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
+        <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
+        <div class="form-field"><label>開工日期</label><input type="text" id="sf-start" placeholder="YYYY/MM/DD"></div>
+        <div class="form-field"><label>預計完工日期</label><input type="text" id="sf-end" placeholder="YYYY/MM/DD"></div>
+      </div>
+      <div id="site-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="btn-danger" id="sf-delete-btn" style="display:none;margin-right:auto" onclick="deleteSiteFromForm()">刪除案場</button>
+        <button class="btn-secondary" onclick="document.getElementById('site-form-overlay').classList.remove('open')">取消</button>
+        <button class="btn-primary" onclick="saveSiteForm()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SITE DETAIL MODAL ===== -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
   <div class="modal-box" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="modal-title"></div>
       <div id="modal-status-badge"></div>
+      <button class="btn-edit" id="modal-edit-btn" style="display:none">✏️ 編輯</button>
       <button class="modal-close" onclick="closeModalDirect()">✕</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
@@ -548,27 +600,30 @@ nav {
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 // ===================== DATA =====================
-const sites = [
-  { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01' },
-  { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01' },
-  { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'張主任', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01' },
-  { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'張主任', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01' },
-  { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01' },
-  { id:5,  name:'兆豐銀行PV及儲能系統建置工程',      region:'south',  city:'高雄', cap:'待確認', owner:'振興',         pm:'蕭宏明 Mark', end:'', pct:33, status:'warn', mw:202.86, mwh:261, skw:100, type:'太陽能+儲能', addr:'高雄市楠梓區加昌路600-2號', start:'',
+let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
+let editingSiteId = null;
+let sites = [
+  { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
+  { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01', label:'恩盈', lng:120.566, lat:22.571 },
+  { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'張主任', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01', label:'臺科大華夏', lng:121.493, lat:24.987 },
+  { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'張主任', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01', label:'板橋果菜', lng:121.458, lat:25.013 },
+  { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01', label:'台以八翁', lng:121.770, lat:25.080 },
+  { id:5,  name:'兆豐銀行PV及儲能系統建置工程',      region:'south',  city:'高雄', cap:'待確認', owner:'振興',         pm:'蕭宏明 Mark', end:'', pct:33, status:'warn', mw:202.86, mwh:261, skw:100, type:'太陽能+儲能', addr:'高雄市楠梓區加昌路600-2號', start:'', label:'兆豐銀行', lng:120.322, lat:22.728,
     wbs:{ '整地工程':100,'基礎工程':100,'支架安裝':100,'品質檢查':0,'模組安裝':0,'DC配線':0,'DC側':0,'AC側':0,'接地系統':0,'通訊工程':0,'單機測試':0,'系統測試':0,'台電測試':0,'驗收與移交':0 } },
-  { id:6,  name:'創弈學甲儲能系統建置工程',          region:'south',  city:'台南', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/10/31', pct:32, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台南市學甲區',               start:'2026/03/01' },
-  { id:7,  name:'精湛光學PV系統建置工程',            region:'center', city:'台中', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/10/31', pct:65, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台中市',                    start:'2026/01/01' },
-  { id:8,  name:'生原家電太陽光電發電系統工程',      region:'center', city:'彰化', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/09/30', pct:40, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'彰化縣',                    start:'2026/02/01' },
-  { id:9,  name:'東元湖口太陽能建置工程',            region:'north',  city:'新竹', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/09/09', pct:100, status:'done', mw:1811.34, mwh:0, type:'太陽能', addr:'新竹縣湖口鄉新竹工業區中華路15號', start:'2024/11/11' },
-  { id:10, name:'東元觀音二廠太陽能建置工程',        region:'north',  city:'桃園', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/08/14', pct:100, status:'done', mw:1011.81, mwh:0, type:'太陽能', addr:'桃園市觀音區樹林里國建一路6號', start:'2024/11/03' },
-  { id:11, name:'南陽街微電網系統建置工程',          region:'north',  city:'台北', cap:'待確認', owner:'待確認',       pm:'林主任', end:'2026/08/15', pct:45, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台北市中正區南陽街',         start:'2026/01/15' },
-  { id:12, name:'台積電AP6B太陽能配置工程',          region:'north',  city:'苗栗', cap:'待確認', owner:'高信工程股份有限公司', pm:'林則瑜 Jack', end:'', pct:35, status:'warn', mw:370.64, mwh:0, type:'太陽能', addr:'苗栗縣竹南鎮科專七路1號', start:'2024/12/16' },
-  { id:13, name:'亨叡太陽光電系統建置工程',          region:'north',  city:'桃園', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/15', pct:20, status:'danger', mw:0, mwh:0, type:'太陽能',     addr:'桃園市',                    start:'2026/02/01' },
-  { id:14, name:'法蘭摩沙整廠儀電及配管工程',        region:'center', city:'雲林', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/11/30', pct:25, status:'danger', mw:0, mwh:0, type:'儀電配管',   addr:'雲林縣',                    start:'2026/03/01' },
-  { id:15, name:'台積電AP5B太陽能配置工程',          region:'south',  city:'台南', cap:'待確認', owner:'台積電',       pm:'李主任', end:'2026/09/30', pct:60, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台南市新市區',               start:'2025/12/01' },
-  { id:16, name:'中科友達儲能系統建置工程',          region:'center', city:'台中', cap:'待確認', owner:'友達光電',     pm:'李主任', end:'2026/12/31', pct:42, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台中市西屯區中科',           start:'2026/02/01' },
+  { id:6,  name:'創弈學甲儲能系統建置工程',          region:'south',  city:'台南', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/10/31', pct:32, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台南市學甲區',               start:'2026/03/01', label:'創弈學甲', lng:120.181, lat:23.232 },
+  { id:7,  name:'精湛光學PV系統建置工程',            region:'center', city:'台中', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/10/31', pct:65, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台中市',                    start:'2026/01/01', label:'精湛光學', lng:120.680, lat:24.160 },
+  { id:8,  name:'生原家電太陽光電發電系統工程',      region:'center', city:'彰化', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/09/30', pct:40, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'彰化縣',                    start:'2026/02/01', label:'生原家電', lng:120.540, lat:24.070 },
+  { id:9,  name:'東元湖口太陽能建置工程',            region:'north',  city:'新竹', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/09/09', pct:100, status:'done', mw:1811.34, mwh:0, type:'太陽能', addr:'新竹縣湖口鄉新竹工業區中華路15號', start:'2024/11/11', label:'東元湖口', lng:121.040, lat:24.900 },
+  { id:10, name:'東元觀音二廠太陽能建置工程',        region:'north',  city:'桃園', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/08/14', pct:100, status:'done', mw:1011.81, mwh:0, type:'太陽能', addr:'桃園市觀音區樹林里國建一路6號', start:'2024/11/03', label:'東元觀音', lng:121.080, lat:25.030 },
+  { id:11, name:'南陽街微電網系統建置工程',          region:'north',  city:'台北', cap:'待確認', owner:'待確認',       pm:'林主任', end:'2026/08/15', pct:45, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台北市中正區南陽街',         start:'2026/01/15', label:'南陽街', lng:121.515, lat:25.044 },
+  { id:12, name:'台積電AP6B太陽能配置工程',          region:'north',  city:'苗栗', cap:'待確認', owner:'高信工程股份有限公司', pm:'林則瑜 Jack', end:'', pct:35, status:'warn', mw:370.64, mwh:0, type:'太陽能', addr:'苗栗縣竹南鎮科專七路1號', start:'2024/12/16', label:'台積AP6B', lng:120.900, lat:24.700 },
+  { id:13, name:'亨叡太陽光電系統建置工程',          region:'north',  city:'桃園', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/15', pct:20, status:'danger', mw:0, mwh:0, type:'太陽能',     addr:'桃園市',                    start:'2026/02/01', label:'亨叡', lng:121.300, lat:24.930 },
+  { id:14, name:'法蘭摩沙整廠儀電及配管工程',        region:'center', city:'雲林', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/11/30', pct:25, status:'danger', mw:0, mwh:0, type:'儀電配管',   addr:'雲林縣',                    start:'2026/03/01', label:'法蘭摩沙', lng:120.350, lat:23.800 },
+  { id:15, name:'台積電AP5B太陽能配置工程',          region:'south',  city:'台南', cap:'待確認', owner:'台積電',       pm:'李主任', end:'2026/09/30', pct:60, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台南市新市區',               start:'2025/12/01', label:'台積AP5B', lng:120.290, lat:23.080 },
+  { id:16, name:'中科友達儲能系統建置工程',          region:'center', city:'台中', cap:'待確認', owner:'友達光電',     pm:'李主任', end:'2026/12/31', pct:42, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台中市西屯區中科',           start:'2026/02/01', label:'中科友達', lng:120.610, lat:24.210 },
 ];
 
 const wbsCats = {
@@ -591,7 +646,7 @@ const wbsCats = {
   ]
 };
 
-const supervisors = [
+let supervisors = [
   { name:'張主任', color:'#3b82f6', sites:[2,3],       phone:'0912-345-678' },
   { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],          phone:'0927-287-771' },
   { name:'蕭名湶 Dyke', color:'#a855f7', sites:[9,10],       phone:'0919-701-453' },
@@ -604,9 +659,12 @@ const supervisors = [
   { name:'吳主任', color:'#06b6d4', sites:[4,13],       phone:'0967-890-123' },
 ];
 
+// 以 id 取得案場（雲端模式下 id 不一定等於陣列索引）
+function siteById(id) { return sites.find(s => s.id === id); }
+
 // 工作負荷只計算未完工案場
 function activeSitesOf(sv) {
-  return sv.sites.filter(i => sites[i] && sites[i].status !== 'done');
+  return sv.sites.filter(i => { const s = siteById(i); return s && s.status !== 'done'; });
 }
 
 const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
@@ -702,12 +760,13 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // Show alert badge
-const delayCount = sites.filter(s => s.status === 'danger').length;
-if (delayCount > 0) {
+function updateNavBadge() {
+  const delayCount = sites.filter(s => s.status === 'danger').length;
   const b = document.getElementById('nav-badge');
-  b.style.display = 'inline';
+  b.style.display = delayCount > 0 ? 'inline' : 'none';
   b.textContent = `⚠ ${delayCount}案落後`;
 }
+updateNavBadge();
 
 // ===================== PAGE NAV =====================
 function showPage(id, btn) {
@@ -725,7 +784,7 @@ function showPage(id, btn) {
 }
 
 // ===================== HOME =====================
-(function renderHome() {
+function renderHome() {
   // Progress list (top 10 by pct, 排除已完工)
   const sorted = sites.filter(s => s.status !== 'done').sort((a,b) => b.pct - a.pct).slice(0, 10);
   const el = document.getElementById('home-progress-list');
@@ -759,7 +818,8 @@ function showPage(id, btn) {
       <span class="hr-count-sm" style="color:${barColor}">${n}案</span>
     </div>`;
   }).join('');
-})();
+}
+renderHome();
 
 // ===================== PROGRESS TABLE =====================
 function filterProgress(region, btn) {
@@ -840,7 +900,7 @@ function renderHR() {
     const overload = n > maxLoad;
     const barPct = Math.min(100, Math.round((n / maxLoad) * 100));
     const barColor = overload ? '#ef4444' : n === maxLoad ? '#d97706' : '#16a34a';
-    const siteNames = active.map(i => sites[i].name).join('、');
+    const siteNames = active.map(i => siteById(i).name).join('、');
     return `
     <div class="hr-full-row${overload ? ' overloaded' : ''}" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
       <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
@@ -865,7 +925,8 @@ function renderHR() {
   detailEl.innerHTML = [...supervisors].sort((a,b) => activeSitesOf(b).length - activeSitesOf(a).length).map(sv => {
     const overload = activeSitesOf(sv).length > maxLoad;
     const siteRows = activeSitesOf(sv).map(idx => {
-      const s = sites[idx];
+      const s = siteById(idx);
+      if (!s) return '';
       return `
       <div class="hd-site-row" onclick="openModal(${s.id})" style="cursor:pointer">
         <span class="hd-site-name">${s.name}</span>
@@ -930,7 +991,7 @@ function renderAdvanced() {
 
 // ===================== MODAL =====================
 function openModal(id) {
-  const s = sites[id];
+  const s = siteById(id);
   if (!s) return;
   const pctColor = progressColor(s.pct, s.status);
 
@@ -995,6 +1056,11 @@ function openModal(id) {
     </table>
   `;
 
+  const editBtn = document.getElementById('modal-edit-btn');
+  editBtn.style.display = currentUser ? '' : 'none';
+  editBtn.className = 'btn-edit ' + statusClass[s.status]; // 顏色跟隨案場狀態
+  editBtn.onclick = () => { closeModalDirect(); openSiteForm(s.id); };
+
   document.getElementById('modal-overlay').classList.add('open');
 }
 
@@ -1026,27 +1092,7 @@ function renderKPIs() {
 renderKPIs();
 
 // ===================== TAIWAN MAP (D3 v7 + GeoJSON + SVG) =====================
-// 各案場經緯度（依案場地址）與地圖短標籤
-const sitePins = [
-  { id:0,  label:'盛餘屏南',   lng:120.515, lat:22.460 },
-  { id:1,  label:'恩盈',       lng:120.566, lat:22.571 },
-  { id:2,  label:'臺科大華夏', lng:121.493, lat:24.987 },
-  { id:3,  label:'板橋果菜',   lng:121.458, lat:25.013 },
-  { id:4,  label:'台以八翁',   lng:121.770, lat:25.080 },
-  { id:5,  label:'兆豐銀行',   lng:120.322, lat:22.728 },
-  { id:6,  label:'創弈學甲',   lng:120.181, lat:23.232 },
-  { id:7,  label:'精湛光學',   lng:120.680, lat:24.160 },
-  { id:8,  label:'生原家電',   lng:120.540, lat:24.070 },
-  { id:9,  label:'東元湖口',   lng:121.040, lat:24.900 },
-  { id:10, label:'東元觀音',   lng:121.080, lat:25.030 },
-  { id:11, label:'南陽街',     lng:121.515, lat:25.044 },
-  { id:12, label:'台積AP6B',   lng:120.900, lat:24.700 },
-  { id:13, label:'亨叡',       lng:121.300, lat:24.930 },
-  { id:14, label:'法蘭摩沙',   lng:120.350, lat:23.800 },
-  { id:15, label:'台積AP5B',   lng:120.290, lat:23.080 },
-  { id:16, label:'中科友達',   lng:120.610, lat:24.210 },
-];
-
+// 案場經緯度與地圖短標籤存在各 site 的 lng / lat / label 欄位
 async function renderTaiwanMap() {
   const W = 260, H = 510;
   const topo = await d3.json('https://cdn.jsdelivr.net/npm/taiwan-atlas/counties-10t.json');
@@ -1077,16 +1123,15 @@ async function renderTaiwanMap() {
   const wrap = document.getElementById('mapInner');
   const popup = document.getElementById('pin-popup');
   wrap.querySelectorAll('.map-pin').forEach(el => el.remove());
-  sitePins.forEach(p => {
-    const s = sites[p.id];
-    if (!s) return;
-    const [x, y] = projection([p.lng, p.lat]);
+  sites.forEach(s => {
+    if (!s.lng || !s.lat) return;
+    const [x, y] = projection([s.lng, s.lat]);
     const pin = document.createElement('div');
     pin.className = 'map-pin';
     pin.style.top = (y / H * 100) + '%';
     pin.style.left = (x / W * 100) + '%';
-    pin.onclick = () => openModal(p.id);
-    pin.innerHTML = '<div class="dot ' + (s.status || 'normal') + '"><div class="pin-label">' + p.label + '</div></div>';
+    pin.onclick = () => openModal(s.id);
+    pin.innerHTML = '<div class="dot ' + (s.status || 'normal') + '"><div class="pin-label">' + (s.label || s.city || '') + '</div></div>';
     wrap.insertBefore(pin, popup);
   });
 }
@@ -1244,6 +1289,184 @@ function closeAvatarCard(e) {
   if (e && e.target !== document.getElementById('avatar-overlay')) return;
   document.getElementById('avatar-overlay').classList.remove('open');
 }
+
+// ===================== CLOUD (Supabase) =====================
+// 設定方式：在 Supabase 建立專案後，把下面兩個值換成你專案的
+// Project URL 與 anon public key（Settings → API），重新部署即可。
+const SUPABASE_URL = 'https://tqczsusfovgasmdlifdk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxY3pzdXNmb3ZnYXNtZGxpZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMzE5MDYsImV4cCI6MjA5NjcwNzkwNn0.prkvN2iguEolMFe4fLew12nvSVNdJUKEmR_C3TIxcmg';
+
+const sb = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+// 全部重繪（資料更新後呼叫）
+function rerenderAll() {
+  renderKPIs();
+  renderHome();
+  renderTaiwanMap();
+  updateNavBadge();
+  const act = document.querySelector('.page.active');
+  if (act) {
+    const id = act.id.replace('page-', '');
+    if (id === 'progress') renderProgressTable('all');
+    if (id === 'hr')       renderHR();
+    if (id === 'advanced') renderAdvanced();
+  }
+}
+
+// DB row → 前端 site 物件
+function rowToSite(r) {
+  return {
+    id: r.id, name: r.name || '', region: r.region || 'north', city: r.city || '',
+    cap: r.cap || '待確認', owner: r.owner || '', pm: r.pm || '',
+    start: r.start_date || '', end: r.end_date || '',
+    pct: r.pct ?? 0, status: r.status || 'normal',
+    mw: +r.mw || 0, mwh: +r.mwh || 0, skw: +r.skw || 0,
+    type: r.type || '太陽能', addr: r.addr || '',
+    label: r.label || r.city || '', lng: r.lng ? +r.lng : null, lat: r.lat ? +r.lat : null,
+    wbs: r.wbs || undefined,
+  };
+}
+
+async function loadFromCloud() {
+  if (!sb) return false;
+  try {
+    const [siteRes, svRes] = await Promise.all([
+      sb.from('sites').select('*').order('id'),
+      sb.from('supervisors').select('*').order('id'),
+    ]);
+    if (siteRes.error) throw siteRes.error;
+    if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
+    if (!svRes.error && svRes.data && svRes.data.length) {
+      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [] }));
+    }
+    return true;
+  } catch (e) {
+    console.warn('雲端載入失敗，使用內建資料', e);
+    return false;
+  }
+}
+
+// ---- 地址自動定位 ----
+// 縣市中心點（地理編碼失敗時的退路）
+const cityCoords = {
+  '台北':[121.560,25.040],'臺北':[121.560,25.040],'新北':[121.460,25.010],'基隆':[121.740,25.130],
+  '桃園':[121.300,24.990],'新竹':[120.970,24.800],'苗栗':[120.820,24.560],
+  '台中':[120.680,24.140],'臺中':[120.680,24.140],'彰化':[120.540,24.070],'南投':[120.970,23.960],
+  '雲林':[120.430,23.710],'嘉義':[120.450,23.480],
+  '台南':[120.230,23.000],'臺南':[120.230,23.000],'高雄':[120.310,22.620],'屏東':[120.490,22.670],
+  '宜蘭':[121.750,24.730],'花蓮':[121.600,23.980],'台東':[121.140,22.760],'臺東':[121.140,22.760],
+};
+
+async function nominatimSearch(q) {
+  const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=tw&q=' + encodeURIComponent(q));
+  const j = await r.json();
+  return (j && j[0]) ? [+j[0].lon, +j[0].lat] : null;
+}
+
+// 以 OpenStreetMap Nominatim 將地址轉成經緯度；查不到時逐步放寬，最後用縣市中心點
+async function geocodeAddr(addr, city) {
+  if (addr) {
+    try {
+      let c = await nominatimSearch(addr);
+      if (c) return c;
+      // 門牌號常查不到 → 去掉門牌再試（例：加昌路600-2號 → 加昌路）
+      const street = addr.replace(/\d+[-之]?\d*\s*號.*$/, '');
+      if (street && street !== addr) {
+        c = await nominatimSearch(street);
+        if (c) return c;
+      }
+    } catch (e) { /* 網路失敗時退回縣市中心點 */ }
+  }
+  for (const k in cityCoords) {
+    if ((city || '').includes(k) || (addr || '').includes(k)) return cityCoords[k];
+  }
+  return null;
+}
+
+// ---- 案場表單 ----
+function openSiteForm(id) {
+  editingSiteId = (id === undefined || id === null) ? null : id;
+  const s = editingSiteId !== null ? siteById(editingSiteId) : null;
+  document.getElementById('site-form-title').textContent = s ? '✏ 編輯案場' : '＋ 新增案場';
+  document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
+  document.getElementById('site-form-error').style.display = 'none';
+  const set = (fid, v) => document.getElementById(fid).value = (v ?? '');
+  set('sf-name',   s ? s.name : '');
+  set('sf-label',  s ? s.label : '');
+  set('sf-region', s ? s.region : 'north');
+  set('sf-city',   s ? s.city : '');
+  set('sf-type',   s ? s.type : '太陽能');
+  set('sf-owner',  s ? s.owner : '');
+  set('sf-pm',     s ? s.pm : '');
+  set('sf-addr',   s ? s.addr : '');
+  set('sf-mw',     s && s.mw  ? s.mw  : '');
+  set('sf-skw',    s && s.skw ? s.skw : '');
+  set('sf-mwh',    s && s.mwh ? s.mwh : '');
+  set('sf-start',  s ? s.start : '');
+  set('sf-end',    s ? s.end : '');
+  document.getElementById('site-form-overlay').classList.add('open');
+}
+
+async function saveSiteForm() {
+  const errEl = document.getElementById('site-form-error');
+  errEl.style.display = 'none';
+  const val = fid => document.getElementById(fid).value.trim();
+  const num = fid => { const v = val(fid); return v === '' ? null : +v; };
+  if (!val('sf-name')) {
+    errEl.textContent = '請填寫案場名稱';
+    errEl.style.display = 'block';
+    return;
+  }
+  const row = {
+    name: val('sf-name'), label: val('sf-label'), region: val('sf-region'), city: val('sf-city'),
+    type: val('sf-type'), owner: val('sf-owner'), pm: val('sf-pm'), addr: val('sf-addr'),
+    mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
+    start_date: val('sf-start'), end_date: val('sf-end'),
+  };
+  // 依案場地址自動定位地圖座標（失敗則退回縣市中心點）
+  const coords = await geocodeAddr(row.addr, row.city);
+  if (coords) { row.lng = coords[0]; row.lat = coords[1]; }
+  const q = editingSiteId !== null
+    ? sb.from('sites').update(row).eq('id', editingSiteId)
+    : sb.from('sites').insert(row);
+  const { error } = await q;
+  if (error) {
+    errEl.textContent = '儲存失敗：' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('site-form-overlay').classList.remove('open');
+  await loadFromCloud();
+  rerenderAll();
+}
+
+async function deleteSiteFromForm() {
+  if (editingSiteId === null) return;
+  const s = siteById(editingSiteId);
+  if (!confirm('確定要刪除「' + (s ? s.name : '') + '」嗎？此動作無法復原。')) return;
+  const errEl = document.getElementById('site-form-error');
+  const { error } = await sb.from('sites').delete().eq('id', editingSiteId);
+  if (error) {
+    errEl.textContent = '刪除失敗：' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('site-form-overlay').classList.remove('open');
+  await loadFromCloud();
+  rerenderAll();
+}
+
+// ---- 啟動 ----
+async function initCloud() {
+  if (!sb) return; // 未設定 Supabase：維持內建資料模式
+  currentUser = true; // 不需登入，連上雲端即可編輯
+  document.getElementById('btn-add-site-progress').style.display = '';
+  const ok = await loadFromCloud();
+  if (ok) rerenderAll();
+}
+initCloud();
 </script>
 </body>
 </html>
