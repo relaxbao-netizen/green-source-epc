@@ -303,7 +303,7 @@ nav {
   position: sticky; top: 0; background: #fff;
   border-radius: 16px 16px 0 0; z-index: 1;
 }
-.modal-title { font-size: 18px; font-weight: 700; flex: 1; }
+.modal-title { font-size: 16px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .modal-close {
   width: 32px; height: 32px; border-radius: 8px; border: none;
   background: #f1f5f9; color: var(--muted); font-size: 18px;
@@ -676,24 +676,7 @@ nav {
 <!-- ===== ADVANCED ===== -->
 <div id="page-advanced" class="page">
   <div class="section-title">依區域容量統計</div>
-  <div class="region-kpi-row">
-    <div class="region-kpi-card" style="background:#4f8fde" onclick="openRegionModal('north','北部')">
-      <div class="rkpi-region">北部</div>
-      <div class="rkpi-mw">93<span class="rkpi-unit">MW</span></div>
-    </div>
-    <div class="region-kpi-card" style="background:#1aaa84" onclick="openRegionModal('center','中部')">
-      <div class="rkpi-region">中部</div>
-      <div class="rkpi-mw">80<span class="rkpi-unit">MW</span></div>
-    </div>
-    <div class="region-kpi-card" style="background:#f07820" onclick="openRegionModal('south','南部')">
-      <div class="rkpi-region">南部</div>
-      <div class="rkpi-mw">155<span class="rkpi-unit">MW</span></div>
-    </div>
-    <div class="region-kpi-card" style="background:#0fb8a8" onclick="openRegionModal('east','東部')">
-      <div class="rkpi-region">東部</div>
-      <div class="rkpi-mw">20<span class="rkpi-unit">MW</span></div>
-    </div>
-  </div>
+  <div class="region-kpi-row" id="region-kpi-row"></div>
 
   <div class="section-title">業主專案統計</div>
   <div class="owner-grid" id="owner-grid"></div>
@@ -733,7 +716,7 @@ nav {
 // ===================== DATA =====================
 const sites = [
   { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01' },
-  { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈',         pm:'林志鴻 Daniel', end:'2025/10/20', pct:85, status:'normal', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01' },
+  { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01' },
   { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'張主任', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01' },
   { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'張主任', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01' },
   { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01' },
@@ -774,9 +757,9 @@ const wbsCats = {
 
 const supervisors = [
   { name:'張主任', color:'#3b82f6', sites:[2,3,10],    phone:'0912-345-678' },
-  { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],          phone:'' },
+  { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],          phone:'0927-287-771' },
   { name:'林主任', color:'#10b981', sites:[9,11],       phone:'0923-456-789' },
-  { name:'林志鴻 Daniel', color:'#22c55e', sites:[1],  phone:'' },
+
   { name:'陳主任', color:'#8b5cf6', sites:[7,8,14],    phone:'0934-567-890' },
   { name:'王主任', color:'#f97316', sites:[0,6],        phone:'0945-678-901' },
   { name:'李主任', color:'#ef4444', sites:[12,15,16],    phone:'0956-789-012' },
@@ -1003,7 +986,7 @@ function renderHR() {
 
   // Full list
   const listEl = document.getElementById('hr-list');
-  listEl.innerHTML = supervisors.map(sv => {
+  listEl.innerHTML = [...supervisors].sort((a,b) => b.sites.length - a.sites.length).map(sv => {
     const n = sv.sites.length;
     const overload = n > maxLoad;
     const barPct = Math.min(100, Math.round((n / maxLoad) * 100));
@@ -1030,7 +1013,7 @@ function renderHR() {
 
   // Detail cards
   const detailEl = document.getElementById('hr-detail-grid');
-  detailEl.innerHTML = supervisors.map(sv => {
+  detailEl.innerHTML = [...supervisors].sort((a,b) => b.sites.length - a.sites.length).map(sv => {
     const overload = sv.sites.length > maxLoad;
     const siteRows = sv.sites.map(idx => {
       const s = sites[idx];
@@ -1059,20 +1042,41 @@ function renderHR() {
 
 // ===================== ADVANCED =====================
 function renderAdvanced() {
+  // Region cards
+  const regions = [
+    { key:'north',  label:'北部', color:'#4f8fde' },
+    { key:'center', label:'中部', color:'#1aaa84' },
+    { key:'south',  label:'南部', color:'#f07820' },
+    { key:'east',   label:'東部', color:'#0fb8a8' },
+  ];
+  document.getElementById('region-kpi-row').innerHTML = regions.map(r => {
+    const rs = sites.filter(s => s.region === r.key);
+    const kw  = +rs.reduce((sum, s) => sum + (s.mw  || 0), 0).toFixed(2);
+    const kwh = +rs.reduce((sum, s) => sum + (s.mwh || 0), 0).toFixed(2);
+    const capLine = '<div style="font-size:26px;font-weight:800;line-height:1.2">' + kw + ' kW / ' + kwh + ' kWh</div>';
+    return '<div class="region-kpi-card" style="background:' + r.color + '" onclick="openRegionModal(\'' + r.key + '\',\'' + r.label + '\')">'
+      + '<div class="rkpi-region">' + r.label + '</div>' + capLine + '</div>';
+  }).join('');
+
   // Owner grid
   const ownerMap = {};
   sites.forEach(s => {
-    if (!ownerMap[s.owner]) ownerMap[s.owner] = { name:s.owner, cases:0, mw:0 };
+    if (!ownerMap[s.owner]) ownerMap[s.owner] = { name:s.owner, cases:0, kw:0, kwh:0 };
     ownerMap[s.owner].cases++;
-    ownerMap[s.owner].mw += s.mw;
+    ownerMap[s.owner].kw  += (s.mw  || 0);
+    ownerMap[s.owner].kwh += (s.mwh || 0);
   });
-  const owners = Object.values(ownerMap).sort((a,b) => b.mw - a.mw);
-  document.getElementById('owner-grid').innerHTML = owners.map((o,i) => `
-    <div class="owner-card" onclick="openOwnerModal('${o.name}')">
-      <div class="owner-name">${o.name}</div>
-      <div><span class="owner-mw" style="color:#0ea5e9">${o.mw}</span><span style="font-size:14px;font-weight:600;color:var(--muted)">MW</span></div>
-      <div class="owner-meta">${o.cases}案</div>
-    </div>`).join('');
+  const owners = Object.values(ownerMap).sort((a,b) => b.kw - a.kw);
+  document.getElementById('owner-grid').innerHTML = owners.map(o => {
+    const kw  = +o.kw.toFixed(2);
+    const kwh = +o.kwh.toFixed(2);
+    const capStr = (kw && kwh) ? kw + ' kW / ' + kwh + ' kWh' : kw ? kw + ' kW' : kwh ? kwh + ' kWh' : '—';
+    return '<div class="owner-card" onclick="openOwnerModal(\'' + o.name + '\')">'
+      + '<div class="owner-name">' + o.name + '</div>'
+      + '<div><span class="owner-mw" style="color:#0ea5e9">' + capStr + '</span></div>'
+      + '<div class="owner-meta">' + o.cases + '案</div>'
+      + '</div>';
+  }).join('');
 }
 
 // ===================== MODAL =====================
@@ -1122,7 +1126,7 @@ function openModal(id) {
           const hasSt = s.type.includes('儲能');
           let r = '';
           if (hasPV) r += `<div class="info-row"><span class="info-label">光電設置容量</span><span class="info-val">${s.mw ? s.mw+' kW' : s.cap}</span></div>`;
-          if (hasSt) r += `<div class="info-row"><span class="info-label">儲能設置容量</span><span class="info-val">${(s.skw||s.mwh) ? (s.skw||0)+'kW / '+(s.mwh||0)+'kWh' : s.cap}</span></div>`;
+          if (hasSt) r += `<div class="info-row"><span class="info-label">儲能設置容量</span><span class="info-val">${(s.skw||s.mwh) ? (s.skw||0)+' kW / '+(s.mwh||0)+' kWh' : s.cap}</span></div>`;
           if (!r) r = `<div class="info-row"><span class="info-label">設置容量</span><span class="info-val">${s.cap}</span></div>`;
           return r;
         })()}
@@ -1161,8 +1165,8 @@ function renderKPIs() {
   document.getElementById('kpi-normal').textContent = sites.filter(s => s.status === 'normal').length;
   document.getElementById('kpi-warn').textContent   = sites.filter(s => s.status === 'warn').length;
   document.getElementById('kpi-danger').textContent = sites.filter(s => s.status === 'danger').length;
-  const pvSites = active.filter(s => s.type.includes('太陽能') || s.type === 'PV');
-  const storageSites = active.filter(s => s.type.includes('儲能'));
+  const pvSites = sites.filter(s => s.type.includes('太陽能') || s.type === 'PV');
+  const storageSites = sites.filter(s => s.type.includes('儲能'));
   const totalKw  = pvSites.reduce((sum, s) => sum + (s.mw || 0), 0);
   const totalKwh = storageSites.reduce((sum, s) => sum + (s.mwh || 0), 0);
   const totalSkw = storageSites.reduce((sum, s) => sum + (s.skw || 0), 0);
@@ -1171,6 +1175,15 @@ function renderKPIs() {
   document.getElementById('kpi-storage-sub').textContent = 'kWh';
 }
 renderKPIs();
+
+function siteCapStr(s) {
+  const hasPV = s.type.includes('太陽能') || s.type === 'PV';
+  const hasSt = s.type.includes('儲能');
+  if (hasPV && hasSt) return (s.mw && s.mwh) ? s.mw + ' kW / ' + s.mwh + ' kWh' : '—';
+  if (hasPV) return s.mw ? s.mw + ' kW' : '—';
+  if (hasSt) return s.mwh ? s.mwh + ' kWh' : '—';
+  return '—';
+}
 
 function openKpiList(type) {
   const titleMap = {
@@ -1183,8 +1196,8 @@ function openKpiList(type) {
   };
   const active = sites.filter(s => s.status !== 'done');
   const filtered = type === 'active'   ? active
-    : type === 'pv-cap'                ? active.filter(s => (s.type.includes('太陽能') || s.type === 'PV') && s.mw > 0)
-    : type === 'storage-cap'           ? active.filter(s => s.type.includes('儲能') && (s.mwh > 0 || s.skw > 0))
+    : type === 'pv-cap'                ? sites.filter(s => (s.type.includes('太陽能') || s.type === 'PV') && s.mw > 0)
+    : type === 'storage-cap'           ? sites.filter(s => s.type.includes('儲能') && (s.mwh > 0 || s.skw > 0))
     : sites.filter(s => s.status === type);
   const sorted = type === 'pv-cap'     ? [...filtered].sort((a,b) => b.mw - a.mw)
     : type === 'storage-cap'           ? [...filtered].sort((a,b) => b.mwh - a.mwh)
@@ -1198,7 +1211,7 @@ function openKpiList(type) {
         ${type === 'pv-cap' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}kW</span>` : ''}
         ${type === 'storage-cap' ? `<span style="font-size:13px;font-weight:700;color:#0891b2">${s.mw}kW / ${s.mwh}kWh</span>` : ''}
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span>${(type==='pv-cap'||type==='storage-cap') ? '' : `<span>預計完工 ${s.end}</span>`}</div>
+      <div class="kli-meta">${s.owner}<span>${s.pm}</span>${(type==='pv-cap'||type==='storage-cap') ? (s.end ? '<span>預計完工日 '+s.end+'</span>' : '') : '<span>'+siteCapStr(s)+'</span>'+(s.end?'<span>預計完工日 '+s.end+'</span>':'')}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -1229,7 +1242,7 @@ function openPmModal(name) {
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
+      <div class="kli-meta">${s.owner}<span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -1244,8 +1257,9 @@ function openPmModal(name) {
 function openOwnerModal(owner) {
   const filtered = sites.filter(s => s.owner === owner);
   const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
-  const totalMw = filtered.reduce((s,x) => s + x.mw, 0);
-  document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalMw}MW）`;
+  const totalKw  = +filtered.reduce((s,x) => s + (x.mw  || 0), 0).toFixed(2);
+  const totalKwh = +filtered.reduce((s,x) => s + (x.mwh || 0), 0).toFixed(2);
+  document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalKw} kW / ${totalKwh} kWh）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
       <div class="kli-top">
@@ -1253,7 +1267,7 @@ function openOwnerModal(owner) {
         <div class="kli-name">${s.name}</div>
         <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
       </div>
-      <div class="kli-meta">${s.pm}<span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
+      <div class="kli-meta">${s.pm}<span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -1276,7 +1290,7 @@ function openRegionModal(region, label) {
         <div class="kli-name">${s.name}</div>
         <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span><span>預計完工 ${s.end}</span></div>
+      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${s.cap}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
