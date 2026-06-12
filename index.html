@@ -796,7 +796,6 @@ function updateNavBadge() {
   b.style.display = delayCount > 0 ? 'inline' : 'none';
   b.textContent = `⚠ ${delayCount}案落後`;
 }
-updateNavBadge();
 
 // ===================== PAGE NAV =====================
 function showPage(id, btn) {
@@ -849,7 +848,6 @@ function renderHome() {
     </div>`;
   }).join('');
 }
-renderHome();
 
 // ===================== PROGRESS TABLE =====================
 function filterProgress(region, btn) {
@@ -1119,13 +1117,14 @@ function renderKPIs() {
   document.getElementById('kpi-storage-cap').textContent = totalKwh;
   document.getElementById('kpi-storage-sub').textContent = 'kWh';
 }
-renderKPIs();
 
 // ===================== TAIWAN MAP (D3 v7 + GeoJSON + SVG) =====================
 // 案場經緯度與地圖短標籤存在各 site 的 lng / lat / label 欄位
+let _topoCache = null; // 縣市圖資只下載一次，重繪時不再閃爍
 async function renderTaiwanMap() {
   const W = 260, H = 510;
-  const topo = await d3.json('https://cdn.jsdelivr.net/npm/taiwan-atlas/counties-10t.json');
+  if (!_topoCache) _topoCache = await d3.json('https://cdn.jsdelivr.net/npm/taiwan-atlas/counties-10t.json');
+  const topo = _topoCache;
   const counties = topojson.feature(topo, topo.objects.counties);
   // 主島地圖排除離島縣市，避免投影範圍被拉寬
   const offshore = ['金門縣', '連江縣', '澎湖縣'];
@@ -1165,7 +1164,6 @@ async function renderTaiwanMap() {
     wrap.insertBefore(pin, popup);
   });
 }
-renderTaiwanMap();
 
 function siteCapStr(s) {
   const hasPV = s.type.includes('太陽能') || s.type === 'PV';
@@ -1623,15 +1621,17 @@ async function deleteSiteFromForm() {
 }
 
 // ---- 啟動 ----
-async function initCloud() {
-  if (!sb) return; // 未設定 Supabase：維持內建資料模式
-  currentUser = true; // 不需登入，連上雲端即可編輯
-  document.getElementById('btn-add-site-progress').style.display = '';
-  document.getElementById('btn-add-supervisor').style.display = '';
-  const ok = await loadFromCloud();
-  if (ok) rerenderAll();
+// 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
+async function initApp() {
+  if (sb) {
+    currentUser = true; // 不需登入，連上雲端即可編輯
+    document.getElementById('btn-add-site-progress').style.display = '';
+    document.getElementById('btn-add-supervisor').style.display = '';
+    await loadFromCloud(); // 失敗時自動沿用內建資料
+  }
+  rerenderAll(); // KPI、首頁、地圖在此一次畫好
 }
-initCloud();
+initApp();
 </script>
 </body>
 </html>
