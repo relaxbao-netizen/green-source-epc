@@ -126,7 +126,9 @@ nav {
   font-size: 10px; white-space: nowrap;
   background: rgba(15,23,42,.82); color: #fff;
   padding: 2px 5px; border-radius: 3px; pointer-events: none;
+  opacity: 0; transition: opacity .15s; /* 滑鼠移上才顯示 */
 }
+.map-pin:hover .pin-label { opacity: 1; }
 .map-pin .dot.danger::after {
   content: ''; position: absolute; inset: -4px; border-radius: 50%;
   border: 2px solid var(--danger); animation: pulse 1.5s infinite; opacity: .6;
@@ -518,7 +520,9 @@ nav {
   <div class="section-title">人力資源看板 — 工地主任工作量分析</div>
   <div class="alert-box" id="hr-alert"></div>
   <div class="card">
-    <div class="card-title">工地主任負荷一覽</div>
+    <div class="card-title" style="display:flex;align-items:center">工地主任負荷一覽
+      <button class="btn-primary" id="btn-add-supervisor" style="display:none;margin-left:auto" onclick="openSupervisorForm()">＋ 新增工地主任</button>
+    </div>
     <div id="hr-list"></div>
   </div>
   <div class="section-title" style="margin-top:20px">主任案場分配詳情</div>
@@ -552,6 +556,25 @@ nav {
   </div>
 </div>
 
+<!-- ===== SUPERVISOR FORM MODAL（新增工地主任） ===== -->
+<div class="modal-overlay" id="supervisor-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:360px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">＋ 新增工地主任</div>
+      <button class="modal-close" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div class="form-field"><label>姓名 *</label><input type="text" id="sv-name" placeholder="例：蕭宏明 Mark"></div>
+      <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
+      <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="btn-secondary" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">取消</button>
+        <button class="btn-primary" onclick="saveSupervisorForm()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== SITE FORM MODAL（新增/編輯案場） ===== -->
 <div class="modal-overlay" id="site-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="kpi-list-box" style="width:760px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
@@ -563,12 +586,12 @@ nav {
       <div class="form-grid">
         <div class="form-field" style="grid-column:1/-1"><label>案場名稱 *</label><input type="text" id="sf-name"></div>
         <div class="form-field"><label>地圖短標籤</label><input type="text" id="sf-label" placeholder="例：恩盈"></div>
-        <div class="form-field"><label>區域</label><select id="sf-region"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
-        <div class="form-field"><label>縣市</label><input type="text" id="sf-city" placeholder="例：屏東"></div>
-        <div class="form-field"><label>類型</label><select id="sf-type"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
-        <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
-        <div class="form-field"><label>工地主任</label><input type="text" id="sf-pm"></div>
+        <div class="form-field"><label>區域</label><select id="sf-region" onchange="updateCityOptions()"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
+        <div class="form-field"><label>縣市</label><select id="sf-city"></select></div>
         <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
+        <div class="form-field"><label>類型</label><select id="sf-type"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
+        <div class="form-field"><label>業主</label><input type="text" id="sf-owner" list="owner-options"><datalist id="owner-options"></datalist></div>
+        <div class="form-field"><label>工地主任</label><select id="sf-pm"></select></div>
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
@@ -652,7 +675,6 @@ let supervisors = [
   { name:'蕭名湶 Dyke', color:'#a855f7', sites:[9,10],       phone:'0919-701-453' },
   { name:'林則瑜 Jack', color:'#14b8a6', sites:[12],         phone:'0923-813-779' },
   { name:'林主任', color:'#10b981', sites:[11],         phone:'0923-456-789' },
-
   { name:'陳主任', color:'#8b5cf6', sites:[7,8,14],    phone:'0934-567-890' },
   { name:'王主任', color:'#f97316', sites:[0,6],        phone:'0945-678-901' },
   { name:'李主任', color:'#ef4444', sites:[15,16],       phone:'0956-789-012' },
@@ -1385,21 +1407,84 @@ async function geocodeAddr(addr, city) {
   return null;
 }
 
+// ---- 工地主任表單 ----
+const supervisorPalette = ['#3b82f6','#f59e0b','#a855f7','#14b8a6','#10b981','#8b5cf6','#f97316','#ef4444','#06b6d4','#84cc16','#e11d48','#0ea5e9'];
+
+function openSupervisorForm() {
+  document.getElementById('sv-name').value = '';
+  document.getElementById('sv-phone').value = '';
+  document.getElementById('supervisor-form-error').style.display = 'none';
+  document.getElementById('supervisor-form-overlay').classList.add('open');
+}
+
+async function saveSupervisorForm() {
+  const errEl = document.getElementById('supervisor-form-error');
+  errEl.style.display = 'none';
+  const name = document.getElementById('sv-name').value.trim();
+  const phone = document.getElementById('sv-phone').value.trim();
+  if (!name) {
+    errEl.textContent = '請填寫姓名';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (supervisors.some(v => v.name === name)) {
+    errEl.textContent = '已有同名的工地主任';
+    errEl.style.display = 'block';
+    return;
+  }
+  const color = supervisorPalette[supervisors.length % supervisorPalette.length];
+  const { error } = await sb.from('supervisors').insert({ name, phone, color, sites: [] });
+  if (error) {
+    errEl.textContent = '儲存失敗：' + error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('supervisor-form-overlay').classList.remove('open');
+  await loadFromCloud();
+  rerenderAll();
+}
+
 // ---- 案場表單 ----
+// 各區域包含的縣市
+const regionCities = {
+  north:  ['台北', '新北', '基隆', '桃園', '新竹', '苗栗', '宜蘭'],
+  center: ['台中', '彰化', '南投', '雲林'],
+  south:  ['嘉義', '台南', '高雄', '屏東'],
+  east:   ['花蓮', '台東'],
+};
+
+// 依所選區域更新縣市選單
+function updateCityOptions(keepCity) {
+  const region = document.getElementById('sf-region').value;
+  const citySel = document.getElementById('sf-city');
+  const cities = (regionCities[region] || []).slice();
+  if (keepCity && !cities.includes(keepCity)) cities.push(keepCity); // 既有資料不在清單時保留
+  citySel.innerHTML = cities.map(c => `<option>${c}</option>`).join('');
+  citySel.value = (keepCity && cities.includes(keepCity)) ? keepCity : cities[0];
+}
+
 function openSiteForm(id) {
   editingSiteId = (id === undefined || id === null) ? null : id;
   const s = editingSiteId !== null ? siteById(editingSiteId) : null;
   document.getElementById('site-form-title').textContent = s ? '✏ 編輯案場' : '＋ 新增案場';
   document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
+  // 業主選項（取自現有資料，仍可輸入新值）
+  const owners = [...new Set(sites.map(x => x.owner).filter(o => o && o !== '待確認'))];
+  document.getElementById('owner-options').innerHTML = owners.map(o => `<option value="${o}">`).join('');
+  // 工地主任下拉：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
+  const pms = supervisors.map(v => v.name);
+  if (s && s.pm && !pms.includes(s.pm)) pms.push(s.pm);
+  document.getElementById('sf-pm').innerHTML = pms.map(p => `<option>${p}</option>`).join('');
+
   const set = (fid, v) => document.getElementById(fid).value = (v ?? '');
   set('sf-name',   s ? s.name : '');
   set('sf-label',  s ? s.label : '');
   set('sf-region', s ? s.region : 'north');
-  set('sf-city',   s ? s.city : '');
+  updateCityOptions(s ? s.city : null); // 縣市選單跟隨區域
   set('sf-type',   s ? s.type : '太陽能');
   set('sf-owner',  s ? s.owner : '');
-  set('sf-pm',     s ? s.pm : '');
+  set('sf-pm',     s && s.pm ? s.pm : (pms[0] || ''));
   set('sf-addr',   s ? s.addr : '');
   set('sf-mw',     s && s.mw  ? s.mw  : '');
   set('sf-skw',    s && s.skw ? s.skw : '');
@@ -1463,6 +1548,7 @@ async function initCloud() {
   if (!sb) return; // 未設定 Supabase：維持內建資料模式
   currentUser = true; // 不需登入，連上雲端即可編輯
   document.getElementById('btn-add-site-progress').style.display = '';
+  document.getElementById('btn-add-supervisor').style.display = '';
   const ok = await loadFromCloud();
   if (ok) rerenderAll();
 }
