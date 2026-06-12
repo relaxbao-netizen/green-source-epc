@@ -296,6 +296,7 @@ nav {
   font-size: 13px; font-family: inherit; background: var(--surface); color: inherit;
 }
 .form-field input:focus, .form-field select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+.form-field input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
 .btn-primary { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 .btn-primary:hover { filter: brightness(1.1); }
 .btn-secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -593,8 +594,8 @@ nav {
         <div class="form-field"><label>區域</label><select id="sf-region" onchange="updateCityOptions()"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
         <div class="form-field"><label>縣市</label><select id="sf-city"></select></div>
         <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
-        <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
-        <div class="form-field"><label>業主</label><input type="text" id="sf-owner" list="owner-options"><datalist id="owner-options"></datalist></div>
+        <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs();updateCapFields()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
+        <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
         <div class="form-field"><label>工地主任</label><select id="sf-pm"></select></div>
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
@@ -1517,6 +1518,18 @@ function wbsOverallPct(wbsMap, type) {
   return totalW ? Math.round(cats.reduce((s, c) => s + c.catPct * c.weight, 0) / totalW) : 0;
 }
 
+// 依案場類型鎖定不適用的容量欄位（反灰且清空）
+function updateCapFields() {
+  const type = document.getElementById('sf-type').value;
+  const hasPV = type.includes('太陽能');
+  const hasSt = type.includes('儲能');
+  [['sf-mw', hasPV], ['sf-skw', hasSt], ['sf-mwh', hasSt]].forEach(([id, on]) => {
+    const inp = document.getElementById(id);
+    inp.disabled = !on;
+    if (!on) inp.value = '';
+  });
+}
+
 // ---- 案場表單 ----
 // 各區域包含的縣市
 const regionCities = {
@@ -1542,9 +1555,6 @@ function openSiteForm(id) {
   document.getElementById('site-form-title').textContent = s ? '✏ 編輯案場' : '＋ 新增案場';
   document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
-  // 業主選項（取自現有資料，仍可輸入新值）
-  const owners = [...new Set(sites.map(x => x.owner).filter(o => o && o !== '待確認'))];
-  document.getElementById('owner-options').innerHTML = owners.map(o => `<option value="${o}">`).join('');
   // 工地主任下拉：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
   const pms = supervisors.map(v => v.name);
   if (s && s.pm && !pms.includes(s.pm)) pms.push(s.pm);
@@ -1565,6 +1575,7 @@ function openSiteForm(id) {
   set('sf-start',  s ? s.start : '');
   set('sf-end',    s ? s.end : '');
   renderWbsInputs(wbsMapFromSite(s));
+  updateCapFields();
   document.getElementById('site-form-overlay').classList.add('open');
 }
 
