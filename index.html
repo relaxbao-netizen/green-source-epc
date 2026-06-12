@@ -565,7 +565,7 @@ nav {
 <div class="modal-overlay" id="supervisor-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="kpi-list-box" style="max-width:360px" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title">＋ 新增工地主任</div>
+      <div class="modal-title" id="supervisor-form-title">＋ 新增工地主任</div>
       <button class="modal-close" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">✕</button>
     </div>
     <div style="padding:16px 20px">
@@ -858,12 +858,15 @@ function filterProgress(region, btn) {
 }
 
 function renderProgressTable(filter) {
-  const filtered = (filter === 'all' ? sites : sites.filter(s => s.region === filter)).slice().sort((a,b) => {
-    if (!a.start && !b.start) return 0;
-    if (!a.start) return 1;
-    if (!b.start) return -1;
-    return a.start.localeCompare(b.start);
-  });
+  // 排序：進度高→低，再依開工日期、預計完工日期（早→晚，空白排後）
+  const dateCmp = (x, y) => {
+    if (!x && !y) return 0;
+    if (!x) return 1;
+    if (!y) return -1;
+    return x.localeCompare(y);
+  };
+  const filtered = (filter === 'all' ? sites : sites.filter(s => s.region === filter)).slice().sort((a,b) =>
+    (b.pct - a.pct) || dateCmp(a.start, b.start) || dateCmp(a.end, b.end));
   const regionName = { north:'北部', center:'中部', south:'南部', east:'東部' };
   const html = `
   <table class="prog-table">
@@ -1310,7 +1313,11 @@ function showAvatarCard(name, e) {
         <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.04 1.16 2 2 0 012 .01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z"/>
       </svg>
       ${sv.phone}
-    </div>`;
+    </div>
+    ${currentUser ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+      <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupervisorForm('${sv.name}')">✏️ 編輯</button>
+      <button class="btn-danger" style="padding:5px 14px;font-size:12px" onclick="deleteSupervisor('${sv.name}')">刪除</button>
+    </div>` : ''}`;
   document.getElementById('avatar-overlay').classList.add('open');
 }
 
@@ -1417,9 +1424,14 @@ async function geocodeAddr(addr, city) {
 // ---- 工地主任表單 ----
 const supervisorPalette = ['#3b82f6','#f59e0b','#a855f7','#14b8a6','#10b981','#8b5cf6','#f97316','#ef4444','#06b6d4','#84cc16','#e11d48','#0ea5e9'];
 
-function openSupervisorForm() {
-  document.getElementById('sv-name').value = '';
-  document.getElementById('sv-phone').value = '';
+let editingSupervisorName = null; // null = 新增模式
+
+function openSupervisorForm(name) {
+  editingSupervisorName = name || null;
+  const sv = name ? supervisors.find(v => v.name === name) : null;
+  document.getElementById('supervisor-form-title').textContent = sv ? '✏️ 編輯工地主任' : '＋ 新增工地主任';
+  document.getElementById('sv-name').value = sv ? sv.name : '';
+  document.getElementById('sv-phone').value = sv ? sv.phone : '';
   document.getElementById('supervisor-form-error').style.display = 'none';
   document.getElementById('supervisor-form-overlay').classList.add('open');
 }
@@ -1434,19 +1446,43 @@ async function saveSupervisorForm() {
     errEl.style.display = 'block';
     return;
   }
-  if (supervisors.some(v => v.name === name)) {
+  if (supervisors.some(v => v.name === name && v.name !== editingSupervisorName)) {
     errEl.textContent = '已有同名的工地主任';
     errEl.style.display = 'block';
     return;
   }
-  const color = supervisorPalette[supervisors.length % supervisorPalette.length];
-  const { error } = await sb.from('supervisors').insert({ name, phone, color, sites: [] });
+  let q;
+  if (editingSupervisorName) {
+    q = sb.from('supervisors').update({ name, phone }).eq('name', editingSupervisorName);
+  } else {
+    const color = supervisorPalette[supervisors.length % supervisorPalette.length];
+    q = sb.from('supervisors').insert({ name, phone, color, sites: [] });
+  }
+  const { error } = await q;
   if (error) {
     errEl.textContent = '儲存失敗：' + error.message;
     errEl.style.display = 'block';
     return;
   }
+  // 改名時同步更新所有掛在此主任名下的案場
+  if (editingSupervisorName && name !== editingSupervisorName) {
+    await sb.from('sites').update({ pm: name }).eq('pm', editingSupervisorName);
+  }
   document.getElementById('supervisor-form-overlay').classList.remove('open');
+  await loadFromCloud();
+  rerenderAll();
+}
+
+async function deleteSupervisor(name) {
+  const n = sitesOfPm(name).length;
+  const msg = n > 0
+    ? `「${name}」目前仍負責 ${n} 個案場，刪除後這些案場的工地主任會改為「待確認」。確定刪除？`
+    : `確定要刪除「${name}」嗎？`;
+  if (!confirm(msg)) return;
+  const { error } = await sb.from('supervisors').delete().eq('name', name);
+  if (error) { alert('刪除失敗：' + error.message); return; }
+  if (n > 0) await sb.from('sites').update({ pm: '待確認' }).eq('pm', name);
+  closeAvatarCard();
   await loadFromCloud();
   rerenderAll();
 }
