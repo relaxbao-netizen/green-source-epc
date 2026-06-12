@@ -300,8 +300,9 @@ nav {
 .btn-primary:hover { filter: brightness(1.1); }
 .btn-secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
-.btn-edit { border: none; padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s; }
+.btn-edit { border: none; box-sizing: border-box; height: 21px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s; }
 .btn-edit:hover { filter: brightness(.93); }
+#sf-wbs-grid input { width: 70px; box-sizing: border-box; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; text-align: right; }
 
 /* MODAL */
 .modal-overlay {
@@ -319,6 +320,9 @@ nav {
 @keyframes modalIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 .modal-header {
   display: flex; align-items: center; gap: 12px;
+}
+#modal-status-badge { display: flex; align-items: center; }
+.modal-header {
   padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; background: #fff;
   border-radius: 16px 16px 0 0; z-index: 1;
@@ -589,7 +593,7 @@ nav {
         <div class="form-field"><label>區域</label><select id="sf-region" onchange="updateCityOptions()"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
         <div class="form-field"><label>縣市</label><select id="sf-city"></select></div>
         <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
-        <div class="form-field"><label>類型</label><select id="sf-type"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
+        <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
         <div class="form-field"><label>業主</label><input type="text" id="sf-owner" list="owner-options"><datalist id="owner-options"></datalist></div>
         <div class="form-field"><label>工地主任</label><select id="sf-pm"></select></div>
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
@@ -597,6 +601,10 @@ nav {
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
         <div class="form-field"><label>開工日期</label><input type="text" id="sf-start" placeholder="YYYY/MM/DD"></div>
         <div class="form-field"><label>預計完工日期</label><input type="text" id="sf-end" placeholder="YYYY/MM/DD"></div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">WBS 施工項目完成率（%）</div>
+          <div id="sf-wbs-grid"></div>
+        </div>
       </div>
       <div id="site-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -629,24 +637,24 @@ nav {
 let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
 let editingSiteId = null;
 let sites = [
-  { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
+  { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
   { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01', label:'恩盈', lng:120.566, lat:22.571 },
-  { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'張主任', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01', label:'臺科大華夏', lng:121.493, lat:24.987 },
-  { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'張主任', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01', label:'板橋果菜', lng:121.458, lat:25.013 },
-  { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01', label:'台以八翁', lng:121.770, lat:25.080 },
+  { id:2,  name:'臺科大華夏校區太陽光電系統建置工程', region:'north',  city:'台北', cap:'待確認', owner:'臺灣科技大學', pm:'待確認', end:'2026/09/30', pct:75, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台北市大安區基隆路四段43號', start:'2026/01/01', label:'臺科大華夏', lng:121.493, lat:24.987 },
+  { id:3,  name:'板橋果菜市場發電系統工程',          region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/08/31', pct:55, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'新北市板橋區',               start:'2026/01/01', label:'板橋果菜', lng:121.458, lat:25.013 },
+  { id:4,  name:'台以八翁太陽光電發電系統工程',      region:'north',  city:'新北', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/10/31', pct:50, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'新北市',                    start:'2026/02/01', label:'台以八翁', lng:121.770, lat:25.080 },
   { id:5,  name:'兆豐銀行PV及儲能系統建置工程',      region:'south',  city:'高雄', cap:'待確認', owner:'振興',         pm:'蕭宏明 Mark', end:'', pct:33, status:'warn', mw:202.86, mwh:261, skw:100, type:'太陽能+儲能', addr:'高雄市楠梓區加昌路600-2號', start:'', label:'兆豐銀行', lng:120.322, lat:22.728,
     wbs:{ '整地工程':100,'基礎工程':100,'支架安裝':100,'品質檢查':0,'模組安裝':0,'DC配線':0,'DC側':0,'AC側':0,'接地系統':0,'通訊工程':0,'單機測試':0,'系統測試':0,'台電測試':0,'驗收與移交':0 } },
-  { id:6,  name:'創弈學甲儲能系統建置工程',          region:'south',  city:'台南', cap:'待確認', owner:'待確認',       pm:'王主任', end:'2026/10/31', pct:32, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台南市學甲區',               start:'2026/03/01', label:'創弈學甲', lng:120.181, lat:23.232 },
-  { id:7,  name:'精湛光學PV系統建置工程',            region:'center', city:'台中', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/10/31', pct:65, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台中市',                    start:'2026/01/01', label:'精湛光學', lng:120.680, lat:24.160 },
-  { id:8,  name:'生原家電太陽光電發電系統工程',      region:'center', city:'彰化', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/09/30', pct:40, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'彰化縣',                    start:'2026/02/01', label:'生原家電', lng:120.540, lat:24.070 },
+  { id:6,  name:'創弈學甲儲能系統建置工程',          region:'south',  city:'台南', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/10/31', pct:32, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台南市學甲區',               start:'2026/03/01', label:'創弈學甲', lng:120.181, lat:23.232 },
+  { id:7,  name:'精湛光學PV系統建置工程',            region:'center', city:'台中', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/10/31', pct:65, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台中市',                    start:'2026/01/01', label:'精湛光學', lng:120.680, lat:24.160 },
+  { id:8,  name:'生原家電太陽光電發電系統工程',      region:'center', city:'彰化', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/09/30', pct:40, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'彰化縣',                    start:'2026/02/01', label:'生原家電', lng:120.540, lat:24.070 },
   { id:9,  name:'東元湖口太陽能建置工程',            region:'north',  city:'新竹', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/09/09', pct:100, status:'done', mw:1811.34, mwh:0, type:'太陽能', addr:'新竹縣湖口鄉新竹工業區中華路15號', start:'2024/11/11', label:'東元湖口', lng:121.040, lat:24.900 },
   { id:10, name:'東元觀音二廠太陽能建置工程',        region:'north',  city:'桃園', cap:'待確認', owner:'東元電機股份有限公司', pm:'蕭名湶 Dyke', end:'2025/08/14', pct:100, status:'done', mw:1011.81, mwh:0, type:'太陽能', addr:'桃園市觀音區樹林里國建一路6號', start:'2024/11/03', label:'東元觀音', lng:121.080, lat:25.030 },
-  { id:11, name:'南陽街微電網系統建置工程',          region:'north',  city:'台北', cap:'待確認', owner:'待確認',       pm:'林主任', end:'2026/08/15', pct:45, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台北市中正區南陽街',         start:'2026/01/15', label:'南陽街', lng:121.515, lat:25.044 },
-  { id:12, name:'台積電AP6B太陽能配置工程',          region:'north',  city:'苗栗', cap:'待確認', owner:'高信工程股份有限公司', pm:'林則瑜 Jack', end:'', pct:35, status:'warn', mw:370.64, mwh:0, type:'太陽能', addr:'苗栗縣竹南鎮科專七路1號', start:'2024/12/16', label:'台積AP6B', lng:120.900, lat:24.700 },
-  { id:13, name:'亨叡太陽光電系統建置工程',          region:'north',  city:'桃園', cap:'待確認', owner:'待確認',       pm:'吳主任', end:'2026/10/15', pct:20, status:'danger', mw:0, mwh:0, type:'太陽能',     addr:'桃園市',                    start:'2026/02/01', label:'亨叡', lng:121.300, lat:24.930 },
-  { id:14, name:'法蘭摩沙整廠儀電及配管工程',        region:'center', city:'雲林', cap:'待確認', owner:'待確認',       pm:'陳主任', end:'2026/11/30', pct:25, status:'danger', mw:0, mwh:0, type:'儀電配管',   addr:'雲林縣',                    start:'2026/03/01', label:'法蘭摩沙', lng:120.350, lat:23.800 },
-  { id:15, name:'台積電AP5B太陽能配置工程',          region:'south',  city:'台南', cap:'待確認', owner:'台積電',       pm:'李主任', end:'2026/09/30', pct:60, status:'normal', mw:0, mwh:0, type:'太陽能',     addr:'台南市新市區',               start:'2025/12/01', label:'台積AP5B', lng:120.290, lat:23.080 },
-  { id:16, name:'中科友達儲能系統建置工程',          region:'center', city:'台中', cap:'待確認', owner:'友達光電',     pm:'李主任', end:'2026/12/31', pct:42, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台中市西屯區中科',           start:'2026/02/01', label:'中科友達', lng:120.610, lat:24.210 },
+  { id:11, name:'南陽街微電網系統建置工程',          region:'north',  city:'台北', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/08/15', pct:45, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台北市中正區南陽街',         start:'2026/01/15', label:'南陽街', lng:121.515, lat:25.044 },
+  { id:12, name:'台積電AP6B太陽能配置工程',          region:'north',  city:'苗栗', cap:'待確認', owner:'高信工程股份有限公司', pm:'林則瑜 Jack', end:'', pct:35, status:'warn', mw:370.64, mwh:0, type:'太陽能', addr:'苗栗縣竹南鎮科專七路1號', start:'2024/12/16', label:'台積電AP6B', lng:120.900, lat:24.700 },
+  { id:13, name:'亨叡太陽光電系統建置工程',          region:'north',  city:'桃園', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/10/15', pct:20, status:'danger', mw:0, mwh:0, type:'太陽能',     addr:'桃園市',                    start:'2026/02/01', label:'亨叡', lng:121.300, lat:24.930 },
+  { id:14, name:'法蘭摩沙整廠儀電及配管工程',        region:'center', city:'雲林', cap:'待確認', owner:'待確認',       pm:'蕭名湶 Dyke', end:'2026/11/30', pct:25, status:'danger', mw:0, mwh:0, type:'儀電配管',   addr:'雲林縣',                    start:'2026/03/01', label:'法蘭摩沙', lng:120.350, lat:23.800 },
+  { id:15, name:'台積電AP5B太陽能配置工程',          region:'center', city:'台中', cap:'待確認', owner:'金展',         pm:'吳修原 貢丸', end:'', pct:60, status:'normal', mw:206.4, mwh:0, type:'太陽能', addr:'台中市大雅區科雅六路2號', start:'', label:'台積AP5B', lng:120.6162, lat:24.2145 },
+  { id:16, name:'中科友達儲能系統建置工程',          region:'center', city:'台中', cap:'待確認', owner:'友達光電',     pm:'待確認', end:'2026/12/31', pct:42, status:'warn',   mw:0, mwh:0, type:'儲能',       addr:'台中市西屯區中科',           start:'2026/02/01', label:'中科友達', lng:120.610, lat:24.210 },
 ];
 
 const wbsCats = {
@@ -670,23 +678,23 @@ const wbsCats = {
 };
 
 let supervisors = [
-  { name:'張主任', color:'#3b82f6', sites:[2,3],       phone:'0912-345-678' },
-  { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],          phone:'0927-287-771' },
-  { name:'蕭名湶 Dyke', color:'#a855f7', sites:[9,10],       phone:'0919-701-453' },
-  { name:'林則瑜 Jack', color:'#14b8a6', sites:[12],         phone:'0923-813-779' },
-  { name:'林主任', color:'#10b981', sites:[11],         phone:'0923-456-789' },
-  { name:'陳主任', color:'#8b5cf6', sites:[7,8,14],    phone:'0934-567-890' },
-  { name:'王主任', color:'#f97316', sites:[0,6],        phone:'0945-678-901' },
-  { name:'李主任', color:'#ef4444', sites:[15,16],       phone:'0956-789-012' },
-  { name:'吳主任', color:'#06b6d4', sites:[4,13],       phone:'0967-890-123' },
+  { name:'蕭宏明 Mark', color:'#f59e0b', sites:[5],    phone:'0927-287-771' },
+  { name:'蕭名湶 Dyke', color:'#a855f7', sites:[9,10], phone:'0919-701-453' },
+  { name:'林則瑜 Jack', color:'#14b8a6', sites:[12],   phone:'0923-813-779' },
+  { name:'吳修原 貢丸', color:'#84cc16', sites:[15],   phone:'0929-835-583' },
 ];
 
 // 以 id 取得案場（雲端模式下 id 不一定等於陣列索引）
 function siteById(id) { return sites.find(s => s.id === id); }
 
+// 主任負責的案場直接由案場的工地主任欄位推算（編輯案場即自動更新負荷）
+function sitesOfPm(name) {
+  return sites.filter(s => s.pm === name).map(s => s.id);
+}
+
 // 工作負荷只計算未完工案場
 function activeSitesOf(sv) {
-  return sv.sites.filter(i => { const s = siteById(i); return s && s.status !== 'done'; });
+  return sitesOfPm(sv.name).filter(i => { const s = siteById(i); return s && s.status !== 'done'; });
 }
 
 const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
@@ -1216,7 +1224,7 @@ function closeKpiListDirect() {
 function openPmModal(name) {
   const sv = supervisors.find(s => s.name === name);
   if (!sv) return;
-  const pmSites = sv.sites.map(id => sites.find(s => s.id === id)).filter(Boolean);
+  const pmSites = sites.filter(s => s.pm === sv.name);
   const sorted = [...pmSites].sort((a,b) => b.pct - a.pct);
   document.getElementById('kpi-list-title').textContent = `${name} 負責案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
@@ -1444,6 +1452,73 @@ async function saveSupervisorForm() {
   rerenderAll();
 }
 
+// ---- WBS 編輯 ----
+// 依類型列出 WBS 末端項目名稱
+function wbsLeafItems(type) {
+  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+  const items = [];
+  cats.forEach(cat => {
+    if (!cat.subs.length) items.push(cat.name);
+    else cat.subs.forEach(sub => items.push(typeof sub === 'string' ? sub : sub.name));
+  });
+  return items;
+}
+
+// 取得案場目前的 WBS 完成率（沒存過就用整體進度推算預設值）
+function wbsMapFromSite(s) {
+  if (!s) return {};
+  if (s.wbs) return s.wbs;
+  const map = {};
+  computeWBS2(s.pct, s.type).forEach(cat => {
+    if (!cat.subs.length) map[cat.name] = cat.catPct;
+    else cat.subs.forEach(sub => map[sub.name] = sub.pct);
+  });
+  return map;
+}
+
+// 渲染 WBS 輸入表格（與詳情頁 WBS 表格相同格式；type 變更時保留已填的值）
+function renderWbsInputs(wbsMap) {
+  const type = document.getElementById('sf-type').value;
+  const current = wbsMap || collectWbsInputs();
+  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+  let rows = '';
+  cats.forEach((cat, ci) => {
+    const catCell = `<td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>
+      <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>`;
+    if (!cat.subs.length) {
+      rows += `<tr style="border-top:2px solid var(--border)">${catCell}
+        <td><input type="number" min="0" max="100" data-wbs="${cat.name}" value="${current[cat.name] ?? 0}"></td></tr>`;
+    } else {
+      rows += `<tr style="border-top:2px solid var(--border)">${catCell}<td></td></tr>`;
+      cat.subs.forEach(sub => {
+        const nm = typeof sub === 'string' ? sub : sub.name;
+        const w  = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
+        rows += `<tr style="background:#fafafa">
+          <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${nm}</td>
+          <td style="color:var(--muted);font-size:12px">${w}%</td>
+          <td><input type="number" min="0" max="100" data-wbs="${nm}" value="${current[nm] ?? 0}"></td></tr>`;
+      });
+    }
+  });
+  document.getElementById('sf-wbs-grid').innerHTML =
+    `<table class="wbs-table"><thead><tr><th>施工項目</th><th>權重</th><th>完成率 (%)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function collectWbsInputs() {
+  const map = {};
+  document.querySelectorAll('#sf-wbs-grid input[data-wbs]').forEach(inp => {
+    map[inp.dataset.wbs] = Math.max(0, Math.min(100, +inp.value || 0));
+  });
+  return map;
+}
+
+// 由 WBS 各項完成率加權計算整體進度
+function wbsOverallPct(wbsMap, type) {
+  const cats = computeWBSFromData(wbsMap, type);
+  const totalW = cats.reduce((s, c) => s + c.weight, 0);
+  return totalW ? Math.round(cats.reduce((s, c) => s + c.catPct * c.weight, 0) / totalW) : 0;
+}
+
 // ---- 案場表單 ----
 // 各區域包含的縣市
 const regionCities = {
@@ -1491,6 +1566,7 @@ function openSiteForm(id) {
   set('sf-mwh',    s && s.mwh ? s.mwh : '');
   set('sf-start',  s ? s.start : '');
   set('sf-end',    s ? s.end : '');
+  renderWbsInputs(wbsMapFromSite(s));
   document.getElementById('site-form-overlay').classList.add('open');
 }
 
@@ -1510,6 +1586,9 @@ async function saveSiteForm() {
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start'), end_date: val('sf-end'),
   };
+  // WBS 各項完成率 → 自動計算整體進度
+  row.wbs = collectWbsInputs();
+  row.pct = wbsOverallPct(row.wbs, row.type);
   // 依案場地址自動定位地圖座標（失敗則退回縣市中心點）
   const coords = await geocodeAddr(row.addr, row.city);
   if (coords) { row.lng = coords[0]; row.lat = coords[1]; }
