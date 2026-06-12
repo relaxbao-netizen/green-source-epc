@@ -1631,9 +1631,13 @@ async function saveSiteForm() {
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start'), end_date: val('sf-end'),
   };
-  // WBS 各項完成率 → 自動計算整體進度
+  // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
   row.pct = wbsOverallPct(row.wbs, row.type);
+  const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
+  row.status = row.pct >= 100 ? 'done'
+    : (existing && existing.status !== 'done') ? existing.status
+    : 'normal';
   // 依案場地址自動定位地圖座標（失敗則退回縣市中心點）
   const coords = await geocodeAddr(row.addr, row.city);
   if (coords) { row.lng = coords[0]; row.lat = coords[1]; }
