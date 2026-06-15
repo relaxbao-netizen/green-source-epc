@@ -1022,7 +1022,8 @@ function renderAdvanced() {
     ownerMap[s.owner].kw  += (s.mw  || 0);
     ownerMap[s.owner].kwh += (s.mwh || 0);
   });
-  const owners = Object.values(ownerMap).sort((a,b) => b.kw - a.kw);
+  // 排序：案量（多→少）→ 容量 kW（大→小）→ 容量 kWh（大→小）
+  const owners = Object.values(ownerMap).sort((a,b) => b.cases - a.cases || b.kw - a.kw || b.kwh - a.kwh);
   document.getElementById('owner-grid').innerHTML = owners.map(o => {
     const kw  = +o.kw.toFixed(2);
     const kwh = +o.kwh.toFixed(2);
