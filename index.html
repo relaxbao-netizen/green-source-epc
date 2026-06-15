@@ -1007,7 +1007,7 @@ function renderAdvanced() {
   ];
   document.getElementById('region-kpi-row').innerHTML = regions.map(r => {
     const rs = sites.filter(s => s.region === r.key);
-    const kw  = +rs.reduce((sum, s) => sum + (s.mw  || 0), 0).toFixed(2);
+    const kw  = +rs.reduce((sum, s) => sum + (s.mw || 0) + (s.skw || 0), 0).toFixed(2);  // 光電 + 儲能功率
     const kwh = +rs.reduce((sum, s) => sum + (s.mwh || 0), 0).toFixed(2);
     const capLine = '<div style="font-size:26px;font-weight:800;line-height:1.2">' + kw + ' kW / ' + kwh + ' kWh</div>';
     return '<div class="region-kpi-card" style="background:' + r.color + '" onclick="openRegionModal(\'' + r.key + '\',\'' + r.label + '\')">'
@@ -1019,7 +1019,7 @@ function renderAdvanced() {
   sites.forEach(s => {
     if (!ownerMap[s.owner]) ownerMap[s.owner] = { name:s.owner, cases:0, kw:0, kwh:0 };
     ownerMap[s.owner].cases++;
-    ownerMap[s.owner].kw  += (s.mw  || 0);
+    ownerMap[s.owner].kw  += (s.mw || 0) + (s.skw || 0);  // 光電 + 儲能功率
     ownerMap[s.owner].kwh += (s.mwh || 0);
   });
   // 排序：案量（多→少）→ 容量 kW（大→小）→ 容量 kWh（大→小）
