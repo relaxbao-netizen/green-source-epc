@@ -325,6 +325,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
   align-items: center; justify-content: center;
 }
+/* 晴雨表報表可由案場詳情彈窗叫出，需置於其上層 */
+#rain-report-overlay { z-index: 600; }
 .modal-overlay.open { display: flex; }
 .modal-box {
   background: #fff; border-radius: 16px; width: 700px; max-width: 95vw;
@@ -381,6 +383,18 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 #taiwan-map .lbl-s { fill: #475569; }
 
 .scroll-x { overflow-x: auto; }
+
+/* 天氣預報卡片（案場詳情） */
+.wx-row { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 4px; }
+.wx-card { flex: 0 0 auto; width: 84px; text-align: center; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 8px 6px; }
+.wx-card.wx-rain { background: #fef2f2; border-color: #fecaca; }
+.wx-d { font-size: 11px; font-weight: 700; color: var(--text); }
+.wx-seg { font-size: 11px; color: var(--muted); margin: 2px 0; }
+.wx-ico { font-size: 24px; line-height: 1.3; }
+.wx-txt { font-size: 11px; color: var(--muted); min-height: 28px; display: flex; align-items: center; justify-content: center; }
+.wx-temp { font-size: 12px; font-weight: 700; }
+.wx-pop { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.wx-pop.on { color: #dc2626; font-weight: 700; }
 
 /* KPI LIST MODAL */
 .kpi-list-box {
@@ -585,6 +599,25 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
   <div class="section-title">業主專案統計</div>
   <div class="owner-grid" id="owner-grid"></div>
+
+  <div class="section-title" style="margin-top:20px;display:flex;align-items:center">施工晴雨表
+    <button class="btn-primary" style="margin-left:auto" onclick="openRainReport()">📋 產生施工晴雨表</button>
+  </div>
+  <div style="color:var(--muted);font-size:13px">依各案場縣市每日記錄上午／下午天氣，統計因雨無法施工天數（降雨機率 ≥70%）。自開始使用日起每日累積。</div>
+</div>
+
+<!-- ===== 施工晴雨表報表 ===== -->
+<div class="modal-overlay" id="rain-report-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box" style="width:920px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">📋 施工晴雨表</div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="printRainReport()">🖨 列印／存PDF</button>
+        <button class="modal-close" onclick="document.getElementById('rain-report-overlay').classList.remove('open')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="rain-report-body"></div>
+  </div>
 </div>
 
 <!-- ===== KPI LIST MODAL ===== -->
@@ -1152,6 +1185,7 @@ function openModal(id) {
         <div class="big-pct-label">整體施工進度</div>
       </div>
     </div>
+    <div id="modal-weather"></div>
     <div class="wbs-title" style="margin-top:20px">WBS 施工項目</div>
     <table class="wbs-table">
       <thead><tr><th>施工項目</th><th>權重</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
@@ -1165,6 +1199,249 @@ function openModal(id) {
   editBtn.onclick = () => { closeModalDirect(); openSiteForm(s.id); };
 
   document.getElementById('modal-overlay').classList.add('open');
+  renderSiteWeather(s.city);
+}
+
+// ===================== 氣象（中央氣象署 CWA 開放資料）=====================
+const CWA_KEY = 'CWA-9F041E77-61F4-4DDF-A445-56F241146723';
+// 案場縣市 → CWA 縣市名稱
+const CWA_COUNTY = {
+  '台北':'臺北市','臺北':'臺北市','新北':'新北市','基隆':'基隆市','桃園':'桃園市',
+  '新竹':'新竹市','竹北':'新竹縣','苗栗':'苗栗縣','台中':'臺中市','臺中':'臺中市',
+  '彰化':'彰化縣','南投':'南投縣','雲林':'雲林縣','嘉義':'嘉義市','台南':'臺南市','臺南':'臺南市',
+  '高雄':'高雄市','屏東':'屏東縣','宜蘭':'宜蘭縣','花蓮':'花蓮縣','台東':'臺東縣','臺東':'臺東縣',
+  '澎湖':'澎湖縣','金門':'金門縣','連江':'連江縣'
+};
+function cwaCountyName(city) {
+  if (!city) return null;
+  if (CWA_COUNTY[city]) return CWA_COUNTY[city];
+  if (city.endsWith('市') || city.endsWith('縣')) return city.replace('台', '臺');
+  return null;
+}
+
+function wxEmoji(text) {
+  if (!text) return '🌡️';
+  if (text.includes('雷')) return '⛈️';
+  if (text.includes('雨')) return '🌧️';
+  if (text.includes('雪')) return '❄️';
+  if (text.includes('晴') && text.includes('雲')) return '🌤️';
+  if (text.includes('晴')) return '☀️';
+  if (text.includes('多雲')) return '⛅';
+  if (text.includes('陰')) return '☁️';
+  return '☁️';
+}
+
+const _WK = ['日', '一', '二', '三', '四', '五', '六'];
+function wxPeriodLabel(startISO) {
+  const d = new Date(startISO), h = d.getHours();
+  const isDay = h >= 6 && h < 18;
+  return { date: `${d.getMonth() + 1}/${d.getDate()}`, wk: _WK[d.getDay()], isDay };
+}
+
+async function renderSiteWeather(city) {
+  const box = document.getElementById('modal-weather');
+  if (!box) return;
+  const county = cwaCountyName(city);
+  if (!county) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="wbs-title" style="margin-top:20px">未來天氣（${county}）</div><div style="color:var(--muted);font-size:13px;padding:8px 0">載入中…</div>`;
+  try {
+    const data = await fetchCounty3h(county);
+    const periods = buildAMPMPeriods(data);
+    const cards = periods.map(p => {
+      const d = new Date(p.date + 'T00:00:00');
+      const rain = p.pop >= RAIN_THRESHOLD;
+      return `<div class="wx-card${rain ? ' wx-rain' : ''}">
+        <div class="wx-d">${d.getMonth() + 1}/${d.getDate()} 週${_WK[d.getDay()]}</div>
+        <div class="wx-seg">${p.isAM ? '上午' : '下午'}</div>
+        <div class="wx-ico">${wxEmoji(p.weather)}</div>
+        <div class="wx-txt">${p.weather || '—'}</div>
+        <div class="wx-temp">${p.tmin == null ? '-' : p.tmin}–${p.tmax == null ? '-' : p.tmax}°</div>
+        <div class="wx-pop${rain ? ' on' : ''}">🌧 ${p.pop == null ? '-' : p.pop}%</div>
+      </div>`;
+    }).join('');
+    box.innerHTML = `<div class="wbs-title" style="margin-top:20px;display:flex;align-items:center">未來天氣（${county}）<span style="font-weight:400;color:var(--muted);font-size:12px;margin-left:6px">降雨機率 ≥70% 標紅</span><button onclick="openRainReport()" style="margin-left:auto;border:1px solid var(--border);background:#fff;color:var(--text);height:28px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📋 產生晴雨表</button></div><div class="wx-row">${cards}</div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="wbs-title" style="margin-top:20px">未來天氣</div><div style="color:var(--muted);font-size:13px;padding:8px 0">天氣資料載入失敗（${e.message}）</div>`;
+  }
+}
+
+// ===================== 施工晴雨表（每日記錄上午/下午天氣）=====================
+const RAIN_THRESHOLD = 70;  // 降雨機率 ≥ 此值視為無法施工
+const _wx3Cache = {};
+
+function localDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 縣市未來逐 3 小時預報（含每小時溫度），30 分鐘快取，回傳 { slots, temps }
+async function fetchCounty3h(county) {
+  const c = _wx3Cache[county];
+  if (c && Date.now() - c.ts < 30 * 60 * 1000) return c.data;
+  const u = 'https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-089?Authorization=' + CWA_KEY + '&LocationName=' + encodeURIComponent(county);
+  const r = await fetch(u);
+  const j = await r.json();
+  const loc = j.records && j.records.Locations && j.records.Locations[0] && j.records.Locations[0].Location[0];
+  if (!loc) throw new Error('查無資料');
+  const wx = loc.WeatherElement.find(e => e.ElementName === '天氣現象');
+  const pop = loc.WeatherElement.find(e => e.ElementName === '3小時降雨機率');
+  const temp = loc.WeatherElement.find(e => e.ElementName === '溫度');
+  const slots = wx.Time.map((t, i) => ({
+    start: t.StartTime,
+    weather: t.ElementValue[0].Weather,
+    pop: +pop.Time[i].ElementValue[0].ProbabilityOfPrecipitation,
+  }));
+  const temps = (temp ? temp.Time : []).map(t => ({ start: t.StartTime || t.DataTime, temp: +t.ElementValue[0].Temperature }));
+  const data = { slots, temps };
+  _wx3Cache[county] = { ts: Date.now(), data };
+  return data;
+}
+
+// 將逐 3 小時資料整理成每日上午(06-12)/下午(12-18)時段（不含晚上），含溫度區間
+function buildAMPMPeriods(data) {
+  const { slots, temps } = data;
+  const dates = [...new Set(slots.map(s => localDate(new Date(s.start))))].sort();
+  const seg = { am: [6, 12], pm: [12, 18] };
+  const out = [];
+  dates.forEach(ds => {
+    for (const k of ['am', 'pm']) {
+      const [a, b] = seg[k];
+      let mp = null, w = null;
+      slots.forEach(s => {
+        const d = new Date(s.start);
+        if (localDate(d) === ds && d.getHours() >= a && d.getHours() < b) {
+          if (mp === null || s.pop > mp) { mp = s.pop; w = s.weather; }
+        }
+      });
+      if (mp === null && !w) continue;  // 該時段已過或無資料
+      const ts = temps.filter(t => {
+        const d = new Date(t.start);
+        return localDate(d) === ds && d.getHours() >= a && d.getHours() < b;
+      }).map(t => t.temp);
+      out.push({ date: ds, isAM: k === 'am', weather: w, pop: mp, tmin: ts.length ? Math.min(...ts) : null, tmax: ts.length ? Math.max(...ts) : null });
+    }
+  });
+  return out;
+}
+
+// 從逐 3 小時 slots 擷取某日上午(06-12)、下午(12-18)：取該時段最大降雨機率
+function extractAMPM(slots, dateStr) {
+  const seg = { am: [6, 12], pm: [12, 18] };
+  const out = {};
+  for (const k in seg) {
+    const [a, b] = seg[k];
+    let mp = null, w = null;
+    slots.forEach(s => {
+      const d = new Date(s.start);
+      if (localDate(d) === dateStr && d.getHours() >= a && d.getHours() < b) {
+        if (mp === null || s.pop > mp) { mp = s.pop; w = s.weather; }
+      }
+    });
+    out[k] = { weather: w, pop: mp };
+  }
+  return out;
+}
+
+// 確保未來數日（含今日）的晴雨表已記錄；已存在的日期不覆蓋（首見即定）
+async function ensureWeatherLog() {
+  if (!sb) return;
+  const counties = [...new Set(sites.map(s => cwaCountyName(s.city)).filter(Boolean))];
+  if (!counties.length) return;
+  const dates = [0, 1, 2, 3].map(n => localDate(new Date(Date.now() + n * 864e5)));
+  const { data: existing, error } = await sb.from('weather_log').select('log_date,county').in('county', counties).in('log_date', dates);
+  if (error) { console.warn('weather_log 讀取失敗（資料表可能尚未建立）', error.message); return; }
+  const have = new Set((existing || []).map(r => r.log_date + '|' + r.county));
+  const rows = [];
+  for (const county of counties) {
+    let slots;
+    try { slots = (await fetchCounty3h(county)).slots; } catch (e) { continue; }
+    for (const ds of dates) {
+      if (have.has(ds + '|' + county)) continue;
+      const ap = extractAMPM(slots, ds);
+      if (ap.am.pop === null && ap.pm.pop === null) continue;  // 無資料則略過
+      rows.push({ log_date: ds, county, am_weather: ap.am.weather, am_pop: ap.am.pop, pm_weather: ap.pm.weather, pm_pop: ap.pm.pop });
+    }
+  }
+  if (rows.length) await sb.from('weather_log').upsert(rows, { onConflict: 'log_date,county', ignoreDuplicates: true });
+}
+
+function rainCell(weather, pop) {
+  if (pop === null || pop === undefined || pop === '') return '<span style="color:#cbd5e1">—</span>';
+  const rain = +pop >= RAIN_THRESHOLD;
+  return `<span style="${rain ? 'color:#dc2626;font-weight:700' : ''}">${wxEmoji(weather)} ${weather || ''} ${pop}%</span>`;
+}
+
+function buildRainReportHTML(logs) {
+  const byCounty = {};
+  logs.forEach(r => { (byCounty[r.county] = byCounty[r.county] || {})[r.log_date] = r; });
+
+  const sumRows = [...sites].map(s => {
+    const county = cwaCountyName(s.city);
+    const m = county ? byCounty[county] : null;
+    let rec = 0, stop = 0;
+    if (m) Object.values(m).forEach(r => { rec++; if (r.am_pop >= RAIN_THRESHOLD || r.pm_pop >= RAIN_THRESHOLD) stop++; });
+    return { name: s.name, county: county || '—', rec, stop };
+  }).sort((a, b) => b.stop - a.stop);
+
+  const sumTable = `<table class="wbs-table"><thead><tr>
+      <th style="text-align:left">案場</th><th>縣市</th><th>記錄天數</th><th>停工天數</th><th>停工率</th>
+    </tr></thead><tbody>${
+    sumRows.map(r => `<tr>
+      <td style="text-align:left">${r.name}</td>
+      <td style="text-align:center">${r.county}</td>
+      <td style="text-align:center">${r.rec}</td>
+      <td style="text-align:center;color:${r.stop ? '#dc2626' : 'inherit'};font-weight:${r.stop ? 700 : 400}">${r.stop}</td>
+      <td style="text-align:center">${r.rec ? Math.round(r.stop / r.rec * 100) : 0}%</td>
+    </tr>`).join('')
+  }</tbody></table>`;
+
+  const detail = [...sites].map(s => {
+    const county = cwaCountyName(s.city);
+    const m = county ? (byCounty[county] || {}) : {};
+    const dates = Object.keys(m).sort();
+    const head = `<div class="wbs-title">${s.name}<span style="font-weight:400;color:var(--muted);font-size:12px;margin-left:6px">${county || '無對應縣市'}</span></div>`;
+    if (!dates.length) return `<div style="margin-top:18px">${head}<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div></div>`;
+    const rows = dates.map(d => `<tr><td>${d}</td><td>${rainCell(m[d].am_weather, m[d].am_pop)}</td><td>${rainCell(m[d].pm_weather, m[d].pm_pop)}</td></tr>`).join('');
+    return `<div style="margin-top:18px">${head}
+      <table class="wbs-table"><thead><tr><th>日期</th><th>上午</th><th>下午</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('');
+
+  const note = `<div style="font-size:12px;color:var(--muted);margin-bottom:12px">判定標準：上午或下午任一時段降雨機率 ≥ ${RAIN_THRESHOLD}% 即計為「無法施工」一天。</div>`;
+  return note + `<div class="wbs-title">各案場停工統計</div>` + sumTable + detail;
+}
+
+async function openRainReport() {
+  const overlay = document.getElementById('rain-report-overlay');
+  const body = document.getElementById('rain-report-body');
+  overlay.classList.add('open');
+  body.innerHTML = '<div style="color:var(--muted);padding:20px">載入中…</div>';
+  if (!sb) { body.innerHTML = '<div style="padding:20px">需連接雲端才能使用此功能。</div>'; return; }
+  try { await ensureWeatherLog(); } catch (e) { /* 記錄失敗不阻擋報表顯示 */ }
+  const { data, error } = await sb.from('weather_log').select('*').order('log_date');
+  if (error) {
+    body.innerHTML = `<div style="padding:20px;color:var(--danger)">讀取失敗：${error.message}<br><span style="color:var(--muted);font-size:13px">請先在 Supabase 建立 weather_log 資料表（見 supabase-setup.sql）。</span></div>`;
+    return;
+  }
+  body.innerHTML = buildRainReportHTML(data || []);
+}
+
+function printRainReport() {
+  const inner = document.getElementById('rain-report-body').innerHTML;
+  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>施工晴雨表</title>
+    <style>
+      body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:20px;color:#0f172a}
+      h1{font-size:18px;color:#047857;border-bottom:3px solid #059669;padding-bottom:8px}
+      table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:12px}
+      th,td{border:1px solid #cbd5e1;padding:5px 8px;text-align:center}
+      th{background:#059669;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .wbs-title{font-weight:700;margin:14px 0 6px}
+    </style></head><body>
+    <h1>施工晴雨表　產生日期：${localDate(new Date())}</h1>${inner}</body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('請允許彈出視窗以列印／儲存 PDF'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300);
 }
 
 function closeModal(e) {
@@ -1832,6 +2109,7 @@ async function initApp() {
     await loadFromCloud(); // 失敗時自動沿用內建資料
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  ensureWeatherLog(); // 背景記錄各案場今日及未來數日晴雨表（不阻擋畫面）
 }
 initApp();
 </script>
