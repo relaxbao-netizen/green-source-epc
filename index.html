@@ -401,6 +401,36 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .region-kpi-row { grid-template-columns: repeat(2,1fr); }
   .owner-grid { grid-template-columns: repeat(2,1fr); }
 }
+
+/* 手機（直式）優化 */
+@media(max-width:600px) {
+  /* 導覽列：可橫向捲動、字體與間距縮小、隱藏時鐘 */
+  nav { padding: 0 12px; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  nav::-webkit-scrollbar { display: none; }
+  .logo { font-size: 15px; margin-right: 4px; padding: 6px 6px; }
+  .nav-btn { padding: 8px 9px; font-size: 12px; }
+  .nav-right { gap: 6px; }
+  .clock { display: none; }
+
+  .page { padding: 14px; }
+  .section-title { font-size: 12px; }
+
+  /* KPI：手機 2 欄、字級縮小、移除裝飾圖示 */
+  .kpi-row { grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 16px; }
+  .kpi-card { padding: 14px; border-radius: 12px; }
+  .kpi-value { font-size: 24px; }
+  .kpi-icon { display: none; }
+
+  /* 地區 / 業主卡片：各佔一行，大數字縮小避免溢出 */
+  .region-kpi-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .region-kpi-card > div:last-child { font-size: 18px !important; }
+  .owner-grid { grid-template-columns: 1fr; }
+
+  /* 案場詳情：欄位改為單欄、縮減內距 */
+  .modal-grid { grid-template-columns: 1fr; gap: 12px; }
+  .modal-body { padding: 16px; }
+  .modal-header { padding: 14px 16px; }
+}
 </style>
 </head>
 <body>
