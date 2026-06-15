@@ -193,7 +193,8 @@ nav {
   font-size: 26px; font-weight: 800; margin: 0 auto 14px;
 }
 .ac-name { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
-.ac-phone { font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ac-phone { font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: background .15s; }
+a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .ac-phone svg { flex-shrink: 0; }
 
 /* HR SIDE LIST */
@@ -1194,7 +1195,7 @@ function openKpiList(type) {
     : sites.filter(s => s.status === type);
   const sorted = type === 'pv-cap'     ? [...filtered].sort((a,b) => b.mw - a.mw)
     : type === 'storage-cap'           ? [...filtered].sort((a,b) => b.mwh - a.mwh)
-    : [...filtered].sort((a,b) => b.pct - a.pct);
+    : [...filtered].sort(bySchedule);
   document.getElementById('kpi-list-title').textContent = `${titleMap[type]}（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
@@ -1202,7 +1203,7 @@ function openKpiList(type) {
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
         ${type === 'pv-cap' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}kW</span>` : ''}
-        ${type === 'storage-cap' ? `<span style="font-size:13px;font-weight:700;color:#0891b2">${s.mw}kW / ${s.mwh}kWh</span>` : ''}
+        ${type === 'storage-cap' ? `<span style="font-size:13px;font-weight:700;color:#0891b2">${s.skw||0}kW / ${s.mwh}kWh</span>` : ''}
       </div>
       <div class="kli-meta">${s.owner}<span>${s.pm}</span>${(type==='pv-cap'||type==='storage-cap') ? (s.end ? '<span>預計完工日 '+s.end+'</span>' : '') : '<span>'+siteCapStr(s)+'</span>'+(s.end?'<span>預計完工日 '+s.end+'</span>':'')}</div>
       <div class="kli-bar-row">
@@ -1222,12 +1223,18 @@ function closeKpiListDirect() {
   document.getElementById('kpi-list-overlay').classList.remove('open');
 }
 
+// 清單排序：開工日（早→晚）→ 完工日（早→晚）→ 進度（高→低）；無日期者排最後
+function bySchedule(a, b) {
+  const d = v => { const t = Date.parse((v || '').replace(/\//g, '-')); return isNaN(t) ? Infinity : t; };
+  return d(a.start) - d(b.start) || d(a.end) - d(b.end) || b.pct - a.pct;
+}
+
 // ===================== PM MODAL =====================
 function openPmModal(name) {
   const sv = supervisors.find(s => s.name === name);
   if (!sv) return;
   const pmSites = sites.filter(s => s.pm === sv.name);
-  const sorted = [...pmSites].sort((a,b) => b.pct - a.pct);
+  const sorted = [...pmSites].sort(bySchedule);
   document.getElementById('kpi-list-title').textContent = `${name} 負責案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
@@ -1249,7 +1256,7 @@ function openPmModal(name) {
 // ===================== OWNER MODAL =====================
 function openOwnerModal(owner) {
   const filtered = sites.filter(s => s.owner === owner);
-  const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
+  const sorted = [...filtered].sort(bySchedule);
   const totalKw  = +filtered.reduce((s,x) => s + (x.mw  || 0), 0).toFixed(2);
   const totalKwh = +filtered.reduce((s,x) => s + (x.mwh || 0), 0).toFixed(2);
   document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalKw} kW / ${totalKwh} kWh）`;
@@ -1274,7 +1281,7 @@ function openOwnerModal(owner) {
 // ===================== REGION MODAL =====================
 function openRegionModal(region, label) {
   const filtered = sites.filter(s => s.region === region);
-  const sorted = [...filtered].sort((a,b) => b.pct - a.pct);
+  const sorted = [...filtered].sort(bySchedule);
   document.getElementById('kpi-list-title').textContent = `${label}案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
@@ -1308,12 +1315,12 @@ function showAvatarCard(name, e) {
     <button class="ac-close" onclick="closeAvatarCard()">✕</button>
     <div class="ac-avatar" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
     <div class="ac-name">${sv.name}</div>
-    <div class="ac-phone">
+    ${sv.phone ? `<a class="ac-phone" href="tel:${sv.phone.replace(/[^\d+]/g, '')}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.04 1.16 2 2 0 012 .01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z"/>
       </svg>
       ${sv.phone}
-    </div>
+    </a>` : ''}
     ${currentUser ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
       <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupervisorForm('${sv.name}')">✏️ 編輯</button>
       <button class="btn-danger" style="padding:5px 14px;font-size:12px" onclick="deleteSupervisor('${sv.name}')">刪除</button>
@@ -1337,7 +1344,32 @@ const sb = (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase)
   : null;
 
 // 全部重繪（資料更新後呼叫）
+// 依工期推算「今日應達進度」(0~100)；缺開工/完工日則回傳 null
+function expectedPct(s) {
+  if (!s.start || !s.end) return null;
+  const start = new Date(s.start.replace(/\//g, '-'));
+  const end   = new Date(s.end.replace(/\//g, '-'));
+  if (isNaN(start) || isNaN(end) || end <= start) return null;
+  const now = Date.now();
+  if (now <= start) return 0;
+  if (now >= end)   return 100;
+  return (now - start) / (end - start) * 100;
+}
+
+// 自動判定狀態：依「應達進度 − 實際進度」的落差決定
+//   落差 ≤ 5%：正常／5%~15%：即將落後／> 15%：落後；進度滿 100% 為完工
+function computeStatus(s) {
+  if (s.pct >= 100) return 'done';
+  const exp = expectedPct(s);
+  if (exp === null) return s.status === 'done' ? 'normal' : (s.status || 'normal');
+  const gap = exp - s.pct;
+  if (gap > 15) return 'danger';
+  if (gap > 5)  return 'warn';
+  return 'normal';
+}
+
 function rerenderAll() {
+  sites.forEach(s => { s.status = computeStatus(s); });
   renderKPIs();
   renderHome();
   renderTaiwanMap();
