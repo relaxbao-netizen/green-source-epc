@@ -699,6 +699,17 @@ function activeSitesOf(sv) {
   return sitesOfPm(sv.name).filter(i => { const s = siteById(i); return s && s.status !== 'done'; });
 }
 
+// 入職順序（越前面越資深），排序時作為案量相同的次要依據
+const HIRE_ORDER = ['吳鎮寶', '林則瑜', '蕭名湶', '陳其民', '蕭宏明', '吳修原', '許俊雄'];
+function hireIndex(name) {
+  const i = HIRE_ORDER.findIndex(h => (name || '').startsWith(h));
+  return i < 0 ? 999 : i;
+}
+// 工地主任排序：案量（多→少）→ 入職順序（資深優先）
+function byWorkload(a, b) {
+  return activeSitesOf(b).length - activeSitesOf(a).length || hireIndex(a.name) - hireIndex(b.name);
+}
+
 const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
 const statusClass = { normal:'s-normal', warn:'s-warn', danger:'s-danger', done:'s-done' };
 
@@ -779,8 +790,10 @@ function ringChart(pct, color) {
 
 // ===================== CLOCK =====================
 function updateClock() {
+  const el = document.getElementById('clock');
+  if (!el) return;
   const now = new Date();
-  document.getElementById('clock').textContent =
+  el.textContent =
     now.getFullYear() + '/' +
     String(now.getMonth()+1).padStart(2,'0') + '/' +
     String(now.getDate()).padStart(2,'0') + ' ' +
@@ -832,7 +845,7 @@ function renderHome() {
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
-  hrEl.innerHTML = [...supervisors].sort((a,b) => activeSitesOf(b).length - activeSitesOf(a).length).map(sv => {
+  hrEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
     const n = activeSitesOf(sv).length;
     const pct = Math.round((n / 3) * 100);
     const overload = n > 3;
@@ -927,7 +940,7 @@ function renderHR() {
 
   // Full list
   const listEl = document.getElementById('hr-list');
-  listEl.innerHTML = [...supervisors].sort((a,b) => activeSitesOf(b).length - activeSitesOf(a).length).map(sv => {
+  listEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
     const active = activeSitesOf(sv);
     const n = active.length;
     const overload = n > maxLoad;
@@ -955,7 +968,7 @@ function renderHR() {
 
   // Detail cards
   const detailEl = document.getElementById('hr-detail-grid');
-  detailEl.innerHTML = [...supervisors].sort((a,b) => activeSitesOf(b).length - activeSitesOf(a).length).map(sv => {
+  detailEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
     const overload = activeSitesOf(sv).length > maxLoad;
     const siteRows = activeSitesOf(sv).map(idx => {
       const s = siteById(idx);
