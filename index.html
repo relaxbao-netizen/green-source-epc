@@ -191,10 +191,20 @@ nav > * { flex-shrink: 0; }
 }
 .ac-close:hover { background: #e2e8f0; }
 .ac-avatar {
-  width: 64px; height: 64px; border-radius: 50%;
+  width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   font-size: 26px; font-weight: 800; margin: 0 auto 14px;
 }
+/* 主任大頭貼圖片：填滿圓形框 */
+.av-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+/* 表單內的大頭貼上傳預覽 */
+.sv-avatar-preview {
+  width: 76px; height: 76px; border-radius: 50%; margin: 0 auto;
+  background: #f1f5f9 center/cover no-repeat; border: 2px dashed #cbd5e1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #94a3b8; cursor: pointer; overflow: hidden;
+}
+.sv-avatar-preview.has-img { border-style: solid; border-color: #cbd5e1; }
 .ac-name { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
 .ac-phone { font-size: 14px; color: var(--text2); display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: background .15s; }
 a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
@@ -207,7 +217,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 }
 .hr-row-sm:last-child { border-bottom: none; }
 .hr-avatar-sm {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; flex-shrink: 0;
 }
@@ -245,7 +255,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 }
 .hr-full-row:last-child { border-bottom: none; }
 .hr-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 700; flex-shrink: 0;
 }
@@ -603,6 +613,14 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <button class="modal-close" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">✕</button>
     </div>
     <div style="padding:16px 20px">
+      <div style="text-align:center;margin-bottom:14px">
+        <div id="sv-avatar-preview" class="sv-avatar-preview" onclick="document.getElementById('sv-avatar-file').click()">＋</div>
+        <input type="file" id="sv-avatar-file" accept="image/*" style="display:none" onchange="onAvatarPicked(event)">
+        <div style="margin-top:6px;font-size:12px;color:var(--muted)">
+          <span style="cursor:pointer" onclick="document.getElementById('sv-avatar-file').click()">點擊上傳大頭貼</span>
+          <span id="sv-avatar-clear" style="display:none;cursor:pointer;color:var(--danger);margin-left:8px" onclick="clearAvatar()">移除</span>
+        </div>
+      </div>
       <div class="form-field"><label>姓名 *</label><input type="text" id="sv-name" placeholder="例：蕭宏明 Mark"></div>
       <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
       <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
@@ -725,6 +743,11 @@ function siteById(id) { return sites.find(s => s.id === id); }
 // 主任負責的案場直接由案場的工地主任欄位推算（編輯案場即自動更新負荷）
 function sitesOfPm(name) {
   return sites.filter(s => s.pm === name).map(s => s.id);
+}
+
+// 主任頭像內容：有大頭貼顯示圖片，否則顯示姓名首字
+function avatarInner(sv) {
+  return sv && sv.avatar ? `<img class="av-img" src="${sv.avatar}" alt="">` : (sv ? sv.name[0] : '');
 }
 
 // 工作負荷只計算未完工案場
@@ -885,7 +908,7 @@ function renderHome() {
     const barColor = overload ? '#ef4444' : n >= 3 ? '#d97706' : '#16a34a';
     return `
     <div class="hr-row-sm" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
-      <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
+      <div class="hr-avatar-sm" style="background:${sv.color}22;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${avatarInner(sv)}</div>
       <span class="hr-name-sm">${sv.name}${overload ? ' <span class="overload-badge">超載</span>' : ''}</span>
       <div class="load-bar-wrap">
         <div class="load-bar">
@@ -982,7 +1005,7 @@ function renderHR() {
     const siteNames = active.map(i => siteById(i).name).join('、');
     return `
     <div class="hr-full-row${overload ? ' overloaded' : ''}" onclick="openPmModal('${sv.name}')" style="cursor:pointer">
-      <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
+      <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${avatarInner(sv)}</div>
       <div class="hr-info">
         <div class="hr-name">
           ${sv.name}
@@ -1020,7 +1043,7 @@ function renderHR() {
     return `
     <div class="hr-detail-card${overload ? ' overloaded' : ''}">
       <div class="hd-header">
-        <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name[0]}</div>
+        <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};width:36px;height:36px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${avatarInner(sv)}</div>
         <span class="hd-name">${sv.name}</span>
         ${overload ? '<span class="hd-overload">超載</span>' : ''}
       </div>
@@ -1360,7 +1383,7 @@ function showAvatarCard(name, e) {
   const card = document.getElementById('avatar-card');
   card.innerHTML = `
     <button class="ac-close" onclick="closeAvatarCard()">✕</button>
-    <div class="ac-avatar" style="background:${sv.color}22;color:${sv.color}">${sv.name[0]}</div>
+    <div class="ac-avatar" style="background:${sv.color}22;color:${sv.color}">${avatarInner(sv)}</div>
     <div class="ac-name">${sv.name}</div>
     ${sv.phone ? `<a class="ac-phone" href="tel:${sv.phone.replace(/[^\d+]/g, '')}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1454,7 +1477,7 @@ async function loadFromCloud() {
     if (siteRes.error) throw siteRes.error;
     if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
     if (!svRes.error && svRes.data && svRes.data.length) {
-      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [] }));
+      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [], avatar: r.avatar || '' }));
     }
     return true;
   } catch (e) {
@@ -1505,12 +1528,61 @@ const supervisorPalette = ['#3b82f6','#f59e0b','#a855f7','#14b8a6','#10b981','#8
 
 let editingSupervisorName = null; // null = 新增模式
 
+// 暫存表單中的大頭貼（base64 data URL）
+let editingAvatarData = '';
+
+// 將選取的圖片裁成正方形、縮到 256px、壓成 JPEG 的 data URL
+function resizeImageToDataURL(file, max, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+      const c = document.createElement('canvas');
+      c.width = c.height = max;
+      c.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, max, max);
+      cb(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function onAvatarPicked(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { alert('請選擇圖片檔'); return; }
+  resizeImageToDataURL(f, 256, url => { editingAvatarData = url; updateAvatarPreview(); });
+  e.target.value = '';  // 允許重新選同一張
+}
+
+function clearAvatar() { editingAvatarData = ''; updateAvatarPreview(); }
+
+function updateAvatarPreview() {
+  const p = document.getElementById('sv-avatar-preview');
+  const clr = document.getElementById('sv-avatar-clear');
+  if (editingAvatarData) {
+    p.style.backgroundImage = `url(${editingAvatarData})`;
+    p.textContent = '';
+    p.classList.add('has-img');
+    clr.style.display = 'inline';
+  } else {
+    p.style.backgroundImage = 'none';
+    p.textContent = '＋';
+    p.classList.remove('has-img');
+    clr.style.display = 'none';
+  }
+}
+
 function openSupervisorForm(name) {
   editingSupervisorName = name || null;
   const sv = name ? supervisors.find(v => v.name === name) : null;
   document.getElementById('supervisor-form-title').textContent = sv ? '✏️ 編輯工地主任' : '＋ 新增工地主任';
   document.getElementById('sv-name').value = sv ? sv.name : '';
   document.getElementById('sv-phone').value = sv ? sv.phone : '';
+  editingAvatarData = sv ? (sv.avatar || '') : '';
+  updateAvatarPreview();
   document.getElementById('supervisor-form-error').style.display = 'none';
   document.getElementById('supervisor-form-overlay').classList.add('open');
 }
@@ -1532,10 +1604,10 @@ async function saveSupervisorForm() {
   }
   let q;
   if (editingSupervisorName) {
-    q = sb.from('supervisors').update({ name, phone }).eq('name', editingSupervisorName);
+    q = sb.from('supervisors').update({ name, phone, avatar: editingAvatarData }).eq('name', editingSupervisorName);
   } else {
     const color = supervisorPalette[supervisors.length % supervisorPalette.length];
-    q = sb.from('supervisors').insert({ name, phone, color, sites: [] });
+    q = sb.from('supervisors').insert({ name, phone, color, sites: [], avatar: editingAvatarData });
   }
   const { error } = await q;
   if (error) {

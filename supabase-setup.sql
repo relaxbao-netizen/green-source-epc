@@ -34,8 +34,12 @@ create table if not exists public.supervisors (
   name   text not null unique,
   color  text default '#3b82f6',
   phone  text default '',
-  sites  bigint[] default '{}'          -- 負責的案場 id 清單
+  sites  bigint[] default '{}',         -- 負責的案場 id 清單
+  avatar text default ''                -- 大頭貼（壓縮後的 base64 data URL）
 );
+
+-- 既有資料庫升級：補上 avatar 欄位（已存在則略過）
+alter table public.supervisors add column if not exists avatar text default '';
 
 -- 啟用 Row Level Security
 alter table public.sites enable row level security;
