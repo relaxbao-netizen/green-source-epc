@@ -1256,6 +1256,12 @@ function openSupCalendar(name) {
 // ---- 月行程表（依公司「工程人員日行程表」格式：人 × 日 網格）----
 let dispMonth = null;  // 'YYYY-MM'
 const _WKD = ['日', '一', '二', '三', '四', '五', '六'];
+// 行程表的主任顯示順序
+const DISPATCH_ORDER = ['吳鎮寶', '林則瑜', '蕭名湶', '蕭宏明', '陳其民', '吳修原', '許俊雄'];
+function dispatchRank(name) {
+  const i = DISPATCH_ORDER.findIndex(h => (name || '').startsWith(h));
+  return i < 0 ? 999 : i;
+}
 
 function openDispatchReport() {
   document.getElementById('disp-modal-title').textContent = '📅 工程人員日行程表';
@@ -1298,7 +1304,8 @@ function renderDispatchReport() {
     th.push(`<th>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
   }
   const mm = String(mo).padStart(2, '0');
-  const rows = supervisors.map((v, i) => {
+  const ordered = [...supervisors].sort((a, b) => dispatchRank(a.name) - dispatchRank(b.name));
+  const rows = ordered.map((v, i) => {
     const cells = [`<td>${i + 1}</td>`, `<td class="nm">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
@@ -1817,11 +1824,11 @@ function printRainReport() {
       body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:0;color:#0f172a}
       h1{font-size:16px;color:#047857;border-bottom:3px solid #059669;padding-bottom:6px}
       div{overflow:visible !important}
-      table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:9px;table-layout:fixed}
-      th,td{border:1px solid #cbd5e1;padding:2px 1px;text-align:center;overflow:hidden}
-      th:first-child,td:first-child{width:34px}
-      th{background:#059669;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .wbs-title{font-weight:700;margin:12px 0 4px;font-size:12px}
+      table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:16px;table-layout:fixed}
+      th,td{border:1px solid #cbd5e1;padding:3px 1px;text-align:center;overflow:hidden;height:24px}
+      th{background:#059669;color:#fff;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      th:first-child,td:first-child{width:46px;white-space:nowrap;font-size:10px;overflow:visible}
+      .wbs-title{font-weight:700;margin:12px 0 4px;font-size:13px}
       tr{page-break-inside:avoid}
     </style></head><body>
     <h1>施工晴雨表　產生日期：${localDate(new Date())}</h1>${inner}</body></html>`;
