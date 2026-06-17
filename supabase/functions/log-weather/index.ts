@@ -113,8 +113,8 @@ Deno.serve(async () => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // 取所有案場，以「行政區或縣市」(label) 為單位，各挑一個代表
-  const { data: siteRows, error: siteErr } = await supabase.from("sites").select("city, addr");
+  // 取施工中案場（完工不再記錄），以「行政區或縣市」(label) 為單位，各挑一個代表
+  const { data: siteRows, error: siteErr } = await supabase.from("sites").select("city, addr, status").neq("status", "done");
   if (siteErr) return new Response(JSON.stringify({ error: siteErr.message }), { status: 500 });
   const locMap: Record<string, ReturnType<typeof siteLoc>> = {};
   for (const r of (siteRows || [])) {
