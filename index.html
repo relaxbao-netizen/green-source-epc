@@ -408,13 +408,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .sched-grid td, .sched-grid th { width: auto; min-width: 52px; height: auto; padding: 3px 5px; font-size: 11px; line-height: 1.25; }
 .sched-grid th.nm, .sched-grid td.nm { position: sticky; left: 0; background: #fff; text-align: left; white-space: nowrap; min-width: 84px; font-weight: 700; z-index: 2; }
 .sched-grid thead th.nm { background: #f1f5f9; }
-.sched-grid td.disp-cell { min-width: 64px; cursor: pointer; vertical-align: top; }
-.sched-grid td.disp-cell:hover { background: #f8fafc; }
-.disp-cell .disp-add { display: none; color: #cbd5e1; font-weight: 700; }
-.disp-cell:hover .disp-add { display: inline; }
-.disp-chip { display: inline-flex; align-items: center; gap: 3px; }
-.disp-chip i { font-style: normal; color: #cbd5e1; cursor: pointer; font-size: 10px; }
-.disp-chip i:hover { color: #dc2626; }
+.sched-grid td.disp-cell { min-width: 64px; height: 30px; cursor: pointer; vertical-align: middle; }
+.sched-grid td.disp-cell:hover { background: #eff6ff; }
+.disp-cell .disp-add { color: #cbd5e1; font-weight: 700; }
+.disp-cell:hover .disp-add { color: #60a5fa; }
 
 /* KPI LIST MODAL */
 .kpi-list-box {
@@ -628,6 +625,17 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       </div>
     </div>
     <div class="modal-body" id="disp-modal-body"></div>
+  </div>
+</div>
+
+<!-- ===== 行程表格子編輯小視窗 ===== -->
+<div class="modal-overlay" id="disp-edit-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:340px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="disp-edit-title">登記</div>
+      <button class="modal-close" onclick="document.getElementById('disp-edit-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px" id="disp-edit-body"></div>
   </div>
 </div>
 
@@ -1298,22 +1306,22 @@ function renderDispatchReport() {
     if (ry === y && rm === mo) ((idx[r.supervisor] = idx[r.supervisor] || {})[rd] = idx[r.supervisor][rd] || []).push(r);
   });
 
-  const th = ['<th>編號</th>', '<th class="nm">姓名</th>'];
+  const th = ['<th class="nm">姓名</th>'];
   for (let d = 1; d <= days; d++) {
     const wd = _WKD[new Date(y, mo - 1, d).getDay()];
     th.push(`<th>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
   }
   const mm = String(mo).padStart(2, '0');
   const ordered = [...supervisors].sort((a, b) => dispatchRank(a.name) - dispatchRank(b.name));
-  const rows = ordered.map((v, i) => {
-    const cells = [`<td>${i + 1}</td>`, `<td class="nm">${v.name}</td>`];
+  const rows = ordered.map((v) => {
+    const cells = [`<td class="nm">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
       const list = (idx[v.name] && idx[v.name][d]) || [];
       const chips = list.map(r =>
-        `<span class="disp-chip" style="color:${isSupport(r) ? '#d97706' : 'inherit'}">${recLabel(r)}<i onclick="event.stopPropagation();dispDelete(${r.id})">✕</i></span>`
-      ).join('');
-      cells.push(`<td class="disp-cell" onclick="dispCellEdit(this,'${v.name}','${ds}')">${chips}<span class="disp-add">＋</span></td>`);
+        `<span style="color:${isSupport(r) ? '#d97706' : 'inherit'}">${recLabel(r)}</span>`
+      ).join('<br>');
+      cells.push(`<td class="disp-cell" onclick="openCellEditor('${v.name}','${ds}')">${chips || '<span class="disp-add">＋</span>'}</td>`);
     }
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
@@ -1321,22 +1329,40 @@ function renderDispatchReport() {
   body.innerHTML = controls +
     `<div style="font-weight:800;font-size:16px;text-align:center;margin:6px 0">${y}年${mo}月份工程人員日行程表</div>
      <div style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>
-     <div style="font-size:12px;color:var(--muted);margin-top:6px">點格子可新增；橙色＝支援（非本人負責案場）。</div>`;
+     <div style="font-size:12px;color:var(--muted);margin-top:6px">點任一格子即可登記／修改；橙色＝支援（非本人負責案場）。</div>`;
 }
 
-// 點格子新增一筆：在該格插入下拉，選完即存
-function dispCellEdit(td, name, ds) {
-  if (td.querySelector('select')) return;
-  const siteOpts = [...sites].map(s => `<option value="s:${s.id}">${s.label || s.name}</option>`).join('');
+// 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
+let _editCell = { name: null, ds: null };
+function openCellEditor(name, ds) {
+  _editCell = { name, ds };
+  const d = new Date(ds + 'T00:00:00');
+  document.getElementById('disp-edit-title').textContent = `${name}　${ds.slice(5).replace('-', '/')}（${_WKD[d.getDay()]}）`;
+  renderCellEditor();
+  document.getElementById('disp-edit-overlay').classList.add('open');
+}
+
+function renderCellEditor() {
+  const { name, ds } = _editCell;
+  const recs = supLogs.filter(r => r.supervisor === name && r.log_date === ds);
+  const chips = recs.length ? recs.map(r =>
+    `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#fef3c7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#d97706">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
+  ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div>';
+  const siteOpts = [...sites].map(s => `<option value="s:${s.id}">${s.name}</option>`).join('');
   const specOpts = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
-  const sel = document.createElement('select');
-  sel.innerHTML = `<option value="">—</option><optgroup label="案場">${siteOpts}</optgroup><optgroup label="其他">${specOpts}</optgroup>`;
-  sel.style.cssText = 'width:100%;min-width:120px;font-size:11px;margin-top:2px';
-  sel.onclick = e => e.stopPropagation();
-  sel.onchange = () => { if (sel.value) dispAdd(name, ds, sel.value); else sel.remove(); };
-  sel.onblur = () => { if (sel.parentNode) sel.remove(); };
-  td.appendChild(sel);
-  sel.focus();
+  document.getElementById('disp-edit-body').innerHTML =
+    `<div style="margin-bottom:14px">${chips}</div>
+     <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option><optgroup label="案場">${siteOpts}</optgroup><optgroup label="其他">${specOpts}</optgroup></select>`;
+  document.getElementById('disp-edit-sel').onchange = function () { if (this.value) dispAddEditor(this.value); };
+}
+
+async function dispAddEditor(val) {
+  await dispAdd(_editCell.name, _editCell.ds, val);
+  renderCellEditor();
+}
+async function dispDeleteEditor(id) {
+  await dispDelete(id);
+  renderCellEditor();
 }
 
 async function dispAdd(name, ds, val) {
