@@ -406,7 +406,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 /* 月行程表（人 × 日）：欄位較寬、姓名欄黏左 */
 .sched-grid td, .sched-grid th { width: auto; min-width: 52px; height: auto; padding: 3px 5px; font-size: 11px; line-height: 1.25; }
-.sched-grid th.nm, .sched-grid td.nm { position: sticky; left: 0; background: #fff; text-align: left; white-space: nowrap; min-width: 84px; font-weight: 700; z-index: 2; }
+.sched-grid th.nm, .sched-grid td.nm { position: sticky; left: 0; background: #fff; text-align: center; white-space: nowrap; min-width: 84px; font-weight: 700; z-index: 2; }
 .sched-grid thead th.nm { background: #f1f5f9; }
 .sched-grid td.disp-cell { min-width: 64px; height: 30px; cursor: pointer; vertical-align: middle; }
 .sched-grid td.disp-cell:hover { background: #eff6ff; }
@@ -1136,14 +1136,75 @@ function renderHR() {
 // ===================== 工地主任每日派工／支援記錄 =====================
 function todayStr() { return localDate(new Date()); }
 
+// Supabase 單次回傳上限 1000 筆，分頁抓滿全部記錄
+async function fetchAllSupLogs() {
+  const pageSize = 1000;
+  let from = 0, all = [];
+  while (true) {
+    const { data, error } = await sb.from('supervisor_log').select('*').order('log_date').range(from, from + pageSize - 1);
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
 async function reloadSupLogs() {
   if (!sb) return;
-  const { data, error } = await sb.from('supervisor_log').select('*').order('log_date');
-  if (!error) supLogs = data || [];
+  try { supLogs = await fetchAllSupLogs(); } catch (e) { /* keep previous */ }
 }
 
 // 非案場的可選項目
 const SPECIAL_PLACES = ['公司', '南部辦公室', '週休', '休假', '國定假日', '颱風假'];
+
+// 派工下拉的分組選項：案場（進行中）→ 其他 → 已完工案場
+function dispatchOptGroups() {
+  const opt = s => `<option value="s:${s.id}">${s.name}</option>`;
+  const active = sites.filter(s => s.status !== 'done').map(opt).join('');
+  const done = sites.filter(s => s.status === 'done').map(opt).join('');
+  const spec = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
+  return `<optgroup label="案場">${active}</optgroup>`
+    + `<optgroup label="其他">${spec}</optgroup>`
+    + (done ? `<optgroup label="已完工案場">${done}</optgroup>` : '');
+}
+
+// 國定假日表：行政院人事行政總處 中華民國115年(2026)辦公日曆表，已全面取消補班
+const HOLIDAY_RANGES_2026 = [
+  ['2026-01-01', '2026-01-01'], // 元旦
+  ['2026-02-14', '2026-02-22'], // 春節
+  ['2026-02-27', '2026-03-01'], // 和平紀念日
+  ['2026-04-03', '2026-04-06'], // 兒童節・清明
+  ['2026-05-01', '2026-05-03'], // 勞動節
+  ['2026-06-19', '2026-06-21'], // 端午節
+  ['2026-09-25', '2026-09-28'], // 中秋・教師節
+  ['2026-10-09', '2026-10-11'], // 國慶日
+  ['2026-10-24', '2026-10-26'], // 光復節
+  ['2026-12-25', '2026-12-27'], // 行憲紀念日
+];
+const NATIONAL_HOLIDAYS = (() => {
+  const set = new Set();
+  for (const [a, b] of HOLIDAY_RANGES_2026) {
+    let [y, m, d] = a.split('-').map(Number);
+    const end = b;
+    while (true) {
+      const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      set.add(ds);
+      if (ds === end) break;
+      const nx = new Date(y, m - 1, d + 1);
+      y = nx.getFullYear(); m = nx.getMonth() + 1; d = nx.getDate();
+    }
+  }
+  return set;
+})();
+// 依日期回傳自動預設假別（手動記錄優先，故只用於空白格）；國定假日與週末一律標「週休」，無則回 null
+function autoOffLabel(ds) {
+  if (NATIONAL_HOLIDAYS.has(ds)) return '週休';
+  const [y, m, d] = ds.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  if (dow === 0 || dow === 6) return '週休';
+  return null;
+}
 
 // 某筆記錄是否為「支援」（去了非自己負責的案場；特殊項目不算支援）
 function isSupport(rec) {
@@ -1171,10 +1232,7 @@ function renderDispatch() {
   const svSel = document.getElementById('disp-sv');
   if (!svSel) return;
   fillSelect(svSel, supervisors.map(v => `<option value="${v.name}">${v.name}</option>`).join(''));
-  const siteOpts = [...sites].map(s => `<option value="s:${s.id}">${s.name}</option>`).join('');
-  const specOpts = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
-  fillSelect(document.getElementById('disp-site'),
-    `<optgroup label="案場">${siteOpts}</optgroup><optgroup label="其他">${specOpts}</optgroup>`);
+  fillSelect(document.getElementById('disp-site'), dispatchOptGroups());
   const dateInp = document.getElementById('disp-date');
   if (dateInp && !dateInp.value) dateInp.value = todayStr();
   renderDispatchList();
@@ -1286,6 +1344,15 @@ function applyDispatchMonth() {
   renderDispatchReport();
 }
 
+// 上/下月切換
+function shiftDispMonth(delta) {
+  if (!dispMonth) return;
+  const [y, mo] = dispMonth.split('-').map(Number);
+  const d = new Date(y, mo - 1 + delta, 1);
+  dispMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  renderDispatchReport();
+}
+
 function renderDispatchReport() {
   const body = document.getElementById('disp-inline');
   if (!body) return;
@@ -1295,8 +1362,10 @@ function renderDispatchReport() {
   }
   const [y, mo] = dispMonth.split('-').map(Number);
   const days = new Date(y, mo, 0).getDate();
-  const controls = `<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:10px">
-    <div class="form-field"><label>月份</label><input type="month" id="disp-month" value="${dispMonth}"></div>
+  const controls = `<div style="display:flex;gap:8px;align-items:flex-end;justify-content:center;margin-bottom:10px">
+    <button class="btn-secondary" onclick="shiftDispMonth(-1)" title="上月">‹ 上月</button>
+    <button class="btn-secondary" onclick="shiftDispMonth(1)" title="下月">下月 ›</button>
+    <div class="form-field"><label>月份</label><input type="month" id="disp-month" value="${dispMonth}" onchange="applyDispatchMonth()"></div>
     <button class="btn-primary" onclick="applyDispatchMonth()">查詢</button></div>`;
 
   // 索引：主任 → 日 → [記錄]
@@ -1318,10 +1387,17 @@ function renderDispatchReport() {
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
       const list = (idx[v.name] && idx[v.name][d]) || [];
-      const chips = list.map(r =>
-        `<span style="color:${isSupport(r) ? '#d97706' : 'inherit'}">${recLabel(r)}</span>`
-      ).join('<br>');
-      cells.push(`<td class="disp-cell" onclick="openCellEditor('${v.name}','${ds}')">${chips || '<span class="disp-add">＋</span>'}</td>`);
+      const chips = list.map(r => {
+        const label = recLabel(r);
+        const color = label === '休假' ? '#dc2626' : (label === '週休' ? '#3b82f6' : (isSupport(r) ? '#d97706' : 'inherit'));
+        return `<span style="color:${color};white-space:nowrap">${label}</span>`;
+      }).join('<br>');
+      let empty = '<span class="disp-add">＋</span>';
+      if (!chips) {
+        const auto = autoOffLabel(ds);
+        if (auto) empty = `<span class="auto-off" style="color:#3b82f6;white-space:nowrap">${auto}</span>`;
+      }
+      cells.push(`<td class="disp-cell" onclick="openCellEditor('${v.name}','${ds}')">${chips || empty}</td>`);
     }
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
@@ -1348,11 +1424,9 @@ function renderCellEditor() {
   const chips = recs.length ? recs.map(r =>
     `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#fef3c7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#d97706">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
   ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div>';
-  const siteOpts = [...sites].map(s => `<option value="s:${s.id}">${s.name}</option>`).join('');
-  const specOpts = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
   document.getElementById('disp-edit-body').innerHTML =
     `<div style="margin-bottom:14px">${chips}</div>
-     <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option><optgroup label="案場">${siteOpts}</optgroup><optgroup label="其他">${specOpts}</optgroup></select>`;
+     <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option>${dispatchOptGroups()}</select>`;
   document.getElementById('disp-edit-sel').onchange = function () { if (this.value) dispAddEditor(this.value); };
 }
 
@@ -2172,11 +2246,12 @@ function rowToSite(r) {
 async function loadFromCloud() {
   if (!sb) return false;
   try {
-    const [siteRes, svRes, logRes] = await Promise.all([
+    const [siteRes, svRes, logAll] = await Promise.all([
       sb.from('sites').select('*').order('id'),
       sb.from('supervisors').select('*').order('id'),
-      sb.from('supervisor_log').select('*').order('log_date'),
+      fetchAllSupLogs().catch(() => null),
     ]);
+    const logRes = { data: logAll, error: logAll ? null : true };
     if (siteRes.error) throw siteRes.error;
     if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
     if (!svRes.error && svRes.data && svRes.data.length) {
