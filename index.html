@@ -137,6 +137,23 @@ nav > * { flex-shrink: 0; }
   border: 2px solid var(--danger); animation: pulse 1.5s infinite; opacity: .6;
 }
 @keyframes pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.7);opacity:0} }
+.map-pin .dot.office { background: #64748b; box-shadow: 0 0 8px #64748b; }
+/* 工地主任今日位置頭貼（放島外，白線指向案場） */
+.sv-mark {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 1px 5px rgba(0,0,0,.45); background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; z-index: 6;
+}
+.sv-mark:hover { z-index: 20; }
+.sv-mark .sv-name {
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; white-space: nowrap; background: rgba(15,23,42,.82); color: #fff;
+  padding: 2px 5px; border-radius: 3px; pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.sv-mark:hover .sv-name { opacity: 1; }
+.sv-line { position: absolute; width: 2px; background: rgba(255,255,255,.95); transform-origin: top center; z-index: 5; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.45); }
 
 /* POPUP */
 .pin-popup {
@@ -1160,6 +1177,12 @@ async function reloadSupLogs() {
 // 非案場的可選項目
 const SPECIAL_PLACES = ['公司', '南部辦公室', '週休', '休假', '國定假日', '颱風假'];
 
+// 辦公室地點（地址與座標，備用；目前未用於地圖顯示）
+const OFFICE_LOCS = {
+  '公司':       { addr: '新北市汐止區大同路一段177號5樓', lng: 121.6444778, lat: 25.0618627 },
+  '南部辦公室': { addr: '高雄市大寮區過溪里華三街65號',   lng: 120.4134288, lat: 22.5802090 },
+};
+
 // 派工下拉的分組選項：案場（進行中）→ 其他 → 已完工案場
 function dispatchOptGroups() {
   const opt = s => `<option value="s:${s.id}">${s.name}</option>`;
@@ -2056,7 +2079,7 @@ async function renderTaiwanMap() {
   // 依投影座標產生圖釘，狀態顏色直接取自 sites 資料
   const wrap = document.getElementById('mapInner');
   const popup = document.getElementById('pin-popup');
-  wrap.querySelectorAll('.map-pin').forEach(el => el.remove());
+  wrap.querySelectorAll('.map-pin, .sv-mark, .sv-line').forEach(el => el.remove());
   sites.forEach(s => {
     if (!s.lng || !s.lat) return;
     const [x, y] = projection([s.lng, s.lat]);
@@ -2067,6 +2090,72 @@ async function renderTaiwanMap() {
     pin.onclick = () => openModal(s.id);
     pin.innerHTML = '<div class="dot ' + (s.status || 'normal') + '"><div class="pin-label">' + (s.label || s.city || '') + '</div></div>';
     wrap.insertBefore(pin, popup);
+  });
+
+  // 工地主任今日位置：依當日行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
+  const LINE = 56;                              // 白線統一長度（px）
+  const [cx, cy] = projection([120.98, 23.6]);  // 台灣地理中心約略點（決定頭貼往島外的方向）
+  const today = localDate(new Date());
+  const byLoc = {};
+  supervisors.forEach(sv => {
+    const rec = supLogs.find(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || OFFICE_LOCS[r.place]));
+    if (!rec) return;
+    let loc;
+    if (rec.site_id != null) {
+      const s = siteById(rec.site_id);
+      if (!s || !s.lng || !s.lat) return;
+      loc = { key: 's' + s.id, lng: s.lng, lat: s.lat, label: s.label || s.name, siteId: s.id, office: false };
+    } else {
+      const o = OFFICE_LOCS[rec.place];
+      loc = { key: 'o:' + rec.place, lng: o.lng, lat: o.lat, label: rec.place, siteId: null, office: true };
+    }
+    (byLoc[loc.key] = byLoc[loc.key] || { loc, list: [] }).list.push(sv);
+  });
+  Object.values(byLoc).forEach(({ loc, list }) => {
+    const [sx, sy] = projection([loc.lng, loc.lat]);
+    // 辦公室沒有案場圖釘，補一個小點當白線目標
+    if (loc.office) {
+      const dot = document.createElement('div');
+      dot.className = 'map-pin office-pin';
+      dot.style.left = (sx / W * 100) + '%';
+      dot.style.top = (sy / H * 100) + '%';
+      dot.innerHTML = '<div class="dot office"><div class="pin-label">' + loc.label + '</div></div>';
+      wrap.insertBefore(dot, popup);
+    }
+    const baseAng = Math.atan2(sy - cy, sx - cx);  // 由島中心指向案場 → 頭貼往島外推
+    const outwardSign = Math.sin(baseAng) >= 0 ? 1 : -1; // 往島外的上下方向
+    list.forEach((sv, i) => {
+      let dx, dy;
+      if (list.length === 2) {
+        // 兩人在同案場：等高並排（同一 y），水平左右各偏 22px，距離仍維持 56px
+        const HX = 15; // 兩頭貼間距 30px（中心距）
+        dx = (i === 0 ? -HX : HX);
+        dy = outwardSign * Math.sqrt(LINE * LINE - HX * HX);
+      } else {
+        const ang = baseAng + (i - (list.length - 1) / 2) * 0.62; // 其餘沿弧散開，避免重疊
+        dx = LINE * Math.cos(ang); dy = LINE * Math.sin(ang);
+      }
+      // 白線：從案場圖釘指向頭貼，長度固定 56px
+      const line = document.createElement('div');
+      line.className = 'sv-line';
+      line.style.left = (sx / W * 100) + '%';
+      line.style.top = (sy / H * 100) + '%';
+      line.style.height = LINE + 'px';
+      line.style.transform = `translateX(-50%) rotate(${Math.atan2(-dx, dy)}rad)`;
+      wrap.insertBefore(line, popup);
+      // 頭貼：在案場外側 56px 處
+      const m = document.createElement('div');
+      m.className = 'sv-mark';
+      m.style.left = (sx / W * 100) + '%';
+      m.style.top = (sy / H * 100) + '%';
+      m.style.marginLeft = dx + 'px';
+      m.style.marginTop = dy + 'px';
+      if (sv.avatar) m.style.backgroundImage = `url(${sv.avatar})`;
+      else { m.style.background = sv.color || '#3b82f6'; m.textContent = (sv.name || '').slice(0, 1); }
+      m.innerHTML += `<div class="sv-name">${sv.name}　@${loc.label}</div>`;
+      if (loc.siteId != null) m.onclick = () => openModal(loc.siteId);
+      wrap.insertBefore(m, popup);
+    });
   });
 }
 
