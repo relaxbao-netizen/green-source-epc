@@ -404,11 +404,12 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .rain-grid th { background: #f1f5f9; font-weight: 600; color: var(--muted); }
 .rain-grid thead th:first-child, .rain-grid td:first-child { position: sticky; left: 0; background: #f8fafc; z-index: 1; }
 
-/* 月行程表（人 × 日）：欄位較寬、姓名欄黏左 */
-.sched-grid td, .sched-grid th { width: auto; min-width: 52px; height: auto; padding: 3px 5px; font-size: 11px; line-height: 1.25; }
-.sched-grid th.nm, .sched-grid td.nm { position: sticky; left: 0; background: #fff; text-align: center; white-space: nowrap; min-width: 84px; font-weight: 700; z-index: 2; }
+/* 月行程表（人 × 日）：固定版面、每格寬高一致、姓名欄黏左 */
+.sched-grid { table-layout: fixed; }
+.sched-grid td, .sched-grid th { width: 72px; min-width: 72px; max-width: 72px; height: 36px; box-sizing: border-box; padding: 3px 5px; font-size: 11px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.sched-grid th.nm, .sched-grid td.nm { position: sticky; left: 0; background: #fff; text-align: center; white-space: nowrap; font-weight: 700; z-index: 2; width: 104px; min-width: 104px; max-width: 104px; overflow: visible; text-overflow: clip; }
 .sched-grid thead th.nm { background: #f1f5f9; }
-.sched-grid td.disp-cell { min-width: 64px; height: 30px; cursor: pointer; vertical-align: middle; }
+.sched-grid td.disp-cell { cursor: pointer; }
 .sched-grid td.disp-cell:hover { background: #eff6ff; }
 .disp-cell .disp-add { color: #cbd5e1; font-weight: 700; }
 .disp-cell:hover .disp-add { color: #60a5fa; }
@@ -598,7 +599,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <!-- ===== HR ===== -->
 <div id="page-hr" class="page">
   <div class="section-title" style="display:flex;align-items:center">工程人員日行程表
-    <button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">🖨 列印／存PDF</button>
+    <button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">📊 匯出 Excel</button>
   </div>
   <div class="card"><div id="disp-inline"></div></div>
 
@@ -620,7 +621,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div class="modal-header">
       <div class="modal-title" id="disp-modal-title">記錄</div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="printDispatch('disp-modal-body')">🖨 列印／存PDF</button>
+        <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="printDispatch('disp-modal-body')">📊 匯出 Excel</button>
         <button class="modal-close" onclick="document.getElementById('disp-overlay').classList.remove('open')">✕</button>
       </div>
     </div>
@@ -761,6 +762,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
 // ===================== DATA =====================
 let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
@@ -1389,7 +1391,7 @@ function renderDispatchReport() {
       const list = (idx[v.name] && idx[v.name][d]) || [];
       const chips = list.map(r => {
         const label = recLabel(r);
-        const color = label === '休假' ? '#dc2626' : (label === '週休' ? '#3b82f6' : (isSupport(r) ? '#d97706' : 'inherit'));
+        const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日') ? '#3b82f6' : (isSupport(r) ? '#d97706' : 'inherit'));
         return `<span style="color:${color};white-space:nowrap">${label}</span>`;
       }).join('<br>');
       let empty = '<span class="disp-add">＋</span>';
@@ -1462,25 +1464,81 @@ async function dispDelete(id) {
   renderDispatchReport();
 }
 
+// rgb(r,g,b) → "RRGGBB"
+function _rgbToHex(c) {
+  const m = (c || '').match(/\d+/g);
+  if (!m) return null;
+  return m.slice(0, 3).map(n => (+n).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
 function printDispatch(srcId) {
-  const inner = document.getElementById(srcId || 'disp-inline').innerHTML;
+  if (typeof XLSX === 'undefined') { alert('Excel 元件尚未載入，請稍候再試'); return; }
+  const container = document.getElementById(srcId || 'disp-inline');
+  const table = container ? container.querySelector('table') : null;
+  if (!table) { alert('沒有可匯出的表格'); return; }
   const title = (srcId === 'disp-modal-body') ? document.getElementById('disp-modal-title').textContent : '工程人員日行程表';
-  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${title}</title>
-    <style>@page{size:A4 landscape;margin:8mm}
-      body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;padding:0;color:#0f172a}
-      h1{font-size:16px;color:#047857;border-bottom:3px solid #059669;padding-bottom:6px}
-      div{overflow:visible !important}
-      table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:9px;table-layout:fixed}
-      th,td{border:1px solid #cbd5e1;padding:2px 1px;text-align:center;overflow:hidden;word-break:break-all}
-      th{background:#059669;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .nm{width:60px;text-align:left !important}
-      tr{page-break-inside:avoid}
-      .wbs-title{font-weight:700;margin:14px 0 6px}
-      .form-field,button,.disp-add,.disp-chip i{display:none}</style></head><body><h1>${title}　${localDate(new Date())}</h1>${inner}</body></html>`;
-  const w = window.open('', '_blank');
-  if (!w) { alert('請允許彈出視窗以列印／儲存 PDF'); return; }
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => w.print(), 300);
+
+  const FONT = 'Microsoft JhengHei';
+  const border1 = { style: 'thin', color: { rgb: 'CBD5E1' } };
+  const allBorder = { top: border1, bottom: border1, left: border1, right: border1 };
+
+  const rowsEl = [...table.rows];
+  const ncol = Math.max(...rowsEl.map(r => r.cells.length));
+  const aoa = [], styles = [];
+  rowsEl.forEach((tr, ri) => {
+    const arow = [], srow = [];
+    for (let ci = 0; ci < ncol; ci++) {
+      const cell = tr.cells[ci];
+      const isHead = !cell || cell.tagName === 'TH';
+      const isName = cell && cell.classList.contains('nm');
+      // 保留多筆記錄為多行（<br> → 換行）
+      let text = cell ? cell.innerText.split('\n').map(s => s.trim()).filter(Boolean).join('\n') : '';
+      if (text === '＋') text = '';
+      arow.push(text);
+      // 取格內文字實際顏色（取第一個有文字的 span）
+      let fontColor = null;
+      if (cell) {
+        const sp = [...cell.querySelectorAll('span')].find(s => s.textContent.trim() && !s.classList.contains('disp-add'));
+        fontColor = _rgbToHex((sp ? getComputedStyle(sp) : getComputedStyle(cell)).color);
+      }
+      const st = {
+        font: { name: FONT, sz: isHead ? 11 : 10, bold: !!(isHead || isName), color: { rgb: fontColor || '0F172A' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: allBorder,
+      };
+      if (isHead) st.fill = { fgColor: { rgb: 'F1F5F9' } };
+      srow.push(st);
+    }
+    aoa.push(arow); styles.push(srow);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = 0; r <= range.e.r; r++) {
+    for (let c = 0; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+      ws[addr].s = styles[r][c];
+    }
+  }
+  // 自動統一欄寬（依單行最長，中日文字算 2 寬度單位）與列高（依最多行數），全部欄與列等寬等高
+  const cjk = s => [...String(s)].reduce((n, ch) => n + (ch.charCodeAt(0) > 255 ? 2 : 1), 0);
+  let maxW = 0, maxLines = 1;
+  aoa.forEach(row => row.forEach(v => {
+    const lines = String(v).split('\n');
+    maxLines = Math.max(maxLines, lines.length);
+    lines.forEach(ln => { maxW = Math.max(maxW, cjk(ln)); });
+  }));
+  const colW = Math.min(Math.max(maxW + 2, 8), 40);   // 加邊距、限制 8~40
+  const rowH = Math.max(maxLines * 16, 22);            // 每行約 16pt
+  ws['!cols'] = [];
+  for (let c = 0; c <= range.e.c; c++) ws['!cols'].push({ wch: colW });
+  ws['!rows'] = aoa.map(() => ({ hpt: rowH }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (dispMonth || '').replace('-', '.') || '行程表');
+  const fname = `${title}_${dispMonth || localDate(new Date())}.xlsx`;
+  XLSX.writeFile(wb, fname);
 }
 
 // ===================== ADVANCED =====================
@@ -1793,7 +1851,7 @@ function extractAMPM(slots, dateStr) {
   return out;
 }
 
-// 確保未來數日（含今日）的晴雨表已記錄；已存在的日期不覆蓋（首見即定）
+// 僅記錄「當日」上午天氣；不提前記錄未來幾天；已存在的日期不覆蓋（首見即定）
 async function ensureWeatherLog() {
   if (!sb) return;
   // 以「行政區或縣市」為單位（label），各挑一個代表案場查詢；完工案場不再記錄
@@ -1801,21 +1859,20 @@ async function ensureWeatherLog() {
   sites.forEach(s => { if (s.status === 'done') return; const L = siteLoc(s); if (L.label && !locMap[L.label]) locMap[L.label] = s; });
   const labels = Object.keys(locMap);
   if (!labels.length) return;
-  const dates = [0, 1, 2, 3].map(n => localDate(new Date(Date.now() + n * 864e5)));
+  const today = localDate(new Date());
   // 註：weather_log 的 county 欄位實際存放「行政區或縣市」字串
-  const { data: existing, error } = await sb.from('weather_log').select('log_date,county').in('county', labels).in('log_date', dates);
+  const { data: existing, error } = await sb.from('weather_log').select('log_date,county').in('county', labels).eq('log_date', today);
   if (error) { console.warn('weather_log 讀取失敗（資料表可能尚未建立）', error.message); return; }
   const have = new Set((existing || []).map(r => r.log_date + '|' + r.county));
   const rows = [];
   for (const label of labels) {
+    if (have.has(today + '|' + label)) continue;
     let slots;
     try { slots = (await fetchSiteForecast(locMap[label])).data.slots; } catch (e) { continue; }
-    for (const ds of dates) {
-      if (have.has(ds + '|' + label)) continue;
-      const ap = extractAMPM(slots, ds);
-      if (ap.am.pop === null && ap.pm.pop === null) continue;  // 無資料則略過
-      rows.push({ log_date: ds, county: label, am_weather: ap.am.weather, am_pop: ap.am.pop, pm_weather: ap.pm.weather, pm_pop: ap.pm.pop });
-    }
+    const ap = extractAMPM(slots, today);
+    if (ap.am.pop === null) continue;  // 無上午資料則略過
+    // 只記錄上午天氣，下午留空
+    rows.push({ log_date: today, county: label, am_weather: ap.am.weather, am_pop: ap.am.pop, pm_weather: null, pm_pop: null });
   }
   if (rows.length) await sb.from('weather_log').upsert(rows, { onConflict: 'log_date,county', ignoreDuplicates: true });
 }
@@ -2611,7 +2668,7 @@ async function initApp() {
     await loadFromCloud(); // 失敗時自動沿用內建資料
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
-  ensureWeatherLog(); // 背景記錄各案場今日及未來數日晴雨表（不阻擋畫面）
+  ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
 }
 initApp();
 </script>
