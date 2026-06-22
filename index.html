@@ -2142,26 +2142,32 @@ async function renderTaiwanMap() {
     }
     // 頭貼往最近海岸推：北端→上、南端→下，其餘往較近的東/西岸（台灣南北狹長，橫向最快入海）
     const baseAng = sy < 0.16 * H ? -Math.PI / 2 : sy > 0.84 * H ? Math.PI / 2 : (sx < W / 2 ? Math.PI : 0);
-    const STEP = 0.54;                              // 同案場多人對稱張開角（間距約 30px）
+    const ux = Math.cos(baseAng), uy = Math.sin(baseAng);  // 外推方向單位向量
+    const GAP = 30;                                        // 同地點多人橫向間距（px）
+    const ancX = ux * LINE, ancY = uy * LINE;              // 錨點相對案場的位移（px，與白線同單位）
+
+    // 同一地點只畫一條白線：從案場圖釘指向頭貼群（長度 56px）
+    const line = document.createElement('div');
+    line.className = 'sv-line';
+    line.style.left = (sx / W * 100) + '%';
+    line.style.top = (sy / H * 100) + '%';
+    line.style.height = LINE + 'px';
+    line.style.transform = `translateX(-50%) rotate(${Math.atan2(-ancX, ancY)}rad)`;
+    wrap.insertBefore(line, popup);
+
+    // 頭貼：橫向一排（與案場同基準、以 px 位移，確保與白線相接）
+    // 直向線(北/南案場)→ 置中排在線端；橫向線(東/西案場)→ 從線端往外延伸，避免白線穿過頭貼
+    const horizontal = Math.abs(uy) < 0.5;  // 外推方向偏水平 = 東/西案場
     list.forEach((sv, i) => {
-      // 對稱排在「島外方向」兩側：南北向案場自然等高、東西向也不會壓到島
-      const ang = baseAng + (i - (list.length - 1) / 2) * STEP;
-      const dx = LINE * Math.cos(ang), dy = LINE * Math.sin(ang);
-      // 白線：從案場圖釘指向頭貼，長度固定 56px
-      const line = document.createElement('div');
-      line.className = 'sv-line';
-      line.style.left = (sx / W * 100) + '%';
-      line.style.top = (sy / H * 100) + '%';
-      line.style.height = LINE + 'px';
-      line.style.transform = `translateX(-50%) rotate(${Math.atan2(-dx, dy)}rad)`;
-      wrap.insertBefore(line, popup);
-      // 頭貼：在案場外側 56px 處
+      const mlx = horizontal
+        ? ancX + ux * i * GAP                          // 從線端往外（東/西）延伸
+        : ancX + (i - (list.length - 1) / 2) * GAP;    // 置中
       const m = document.createElement('div');
       m.className = 'sv-mark';
       m.style.left = (sx / W * 100) + '%';
       m.style.top = (sy / H * 100) + '%';
-      m.style.marginLeft = dx + 'px';
-      m.style.marginTop = dy + 'px';
+      m.style.marginLeft = mlx + 'px';
+      m.style.marginTop = ancY + 'px';
       if (sv.avatar) m.style.backgroundImage = `url(${sv.avatar})`;
       else { m.style.background = sv.color || '#3b82f6'; m.textContent = (sv.name || '').slice(0, 1); }
       m.innerHTML += `<div class="sv-name">${sv.name}　@${loc.label}</div>`;
