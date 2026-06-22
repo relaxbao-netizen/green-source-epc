@@ -509,6 +509,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <button class="nav-btn"        data-page="progress" onclick="showPage('progress',this)">📊 工程進度</button>
   <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
   <button class="nav-btn"        data-page="advanced" onclick="showPage('advanced',this)">📈 進階分析</button>
+  <button class="nav-btn"        data-page="equip"    onclick="showPage('equip',this)">🔧 器具借用</button>
   <div class="nav-right">
     <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
     <span class="clock" id="clock"></span>
@@ -665,6 +666,31 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="section-title">業主專案統計</div>
   <div class="owner-grid" id="owner-grid"></div>
 
+</div>
+
+<!-- ===== 器具借用 ===== -->
+<div id="page-equip" class="page">
+  <div class="section-title" style="display:flex;align-items:center">工程部測量器具借用登記
+    <span id="equip-summary" style="margin-left:12px;font-size:13px;font-weight:400;color:var(--muted)"></span>
+  </div>
+  <div class="card"><div style="overflow-x:auto"><table class="prog-table" id="equip-table"></table></div></div>
+</div>
+
+<!-- ===== 器具借出 Modal ===== -->
+<div class="modal-overlay" id="equip-borrow-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:420px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="equip-borrow-title">借出登記</div>
+      <button class="modal-close" onclick="document.getElementById('equip-borrow-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" style="margin-bottom:10px"><label>借用人 *</label><input type="text" id="eb-borrower"></div>
+      <div class="form-field" style="margin-bottom:10px"><label>借出日期</label><input type="date" id="eb-borrow-date"></div>
+      <div class="form-field" style="margin-bottom:10px"><label>用途／案場／備註</label><input type="text" id="eb-note" placeholder="選填"></div>
+      <div id="eb-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
+      <button class="btn-primary" onclick="confirmEquipBorrow()">確認借出</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== 施工晴雨表報表 ===== -->
@@ -979,6 +1005,7 @@ function showPage(id, btn) {
   if (id === 'progress') renderProgressTable('all');
   if (id === 'hr')       renderHR();
   if (id === 'advanced') renderAdvanced();
+  if (id === 'equip')    renderEquip();
 }
 
 // ===================== HOME =====================
@@ -2814,6 +2841,108 @@ async function deleteSiteFromForm() {
   rerenderAll();
 }
 
+// ===================== 工程部測量器具借用 =====================
+const EQUIPMENT = [
+  '測距輪', '鉤式接地電阻計', '絕緣高阻計', '三用電表', '電流鉤錶600V', '熱顯像儀',
+  '2分電子扭力板手（壞）', '3分電子扭力板手', '3分電子扭力板手', '3分電子扭力板手',
+  '縮時攝影機TLC2000', '縮時攝影機TLC2000', '50米鋼捲尺', '接地電阻測試儀（三點式）',
+  '四合一網路測試器', '空拍機（墜機找回）', '空拍機（飛不回來）', '空拍機（全新）',
+  '8線綠光雷射水平儀', '鋼索防墜器*3', '拉力計', '驗電筆', '膜厚計（舊）', '游標卡尺',
+];
+let equipLogs = [];          // equipment_borrow 記錄
+let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
+
+// 重複名稱加 #1/#2 以利辨識
+function equipDisplayName(i) {
+  const name = EQUIPMENT[i];
+  const dupIdx = EQUIPMENT.map((n, k) => n === name ? k : -1).filter(k => k >= 0);
+  if (dupIdx.length > 1) return `${name} #${dupIdx.indexOf(i) + 1}`;
+  return name;
+}
+
+async function loadEquipLogs() {
+  if (!sb) return;
+  const { data, error } = await sb.from('equipment_borrow').select('*').order('id');
+  equipLogs = (!error && data) ? data : [];
+  if (error) console.warn('equipment_borrow 讀取失敗（資料表可能尚未建立）', error.message);
+}
+
+function equipOpenRecord(i) {
+  // 該器具目前未歸還的借出記錄
+  return equipLogs.find(r => r.item_id === i && !r.return_date);
+}
+
+function renderEquip() {
+  const tbl = document.getElementById('equip-table');
+  if (!tbl) return;
+  const out = equipLogs.filter(r => !r.return_date).length;
+  document.getElementById('equip-summary').textContent = `共 ${EQUIPMENT.length} 項，借出中 ${out} 項`;
+  const rows = EQUIPMENT.map((name, i) => {
+    const rec = equipOpenRecord(i);
+    const borrowed = !!rec;
+    const status = borrowed
+      ? `<span class="status-badge s-warn">借出中</span>`
+      : `<span class="status-badge s-normal">在庫</span>`;
+    const who = borrowed ? rec.borrower : '';
+    const bd = borrowed ? (rec.borrow_date || '') : '';
+    const note = borrowed ? (rec.note || '') : '';
+    const action = borrowed
+      ? `<button class="btn-edit s-done" onclick="returnEquip(${rec.id})">歸還</button>`
+      : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
+    return `<tr>
+      <td>${i + 1}</td>
+      <td style="font-weight:600">${equipDisplayName(i)}</td>
+      <td>${status}</td>
+      <td>${who}</td>
+      <td>${bd}</td>
+      <td style="font-size:12px;color:var(--muted)">${note}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+  tbl.innerHTML = `<thead><tr>
+      <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>用途／備註</th><th>動作</th>
+    </tr></thead><tbody>${rows}</tbody>`;
+}
+
+function openEquipBorrow(i) {
+  _equipBorrowIdx = i;
+  document.getElementById('equip-borrow-title').textContent = `借出登記：${equipDisplayName(i)}`;
+  document.getElementById('eb-borrower').value = '';
+  document.getElementById('eb-borrow-date').value = localDate(new Date());
+  document.getElementById('eb-note').value = '';
+  document.getElementById('eb-error').style.display = 'none';
+  document.getElementById('equip-borrow-overlay').classList.add('open');
+}
+
+async function confirmEquipBorrow() {
+  const errEl = document.getElementById('eb-error');
+  const borrower = document.getElementById('eb-borrower').value.trim();
+  if (!borrower) { errEl.textContent = '請填寫借用人'; errEl.style.display = 'block'; return; }
+  const row = {
+    item_id: _equipBorrowIdx,
+    item_name: EQUIPMENT[_equipBorrowIdx],
+    borrower,
+    borrow_date: document.getElementById('eb-borrow-date').value || localDate(new Date()),
+    note: document.getElementById('eb-note').value.trim() || null,
+    return_date: null,
+  };
+  const { error } = await sb.from('equipment_borrow').insert(row);
+  if (error) { errEl.textContent = '借出失敗：' + error.message; errEl.style.display = 'block'; return; }
+  document.getElementById('equip-borrow-overlay').classList.remove('open');
+  await loadEquipLogs();
+  renderEquip();
+}
+
+async function returnEquip(recId) {
+  if (!confirm('確認歸還此器具？')) return;
+  const today = localDate(new Date());
+  // RLS 若不允許 update，改以刪除+重插方式（保留歷史則需後台放寬權限）
+  const { error } = await sb.from('equipment_borrow').update({ return_date: today }).eq('id', recId);
+  if (error) { alert('歸還失敗：' + error.message); return; }
+  await loadEquipLogs();
+  renderEquip();
+}
+
 // ---- 啟動 ----
 // 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
 async function initApp() {
@@ -2825,6 +2954,7 @@ async function initApp() {
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
+  loadEquipLogs().then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具借用記錄
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
