@@ -2094,7 +2094,6 @@ async function renderTaiwanMap() {
 
   // 工地主任今日位置：依當日行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
   const LINE = 56;                              // 白線統一長度（px）
-  const [cx, cy] = projection([120.98, 23.6]);  // 台灣地理中心約略點（決定頭貼往島外的方向）
   const today = localDate(new Date());
   const byLoc = {};
   supervisors.forEach(sv => {
@@ -2122,19 +2121,13 @@ async function renderTaiwanMap() {
       dot.innerHTML = '<div class="dot office"><div class="pin-label">' + loc.label + '</div></div>';
       wrap.insertBefore(dot, popup);
     }
-    const baseAng = Math.atan2(sy - cy, sx - cx);  // 由島中心指向案場 → 頭貼往島外推
-    const outwardSign = Math.sin(baseAng) >= 0 ? 1 : -1; // 往島外的上下方向
+    // 頭貼往最近海岸推：北端→上、南端→下，其餘往較近的東/西岸（台灣南北狹長，橫向最快入海）
+    const baseAng = sy < 0.16 * H ? -Math.PI / 2 : sy > 0.84 * H ? Math.PI / 2 : (sx < W / 2 ? Math.PI : 0);
+    const STEP = 0.54;                              // 同案場多人對稱張開角（間距約 30px）
     list.forEach((sv, i) => {
-      let dx, dy;
-      if (list.length === 2) {
-        // 兩人在同案場：等高並排（同一 y），水平左右各偏 22px，距離仍維持 56px
-        const HX = 15; // 兩頭貼間距 30px（中心距）
-        dx = (i === 0 ? -HX : HX);
-        dy = outwardSign * Math.sqrt(LINE * LINE - HX * HX);
-      } else {
-        const ang = baseAng + (i - (list.length - 1) / 2) * 0.62; // 其餘沿弧散開，避免重疊
-        dx = LINE * Math.cos(ang); dy = LINE * Math.sin(ang);
-      }
+      // 對稱排在「島外方向」兩側：南北向案場自然等高、東西向也不會壓到島
+      const ang = baseAng + (i - (list.length - 1) / 2) * STEP;
+      const dx = LINE * Math.cos(ang), dy = LINE * Math.sin(ang);
       // 白線：從案場圖釘指向頭貼，長度固定 56px
       const line = document.createElement('div');
       line.className = 'sv-line';
