@@ -684,7 +684,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <button class="modal-close" onclick="document.getElementById('equip-borrow-overlay').classList.remove('open')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-field" style="margin-bottom:10px"><label>借用人 *</label><input type="text" id="eb-borrower"></div>
+      <div class="form-field" style="margin-bottom:10px"><label>借用人 *</label><select id="eb-borrower"></select></div>
       <div class="form-field" style="margin-bottom:10px"><label>借出日期</label><input type="date" id="eb-borrow-date"></div>
       <div class="form-field" style="margin-bottom:10px"><label>用途／案場／備註</label><input type="text" id="eb-note" placeholder="選填"></div>
       <div id="eb-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
@@ -2907,6 +2907,8 @@ function renderEquip() {
 function openEquipBorrow(i) {
   _equipBorrowIdx = i;
   document.getElementById('equip-borrow-title').textContent = `借出登記：${equipDisplayName(i)}`;
+  document.getElementById('eb-borrower').innerHTML =
+    '<option value="">請選擇</option>' + supervisors.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
   document.getElementById('eb-borrower').value = '';
   document.getElementById('eb-borrow-date').value = localDate(new Date());
   document.getElementById('eb-note').value = '';
