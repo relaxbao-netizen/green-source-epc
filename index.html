@@ -746,8 +746,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
-        <div class="form-field"><label>開工日期</label><input type="text" id="sf-start" placeholder="YYYY/MM/DD"></div>
-        <div class="form-field"><label>預計完工日期</label><input type="text" id="sf-end" placeholder="YYYY/MM/DD"></div>
+        <div class="form-field"><label>開工日期</label><input type="date" id="sf-start"></div>
+        <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"></div>
         <div style="grid-column:1/-1">
           <div style="font-size:12px;font-weight:700;color:var(--muted);margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">WBS 施工項目完成率（%）</div>
           <div id="sf-wbs-grid"></div>
@@ -2223,7 +2223,7 @@ async function renderTaiwanMap() {
       if (sv.avatar) m.style.backgroundImage = `url(${sv.avatar})`;
       else { m.style.background = sv.color || '#3b82f6'; m.textContent = (sv.name || '').slice(0, 1); }
       m.innerHTML += `<div class="sv-name">${sv.name}　@${loc.label}</div>`;
-      if (loc.siteId != null) m.onclick = () => openModal(loc.siteId);
+      m.onclick = (e) => showAvatarCard(sv.name, e);
       wrap.insertBefore(m, popup);
     });
   });
@@ -2751,8 +2751,8 @@ function openSiteForm(id) {
   set('sf-mw',     s && s.mw  ? s.mw  : '');
   set('sf-skw',    s && s.skw ? s.skw : '');
   set('sf-mwh',    s && s.mwh ? s.mwh : '');
-  set('sf-start',  s ? s.start : '');
-  set('sf-end',    s ? s.end : '');
+  set('sf-start',  s && s.start ? s.start.replace(/\//g, '-') : ''); // type=date 需 YYYY-MM-DD
+  set('sf-end',    s && s.end ? s.end.replace(/\//g, '-') : '');
   renderWbsInputs(wbsMapFromSite(s));
   updateCapFields();
   document.getElementById('site-form-overlay').classList.add('open');
@@ -2772,7 +2772,7 @@ async function saveSiteForm() {
     name: val('sf-name'), label: val('sf-label'), region: val('sf-region'), city: val('sf-city'),
     type: val('sf-type'), owner: val('sf-owner'), pm: val('sf-pm'), addr: val('sf-addr'),
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
-    start_date: val('sf-start'), end_date: val('sf-end'),
+    start_date: val('sf-start').replace(/-/g, '/'), end_date: val('sf-end').replace(/-/g, '/'), // 存回 YYYY/MM/DD
   };
   // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
