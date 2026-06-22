@@ -1866,20 +1866,28 @@ function buildAMPMPeriods(data) {
   return out;
 }
 
-// 從逐 3 小時 slots 擷取某日上午(06-12)、下午(12-18)：取該時段最大降雨機率
+// 從逐 3 小時 slots 擷取某日上午(06-12)、下午(12-18)的代表天氣
+// 規則：有雨→記該時段（取最大降雨機率者）；無雨→只要該時段有「晴」就記晴，否則記多雲/陰
+//（避免清晨一朵雲就把整個上午標成陰）
 function extractAMPM(slots, dateStr) {
   const seg = { am: [6, 12], pm: [12, 18] };
   const out = {};
   for (const k in seg) {
     const [a, b] = seg[k];
-    let mp = null, w = null;
-    slots.forEach(s => {
+    const segSlots = slots.filter(s => {
       const d = new Date(s.start);
-      if (localDate(d) === dateStr && d.getHours() >= a && d.getHours() < b) {
-        if (mp === null || s.pop > mp) { mp = s.pop; w = s.weather; }
-      }
+      return localDate(d) === dateStr && d.getHours() >= a && d.getHours() < b;
     });
-    out[k] = { weather: w, pop: mp };
+    if (!segSlots.length) { out[k] = { weather: null, pop: null }; continue; }
+    // 取降雨機率最高的時段
+    const worst = segSlots.reduce((m, s) => (s.pop > m.pop ? s : m), segSlots[0]);
+    if (worst.pop >= RAIN_THRESHOLD || /雨|雷|雪/.test(worst.weather || '')) {
+      out[k] = { weather: worst.weather, pop: worst.pop };          // 有雨 → 記雨
+    } else {
+      const sunny = segSlots.find(s => /晴/.test(s.weather || ''));  // 無雨且有晴 → 記晴
+      out[k] = sunny ? { weather: sunny.weather, pop: sunny.pop }
+                     : { weather: segSlots[0].weather, pop: worst.pop }; // 否則記多雲/陰
+    }
   }
   return out;
 }
@@ -1931,8 +1939,9 @@ const SYM_EMOJI = { '⭕': '☀️', 'X': '🌧️', '●': '☁️' };
 
 // 依公司「晴雨紀錄表」架構：月 × 日(1-31) 網格，每日一符號，附統計與監工人員
 function buildRainReportHTML(logs, site) {
+  const _today = localDate(new Date());
   const byCounty = {};
-  logs.forEach(r => { (byCounty[r.county] = byCounty[r.county] || {})[r.log_date] = r; });
+  logs.forEach(r => { if (r.log_date > _today) return; (byCounty[r.county] = byCounty[r.county] || {})[r.log_date] = r; }); // 防呆：不顯示今天之後的天氣
   const targetSites = site ? [site] : [...sites];
 
   return targetSites.map(s => {
