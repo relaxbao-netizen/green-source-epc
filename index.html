@@ -1275,7 +1275,7 @@ function renderDispatchList() {
     Object.keys(bySv).map(name => {
       const tags = bySv[name].map(r => {
         const support = isSupport(r);
-        return `<span style="display:inline-flex;align-items:center;gap:5px;background:${support ? '#fef3c7' : '#f1f5f9'};border-radius:12px;padding:3px 10px;margin:2px;font-size:12px">${recFullName(r)}${support ? '<b style="color:#d97706">·支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8" onclick="deleteDispatch(${r.id})">✕</span></span>`;
+        return `<span style="display:inline-flex;align-items:center;gap:5px;background:${support ? '#dcfce7' : '#f1f5f9'};border-radius:12px;padding:3px 10px;margin:2px;font-size:12px">${recFullName(r)}${support ? '<b style="color:#16a34a">·支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8" onclick="deleteDispatch(${r.id})">✕</span></span>`;
       }).join('');
       return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><b style="min-width:96px;font-size:13px">${name}</b><div>${tags}</div></div>`;
     }).join('');
@@ -1330,13 +1330,13 @@ function openSupCalendar(name) {
       for (let d = 1; d <= 31; d++) {
         const list = months[key][d];
         const txt = list ? list.map(r =>
-          `<span style="color:${isSupport(r) ? '#d97706' : '#0f172a'}">${recLabel(r)}</span>`
+          `<span style="color:${isSupport(r) ? '#16a34a' : '#0f172a'}">${recLabel(r)}</span>`
         ).join('<br>') : '';
         cells.push(`<td style="font-size:10px;line-height:1.2">${txt}</td>`);
       }
       return `<tr>${cells.join('')}</tr>`;
     }).join('');
-    bodyHtml = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">橙色＝支援（非本人負責案場）。共 ${recs.length} 筆記錄。</div>
+    bodyHtml = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">綠色＝支援（非本人負責案場）。共 ${recs.length} 筆記錄。</div>
       <div style="overflow-x:auto"><table class="rain-grid">
         <thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
@@ -1414,7 +1414,7 @@ function renderDispatchReport() {
       const list = (idx[v.name] && idx[v.name][d]) || [];
       const chips = list.map(r => {
         const label = recLabel(r);
-        const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日') ? '#3b82f6' : (isSupport(r) ? '#d97706' : 'inherit'));
+        const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日') ? '#3b82f6' : (isSupport(r) ? '#16a34a' : 'inherit'));
         return `<span style="color:${color};white-space:nowrap">${label}</span>`;
       }).join('<br>');
       let empty = '<span class="disp-add">＋</span>';
@@ -1430,7 +1430,7 @@ function renderDispatchReport() {
   body.innerHTML = controls +
     `<div style="font-weight:800;font-size:16px;text-align:center;margin:6px 0">${y}年${mo}月份工程人員日行程表</div>
      <div style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>
-     <div style="font-size:12px;color:var(--muted);margin-top:6px">點任一格子即可登記／修改；橙色＝支援（非本人負責案場）。</div>`;
+     <div style="font-size:12px;color:var(--muted);margin-top:6px">點任一格子即可登記／修改；綠色＝支援（非本人負責案場）。</div>`;
 }
 
 // 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
@@ -1447,7 +1447,7 @@ function renderCellEditor() {
   const { name, ds } = _editCell;
   const recs = supLogs.filter(r => r.supervisor === name && r.log_date === ds);
   const chips = recs.length ? recs.map(r =>
-    `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#fef3c7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#d97706">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
+    `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#dcfce7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#16a34a">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
   ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div>';
   document.getElementById('disp-edit-body').innerHTML =
     `<div style="margin-bottom:14px">${chips}</div>
@@ -2310,10 +2310,7 @@ function showAvatarCard(name, e) {
       </svg>
       ${sv.phone}
     </a>` : ''}
-    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
-      <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupCalendar('${sv.name}')">📅 出勤月曆</button>
-    </div>
-    ${currentUser ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+    ${currentUser ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
       <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupervisorForm('${sv.name}')">✏️ 編輯</button>
       <button class="btn-danger" style="padding:5px 14px;font-size:12px" onclick="deleteSupervisor('${sv.name}')">刪除</button>
     </div>` : ''}`;
