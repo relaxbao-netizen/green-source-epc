@@ -2112,7 +2112,7 @@ async function renderTaiwanMap() {
   });
 
   // 工地主任今日位置：依當日行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
-  const LINE = 56;                              // 白線統一長度（px）
+  const LINE = 60;                              // 白線統一長度（px）
   const today = localDate(new Date());
   const isPM = new Date().getHours() >= 12;     // 下午顯示第二個地點
   const byLoc = {};
@@ -2147,32 +2147,79 @@ async function renderTaiwanMap() {
     }
     // 頭貼往最近海岸推：北端→上、南端→下，其餘往較近的東/西岸（台灣南北狹長，橫向最快入海）
     const baseAng = sy < 0.16 * H ? -Math.PI / 2 : sy > 0.84 * H ? Math.PI / 2 : (sx < W / 2 ? Math.PI : 0);
-    const ux = Math.cos(baseAng), uy = Math.sin(baseAng);  // 外推方向單位向量
     const GAP = 30;                                        // 同地點多人橫向間距（px）
-    const ancX = ux * LINE, ancY = uy * LINE;              // 錨點相對案場的位移（px，與白線同單位）
 
-    // 同一地點只畫一條白線：從案場圖釘指向頭貼群（長度 56px）
+    // 計算某方向/距離下，各頭貼相對案場的 px 位移
+    const offsetsFor = (ang, depth) => {
+      const ux = Math.cos(ang), uy = Math.sin(ang);
+      const ancX = ux * depth, ancY = uy * depth;
+      const horizontal = Math.abs(uy) < 0.5;  // 偏水平 = 東/西案場：頭貼從線端往外延伸；否則置中
+      const arr = list.map((sv, i) => ({
+        mlx: horizontal ? ancX + ux * i * GAP : ancX + (i - (list.length - 1) / 2) * GAP,
+        mly: ancY,
+      }));
+      return { ancX, ancY, arr };
+    };
+
+    // 自動避讓陸地：偵測頭貼是否落在縣市色塊(path.cn)上，挑出讓全部頭貼都在海上的方向/距離
+    const wr = wrap.getBoundingClientRect();
+    const canSense = wr.width > 0;
+    const baseX = wr.left + sx / W * wr.width, baseY = wr.top + sy / H * wr.height;
+    const isLand = (dx, dy) => {
+      const u = document.elementFromPoint(baseX + dx, baseY + dy);
+      return !!(u && u.tagName === 'path' && u.classList.contains('cn'));
+    };
+    // 頭貼整個圓（含邊框）是否碰到本島：測中心 + 圓周 8 點（半徑約 16px）
+    const markOnLand = (dx, dy) => {
+      if (isLand(dx, dy)) return true;
+      const R = 16;
+      for (let a = 0; a < 8; a++) {
+        const t = a * Math.PI / 4;
+        if (isLand(dx + R * Math.cos(t), dy + R * Math.sin(t))) return true;
+      }
+      return false;
+    };
+    let chosen = null;
+    if (canSense) {
+      // 白線經過陸地的取樣數（越少越好；斜向最近海岸通常最少）
+      const lineLand = (ang, depth) => {
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        let n = 0;
+        for (const t of [0.25, 0.45, 0.65, 0.85, 1]) if (isLand(ux * depth * t, uy * depth * t)) n++;
+        return n;
+      };
+      const angs = [baseAng];
+      for (let d = Math.PI / 12; d <= Math.PI; d += Math.PI / 12) { angs.push(baseAng + d, baseAng - d); }
+      const depth = LINE;                       // 白線固定 60px，只轉角度避讓
+      let bestScore = Infinity;
+      for (const ang of angs) {
+        const o = offsetsFor(ang, depth);
+        const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
+        // 分數：頭貼壓陸為重、白線穿陸次之、偏離最近海岸方向再次
+        const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
+        const score = avatarLand * 100000 + lineLand(ang, depth) * 1000 + dA * 10;
+        if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
+      }
+    }
+    if (!chosen) { const o = offsetsFor(baseAng, LINE); chosen = { ang: baseAng, depth: LINE, ...o }; }
+
+    // 同一地點只畫一條白線：從案場圖釘指向頭貼群
     const line = document.createElement('div');
     line.className = 'sv-line';
     line.style.left = (sx / W * 100) + '%';
     line.style.top = (sy / H * 100) + '%';
-    line.style.height = LINE + 'px';
-    line.style.transform = `translateX(-50%) rotate(${Math.atan2(-ancX, ancY)}rad)`;
+    line.style.height = chosen.depth + 'px';
+    line.style.transform = `translateX(-50%) rotate(${Math.atan2(-chosen.ancX, chosen.ancY)}rad)`;
     wrap.insertBefore(line, popup);
 
-    // 頭貼：橫向一排（與案場同基準、以 px 位移，確保與白線相接）
-    // 直向線(北/南案場)→ 置中排在線端；橫向線(東/西案場)→ 從線端往外延伸，避免白線穿過頭貼
-    const horizontal = Math.abs(uy) < 0.5;  // 外推方向偏水平 = 東/西案場
+    // 頭貼：橫向一排，與白線相接
     list.forEach((sv, i) => {
-      const mlx = horizontal
-        ? ancX + ux * i * GAP                          // 從線端往外（東/西）延伸
-        : ancX + (i - (list.length - 1) / 2) * GAP;    // 置中
       const m = document.createElement('div');
       m.className = 'sv-mark';
       m.style.left = (sx / W * 100) + '%';
       m.style.top = (sy / H * 100) + '%';
-      m.style.marginLeft = mlx + 'px';
-      m.style.marginTop = ancY + 'px';
+      m.style.marginLeft = chosen.arr[i].mlx + 'px';
+      m.style.marginTop = chosen.arr[i].mly + 'px';
       if (sv.avatar) m.style.backgroundImage = `url(${sv.avatar})`;
       else { m.style.background = sv.color || '#3b82f6'; m.textContent = (sv.name || '').slice(0, 1); }
       m.innerHTML += `<div class="sv-name">${sv.name}　@${loc.label}</div>`;
