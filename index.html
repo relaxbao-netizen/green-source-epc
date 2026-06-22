@@ -1670,6 +1670,16 @@ function openModal(id) {
       <thead><tr><th>施工項目</th><th>權重</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
       <tbody>${wbsRows}</tbody>
     </table>
+    ${(() => {
+      const recs = supLogs.filter(r => r.site_id === s.id);
+      const by = {};
+      recs.forEach(r => { by[r.supervisor] = (by[r.supervisor] || 0) + 1; });
+      const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
+        .map(([n, c]) => `<tr><td>${n}</td><td style="text-align:right;font-weight:600">${c}</td></tr>`).join('');
+      return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${recs.length} 人天）</div>
+        <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="2" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
+    })()}
   `;
 
   const editBtn = document.getElementById('modal-edit-btn');
