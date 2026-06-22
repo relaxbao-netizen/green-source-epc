@@ -1411,7 +1411,7 @@ function renderDispatchReport() {
     const cells = [`<td class="nm">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
-      const list = (idx[v.name] && idx[v.name][d]) || [];
+      const list = ((idx[v.name] && idx[v.name][d]) || []).slice().sort((a, b) => (a.id || 0) - (b.id || 0)); // 第一筆(先登記)在上、第二筆在下
       const chips = list.map(r => {
         const label = recLabel(r);
         const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日') ? '#3b82f6' : (isSupport(r) ? '#16a34a' : 'inherit'));
@@ -2114,10 +2114,15 @@ async function renderTaiwanMap() {
   // 工地主任今日位置：依當日行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
   const LINE = 56;                              // 白線統一長度（px）
   const today = localDate(new Date());
+  const isPM = new Date().getHours() >= 12;     // 下午顯示第二個地點
   const byLoc = {};
   supervisors.forEach(sv => {
-    const rec = supLogs.find(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || OFFICE_LOCS[r.place]));
-    if (!rec) return;
+    // 當天的地點記錄（依登記順序：第一個＝上午、第二個＝下午）
+    const recs = supLogs
+      .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || OFFICE_LOCS[r.place]))
+      .sort((a, b) => (a.id || 0) - (b.id || 0));
+    if (!recs.length) return;
+    const rec = isPM ? (recs[1] || recs[0]) : recs[0];   // 下午用第二個，沒有則沿用第一個
     let loc;
     if (rec.site_id != null) {
       const s = siteById(rec.site_id);
@@ -2773,6 +2778,8 @@ async function initApp() {
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
+  // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
+  setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
 initApp();
 </script>
