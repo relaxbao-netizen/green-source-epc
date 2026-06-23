@@ -254,6 +254,16 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .prog-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .prog-table tr:hover td { background: var(--surface2); cursor: pointer; }
 .prog-table tr:last-child td { border-bottom: none; }
+/* 器具借用表：固定欄寬讓兩表排列一致；除器具名稱(2)、借用人(4)外置中 */
+.equip-table { table-layout: fixed; width: 100%; }
+.equip-table th, .equip-table td { text-align: center; word-break: break-all; }
+.equip-table th:nth-child(1), .equip-table td:nth-child(1) { width: 6%; }
+.equip-table th:nth-child(2), .equip-table td:nth-child(2) { width: 28%; text-align: left; }
+.equip-table th:nth-child(3), .equip-table td:nth-child(3) { width: 11%; }
+.equip-table th:nth-child(4), .equip-table td:nth-child(4) { width: 18%; text-align: left; }
+.equip-table th:nth-child(5), .equip-table td:nth-child(5) { width: 14%; }
+.equip-table th:nth-child(6), .equip-table td:nth-child(6) { width: 13%; }
+.equip-table th:nth-child(7), .equip-table td:nth-child(7) { width: 10%; }
 .status-badge { padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .s-done    { background: #e0f2fe; color: #0ea5e9; }
 .s-normal  { background: #dcfce7; color: #15803d; }
@@ -670,10 +680,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== 器具借用 ===== -->
 <div id="page-equip" class="page">
-  <div class="section-title" style="display:flex;align-items:center">工程部測量器具借用登記
-    <span id="equip-summary" style="margin-left:12px;font-size:13px;font-weight:400;color:var(--muted)"></span>
-  </div>
-  <div class="card"><div style="overflow-x:auto"><table class="prog-table" id="equip-table"></table></div></div>
+  <div id="equip-container"></div>
 </div>
 
 <!-- ===== 器具借出 Modal ===== -->
@@ -1397,6 +1404,14 @@ function dispatchRank(name) {
   return i < 0 ? 999 : i;
 }
 
+// 統一人員排序：Aaron 置頂、Pailung 置底，其餘照 dispatchRank
+function supSortKey(v) {
+  return v.name.startsWith('林根玄') ? -1 : v.name.startsWith('許白龍') ? 99999 : dispatchRank(v.name);
+}
+function orderedSupervisors() {
+  return [...supervisors].sort((a, b) => supSortKey(a) - supSortKey(b));
+}
+
 function openDispatchReport() {
   document.getElementById('disp-modal-title').textContent = '📅 工程人員日行程表';
   if (!dispMonth) {
@@ -1443,16 +1458,15 @@ function renderDispatchReport() {
     if (ry === y && rm === mo) ((idx[r.supervisor] = idx[r.supervisor] || {})[rd] = idx[r.supervisor][rd] || []).push(r);
   });
 
+  const mm = String(mo).padStart(2, '0');
+  const isOffDay = d => !!autoOffLabel(`${y}-${mm}-${String(d).padStart(2, '0')}`); // 週休或國定假日
+  const offBg = 'background:#f1f5f9';
   const th = ['<th class="nm">姓名</th>'];
   for (let d = 1; d <= days; d++) {
     const wd = _WKD[new Date(y, mo - 1, d).getDay()];
-    th.push(`<th>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
+    th.push(`<th${isOffDay(d) ? ` style="${offBg}"` : ''}>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
   }
-  const mm = String(mo).padStart(2, '0');
-  const dispOrder = v => v.name.startsWith('林根玄') ? -1        // Aaron 置頂
-    : v.name.startsWith('許白龍') ? 99999                       // Pailung 置底
-    : dispatchRank(v.name);
-  const ordered = [...supervisors].sort((a, b) => dispOrder(a) - dispOrder(b));
+  const ordered = orderedSupervisors();
   const rows = ordered.map((v) => {
     const cells = [`<td class="nm" style="cursor:pointer" onclick="showAvatarCard('${v.name}',event)">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
@@ -1468,7 +1482,7 @@ function renderDispatchReport() {
         const auto = autoOffLabel(ds);
         if (auto) empty = `<span class="auto-off" style="color:#3b82f6;white-space:nowrap">${auto}</span>`;
       }
-      cells.push(`<td class="disp-cell" onclick="openCellEditor('${v.name}','${ds}')">${chips || empty}</td>`);
+      cells.push(`<td class="disp-cell"${isOffDay(d) ? ` style="${offBg}"` : ''} onclick="openCellEditor('${v.name}','${ds}')">${chips || empty}</td>`);
     }
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
@@ -1571,15 +1585,45 @@ function printDispatch(srcId) {
         fontColor = _rgbToHex((sp ? getComputedStyle(sp) : getComputedStyle(cell)).color);
       }
       const st = {
-        font: { name: FONT, sz: isHead ? 11 : 10, bold: !!(isHead || isName), color: { rgb: fontColor || '0F172A' } },
+        font: { name: FONT, sz: 12, bold: !!(isHead || isName), color: { rgb: fontColor || '0F172A' } },
         alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
         border: allBorder,
       };
-      if (isHead) st.fill = { fgColor: { rgb: 'F1F5F9' } };
+      // 表頭、以及週休/國定假日欄(網頁灰底)→ Excel 也套灰底
+      const offDay = cell && getComputedStyle(cell).backgroundColor === 'rgb(241, 245, 249)';
+      if (isHead || offDay) st.fill = { fgColor: { rgb: 'F1F5F9' } };
       srow.push(st);
     }
     aoa.push(arow); styles.push(srow);
   });
+
+  // 底部：各案場本月出工人天數
+  const [yy, moo] = (dispMonth || '').split('-').map(Number);
+  const counts = {};
+  supLogs.forEach(r => {
+    if (r.site_id == null) return;
+    const [ry, rm] = r.log_date.split('-').map(Number);
+    if (ry === yy && rm === moo) counts[r.site_id] = (counts[r.site_id] || 0) + 1;
+  });
+  const sumList = Object.entries(counts)
+    .map(([sid, n]) => ({ name: (siteById(+sid) || {}).name || ('#' + sid), n }))
+    .sort((a, b) => b.n - a.n);
+  const totalMd = sumList.reduce((s, x) => s + x.n, 0);
+  const pushSummary = (cells, opts = {}) => {
+    const arow = [], srow = [];
+    for (let c = 0; c < ncol; c++) {
+      arow.push(cells[c] != null ? cells[c] : '');
+      srow.push({
+        font: { name: FONT, sz: 12, bold: !!opts.bold, color: { rgb: '0F172A' } },
+        alignment: { horizontal: c === 1 ? 'center' : 'left', vertical: 'center' },
+        fill: opts.fill ? { fgColor: { rgb: opts.fill } } : undefined,
+      });
+    }
+    aoa.push(arow); styles.push(srow);
+  };
+  pushSummary([]);                                   // 空白分隔列
+  pushSummary([`各案場本月出工人天數（合計 ${totalMd} 人天）`], { bold: true, fill: 'F1F5F9' });
+  sumList.forEach(x => pushSummary([x.name, x.n]));
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const range = XLSX.utils.decode_range(ws['!ref']);
@@ -1598,10 +1642,11 @@ function printDispatch(srcId) {
     maxLines = Math.max(maxLines, lines.length);
     lines.forEach(ln => { maxW = Math.max(maxW, cjk(ln)); });
   }));
-  const colW = Math.min(Math.max(maxW + 2, 8), 40);   // 加邊距、限制 8~40
   const rowH = Math.max(maxLines * 16, 22);            // 每行約 16pt
+  // A 欄(姓名)依內容自動，其餘欄固定 15
+  const colAW = Math.min(Math.max(...aoa.map(row => cjk(row[0] || '')), 8) + 2, 40);
   ws['!cols'] = [];
-  for (let c = 0; c <= range.e.c; c++) ws['!cols'].push({ wch: colW });
+  for (let c = 0; c <= range.e.c; c++) ws['!cols'].push({ wch: c === 0 ? colAW : 15 });
   ws['!rows'] = aoa.map(() => ({ hpt: rowH }));
 
   const wb = XLSX.utils.book_new();
@@ -2865,12 +2910,22 @@ async function deleteSiteFromForm() {
 
 // ===================== 工程部測量器具借用 =====================
 const EQUIPMENT = [
+  // 0–23：工程部
   '測距輪', '鉤式接地電阻計', '絕緣高阻計', '三用電表', '電流鉤錶600V', '熱顯像儀',
   '2分電子扭力板手（壞）', '3分電子扭力板手', '3分電子扭力板手', '3分電子扭力板手',
   '縮時攝影機TLC2000', '縮時攝影機TLC2000', '50米鋼捲尺', '接地電阻測試儀（三點式）',
   '四合一網路測試器', '空拍機（墜機找回）', '空拍機（飛不回來）', '空拍機（全新）',
   '8線綠光雷射水平儀', '鋼索防墜器*3', '拉力計', '驗電筆', '膜厚計（舊）', '游標卡尺',
+  // 24–26：南部辦公室
+  '交直流鉤錶(DC/AC 1000A)', '數位型高阻計 絕緣電阻計（IR4056-20）', '數顯扭力扳手 3-60N.m 中飛',
 ];
+// 各登記表分組（依索引範圍）
+const EQUIP_GROUPS = [
+  { title: '工程部測量器具借用登記', idxs: Array.from({ length: 24 }, (_, k) => k) },
+  { title: '南部辦公室測量器具借用登記', idxs: [24, 25, 26] },
+];
+const EQUIP_REMOVED = new Set([19]); // 已移除器具的索引（保留索引避免位移，畫面隱藏）
+const EQUIP_BROKEN = new Set([6]);   // 故障器具的索引（顯示故障、不可借）
 let equipLogs = [];          // equipment_borrow 記錄
 let equipPhotos = [];        // equipment_photo 記錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
@@ -2878,8 +2933,9 @@ let _equipPhotoIdx = null;   // 照片 Modal 當前器具索引
 
 // 重複名稱加 #1/#2 以利辨識
 function equipDisplayName(i) {
-  const name = EQUIPMENT[i];
-  const dupIdx = EQUIPMENT.map((n, k) => n === name ? k : -1).filter(k => k >= 0);
+  const raw = EQUIPMENT[i];
+  const name = raw.replace('（壞）', '');  // 故障已用徽章標示，名稱不再顯示（壞）
+  const dupIdx = EQUIPMENT.map((n, k) => n === raw ? k : -1).filter(k => k >= 0);
   if (dupIdx.length > 1) return `${name} #${dupIdx.indexOf(i) + 1}`;
   return name;
 }
@@ -2964,42 +3020,54 @@ function equipOpenRecord(i) {
 }
 
 function renderEquip() {
-  const tbl = document.getElementById('equip-table');
-  if (!tbl) return;
-  const out = equipLogs.filter(r => !r.return_date).length;
-  document.getElementById('equip-summary').textContent = `共 ${EQUIPMENT.length} 項，借出中 ${out} 項`;
-  const rows = EQUIPMENT.map((name, i) => {
-    const rec = equipOpenRecord(i);
-    const borrowed = !!rec;
-    const status = borrowed
-      ? `<span class="status-badge s-warn">借出中</span>`
-      : `<span class="status-badge s-normal">在庫</span>`;
-    const who = borrowed ? rec.borrower : '';
-    const bd = borrowed ? (rec.borrow_date || '') : '';
-    const note = borrowed ? (rec.note || '') : '';
-    const action = borrowed
-      ? `<button class="btn-edit s-done" onclick="returnEquip(${rec.id})">歸還</button>`
-      : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
-    return `<tr>
-      <td>${i + 1}</td>
-      <td style="font-weight:600;cursor:pointer" onclick="openEquipPhotos(${i})">${equipDisplayName(i)}</td>
-      <td>${status}</td>
-      <td>${who}</td>
-      <td>${bd}</td>
-      <td style="font-size:12px;color:var(--muted)">${note}</td>
-      <td>${action}</td>
-    </tr>`;
+  const cont = document.getElementById('equip-container');
+  if (!cont) return;
+  cont.innerHTML = EQUIP_GROUPS.map(g => {
+    const idxs = g.idxs.filter(i => !EQUIP_REMOVED.has(i));
+    const out = idxs.filter(i => equipOpenRecord(i)).length;
+    let seq = 0;
+    const rows = idxs.map(i => {
+      seq++;
+      const broken = EQUIP_BROKEN.has(i);
+      const rec = equipOpenRecord(i);
+      const borrowed = !!rec;
+      const status = broken
+        ? `<span class="status-badge s-danger">故障</span>`
+        : borrowed
+          ? `<span class="status-badge s-warn">借出中</span>`
+          : `<span class="status-badge s-normal">在庫</span>`;
+      const who = borrowed ? rec.borrower : '';
+      const bd = borrowed ? (rec.borrow_date || '') : '';
+      const note = borrowed ? (rec.note || '') : '';
+      const action = broken
+        ? `<span style="color:var(--muted);font-size:12px">不可借</span>`
+        : borrowed
+          ? `<button class="btn-edit s-done" onclick="returnEquip(${rec.id})">歸還</button>`
+          : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
+      return `<tr>
+        <td>${seq}</td>
+        <td style="font-weight:600;cursor:pointer" onclick="openEquipPhotos(${i})">${equipDisplayName(i)}</td>
+        <td>${status}</td>
+        <td>${who}</td>
+        <td>${bd}</td>
+        <td style="font-size:12px;color:var(--muted)">${note}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="section-title" style="display:flex;align-items:center">${g.title}
+        <span style="margin-left:12px;font-size:13px;font-weight:400;color:var(--muted)">共 ${idxs.length} 項，借出中 ${out} 項</span>
+      </div>
+      <div class="card" style="margin-bottom:20px"><div style="overflow-x:auto"><table class="prog-table equip-table"><thead><tr>
+        <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>用途／備註</th><th>動作</th>
+      </tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }).join('');
-  tbl.innerHTML = `<thead><tr>
-      <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>用途／備註</th><th>動作</th>
-    </tr></thead><tbody>${rows}</tbody>`;
 }
 
 function openEquipBorrow(i) {
   _equipBorrowIdx = i;
   document.getElementById('equip-borrow-title').textContent = `借出登記：${equipDisplayName(i)}`;
   document.getElementById('eb-borrower').innerHTML =
-    '<option value="">請選擇</option>' + supervisors.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    '<option value="">請選擇</option>' + orderedSupervisors().map(s => `<option value="${s.name}">${s.name}</option>`).join('');
   document.getElementById('eb-borrower').value = '';
   document.getElementById('eb-borrow-date').value = localDate(new Date());
   document.getElementById('eb-note').value = '';
