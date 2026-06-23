@@ -532,8 +532,27 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="nav-right">
     <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
     <span class="clock" id="clock"></span>
+    <span id="access-label" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
+    <button id="login-btn" class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="openLogin()">登入</button>
   </div>
 </nav>
+
+<!-- ===== 登入 Modal ===== -->
+<div class="modal-overlay" id="login-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:320px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">登入</div>
+      <button class="modal-close" onclick="document.getElementById('login-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" style="margin-bottom:10px"><label>密碼</label>
+        <input type="password" id="login-pw" onkeydown="if(event.key==='Enter')doLogin()" placeholder="輸入密碼">
+      </div>
+      <div id="login-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px">密碼錯誤</div>
+      <button class="btn-primary" onclick="doLogin()">登入</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== HOME ===== -->
 <div id="page-home" class="page active">
@@ -718,7 +737,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     </div>
     <div class="modal-body">
       <input type="file" id="ep-file" accept="image/*" style="display:none" onchange="onEquipPhotoPicked(event)">
-      <button class="btn-secondary" style="margin-bottom:12px" onclick="document.getElementById('ep-file').click()">＋ 上傳照片</button>
+      <button id="ep-upload-btn" class="btn-secondary" style="margin-bottom:12px" onclick="document.getElementById('ep-file').click()">＋ 上傳照片</button>
       <div id="ep-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
     </div>
   </div>
@@ -839,8 +858,59 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
+// ===================== 登入權限（簡易密碼鎖、多角色）=====================
+// 注意：這是前端密碼鎖，可擋一般人誤改；密碼放在程式中，非真正資安。
+const ACCESS_ROLES = {
+  'sophia.yeh':          { name: '管理員',   perms: ['site', 'supervisor', 'dispatch', 'equip'] },
+  'sophia.yeh28696141':  { name: '派工人員', perms: ['progress'] },  // 只可改案場施工進度
+};
+let ACCESS = null;        // 目前登入角色（null = 檢視者，唯讀）
+// 權限判斷：site 含 progress
+function can(p) {
+  if (!ACCESS) return false;
+  if (ACCESS.perms.includes(p)) return true;
+  if (p === 'progress' && ACCESS.perms.includes('site')) return true;
+  return false;
+}
+function openLogin() {
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('login-pw').focus(), 50);
+}
+function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const role = ACCESS_ROLES[pw];
+  if (!role) { document.getElementById('login-error').style.display = 'block'; return; }
+  ACCESS = role;
+  try { sessionStorage.setItem('access_pw', pw); } catch (e) {}
+  document.getElementById('login-overlay').classList.remove('open');
+  applyAccessUI();
+}
+function logout() {
+  ACCESS = null;
+  try { sessionStorage.removeItem('access_pw'); } catch (e) {}
+  applyAccessUI();
+}
+function restoreAccess() {
+  try { const pw = sessionStorage.getItem('access_pw'); if (pw && ACCESS_ROLES[pw]) ACCESS = ACCESS_ROLES[pw]; } catch (e) {}
+}
+// 依目前角色更新介面（按鈕顯示／隱藏、重繪）
+function applyAccessUI() {
+  const lbl = document.getElementById('access-label');
+  const btn = document.getElementById('login-btn');
+  if (ACCESS) { lbl.textContent = '👤 ' + ACCESS.name; btn.textContent = '登出'; btn.onclick = logout; }
+  else { lbl.textContent = ''; btn.textContent = '登入'; btn.onclick = openLogin; }
+  const addSite = document.getElementById('btn-add-site-progress');
+  const addSup = document.getElementById('btn-add-supervisor');
+  if (addSite) addSite.style.display = can('site') ? '' : 'none';
+  if (addSup) addSup.style.display = can('supervisor') ? '' : 'none';
+  rerenderAll();
+  if (document.getElementById('page-equip').classList.contains('active')) renderEquip();
+}
+
 // ===================== DATA =====================
-let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
+let currentUser = null;   // 保留相容；實際以 can() 判斷權限
 let editingSiteId = null;
 let sites = [
   { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
@@ -1505,6 +1575,7 @@ function renderDispatchReport() {
 // 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
 let _editCell = { name: null, ds: null };
 function openCellEditor(name, ds) {
+  if (!can('dispatch')) return;  // 無派工權限不開編輯
   _editCell = { name, ds };
   const d = new Date(ds + 'T00:00:00');
   document.getElementById('disp-edit-title').textContent = `${name}　${ds.slice(5).replace('-', '/')}（${_WKD[d.getDay()]}）`;
@@ -1783,7 +1854,7 @@ function openModal(id) {
   `;
 
   const editBtn = document.getElementById('modal-edit-btn');
-  editBtn.style.display = currentUser ? '' : 'none';
+  editBtn.style.display = (can('site') || can('progress')) ? '' : 'none';
   editBtn.className = 'btn-edit ' + statusClass[s.status]; // 顏色跟隨案場狀態
   editBtn.onclick = () => { closeModalDirect(); openSiteForm(s.id); };
 
@@ -2481,7 +2552,7 @@ function showAvatarCard(name, e) {
       </svg>
       ${sv.phone}
     </a>` : ''}
-    ${currentUser ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+    ${can('supervisor') ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
       <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupervisorForm('${sv.name}')">✏️ 編輯</button>
       <button class="btn-danger" style="padding:5px 14px;font-size:12px" onclick="deleteSupervisor('${sv.name}')">刪除</button>
     </div>` : ''}`;
@@ -2682,6 +2753,7 @@ function openSupervisorForm(name) {
 }
 
 async function saveSupervisorForm() {
+  if (!can('supervisor')) { alert('權限不足'); return; }
   const errEl = document.getElementById('supervisor-form-error');
   errEl.style.display = 'none';
   const name = document.getElementById('sv-name').value.trim();
@@ -2720,6 +2792,7 @@ async function saveSupervisorForm() {
 }
 
 async function deleteSupervisor(name) {
+  if (!can('supervisor')) { alert('權限不足'); return; }
   const n = sitesOfPm(name).length;
   const msg = n > 0
     ? `「${name}」目前仍負責 ${n} 個案場，刪除後這些案場的工地主任會改為「待確認」。確定刪除？`
@@ -2858,10 +2931,16 @@ function openSiteForm(id) {
   set('sf-end',    s && s.end ? s.end.replace(/\//g, '-') : '');
   renderWbsInputs(wbsMapFromSite(s));
   updateCapFields();
+  // 派工人員：只能改施工進度(WBS)，其餘欄位鎖定、刪除隱藏
+  const onlyProgress = !can('site') && can('progress');
+  ['sf-name', 'sf-label', 'sf-region', 'sf-city', 'sf-type', 'sf-owner', 'sf-pm', 'sf-addr', 'sf-mw', 'sf-skw', 'sf-mwh', 'sf-start', 'sf-end']
+    .forEach(fid => { const el = document.getElementById(fid); if (el) el.disabled = onlyProgress; });
+  if (onlyProgress) document.getElementById('sf-delete-btn').style.display = 'none';
   document.getElementById('site-form-overlay').classList.add('open');
 }
 
 async function saveSiteForm() {
+  if (!can('site') && !can('progress')) { alert('權限不足'); return; }
   const errEl = document.getElementById('site-form-error');
   errEl.style.display = 'none';
   const val = fid => document.getElementById(fid).value.trim();
@@ -2902,6 +2981,7 @@ async function saveSiteForm() {
 }
 
 async function deleteSiteFromForm() {
+  if (!can('site')) { alert('權限不足'); return; }
   if (editingSiteId === null) return;
   const s = siteById(editingSiteId);
   if (!confirm('確定要刪除「' + (s ? s.name : '') + '」嗎？此動作無法復原。')) return;
@@ -2985,6 +3065,7 @@ function resizeKeepAspect(file, max, cb) {
 function openEquipPhotos(i) {
   _equipPhotoIdx = i;
   document.getElementById('equip-photo-title').textContent = `器具照片：${equipDisplayName(i)}`;
+  document.getElementById('ep-upload-btn').style.display = can('equip') ? '' : 'none';
   renderEquipPhotos();
   document.getElementById('equip-photo-overlay').classList.add('open');
 }
@@ -2992,15 +3073,19 @@ function openEquipPhotos(i) {
 function renderEquipPhotos() {
   const grid = document.getElementById('ep-grid');
   const photos = equipPhotos.filter(p => p.item_id === _equipPhotoIdx);
+  const delBtn = p => can('equip')
+    ? `<button onclick="deleteEquipPhoto(${p.id})" title="刪除" style="position:absolute;top:4px;right:4px;border:none;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer">✕</button>`
+    : '';
   grid.innerHTML = photos.length
     ? photos.map(p => `<div style="position:relative">
         <img src="${p.image}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
-        <button onclick="deleteEquipPhoto(${p.id})" title="刪除" style="position:absolute;top:4px;right:4px;border:none;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer">✕</button>
+        ${delBtn(p)}
       </div>`).join('')
-    : '<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:8px 0">尚無照片，點上方按鈕上傳</div>';
+    : `<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:8px 0">尚無照片${can('equip') ? '，點上方按鈕上傳' : ''}</div>`;
 }
 
 function onEquipPhotoPicked(e) {
+  if (!can('equip')) return;
   const f = e.target.files[0];
   e.target.value = '';
   if (!f) return;
@@ -3015,6 +3100,7 @@ function onEquipPhotoPicked(e) {
 }
 
 async function deleteEquipPhoto(id) {
+  if (!can('equip')) return;
   if (!confirm('確認刪除此照片？')) return;
   const { error } = await sb.from('equipment_photo').delete().eq('id', id);
   if (error) { alert('刪除失敗：' + error.message); return; }
@@ -3050,9 +3136,11 @@ function renderEquip() {
       const note = borrowed ? (rec.note || '') : '';
       const action = broken
         ? `<span style="color:var(--muted);font-size:12px">不可借</span>`
-        : borrowed
-          ? `<button class="btn-edit s-done" onclick="returnEquip(${rec.id})">歸還</button>`
-          : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
+        : !can('equip')
+          ? ''
+          : borrowed
+            ? `<button class="btn-edit s-done" onclick="returnEquip(${rec.id})">歸還</button>`
+            : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
       return `<tr>
         <td>${seq}</td>
         <td style="font-weight:600;cursor:pointer" onclick="openEquipPhotos(${i})">${equipDisplayName(i)}</td>
@@ -3073,6 +3161,7 @@ function renderEquip() {
 }
 
 function openEquipBorrow(i) {
+  if (!can('equip')) return;
   _equipBorrowIdx = i;
   document.getElementById('equip-borrow-title').textContent = `借出登記：${equipDisplayName(i)}`;
   document.getElementById('eb-borrower').innerHTML =
@@ -3085,6 +3174,7 @@ function openEquipBorrow(i) {
 }
 
 async function confirmEquipBorrow() {
+  if (!can('equip')) { alert('權限不足'); return; }
   const errEl = document.getElementById('eb-error');
   const borrower = document.getElementById('eb-borrower').value.trim();
   if (!borrower) { errEl.textContent = '請填寫借用人'; errEl.style.display = 'block'; return; }
@@ -3104,6 +3194,7 @@ async function confirmEquipBorrow() {
 }
 
 async function returnEquip(recId) {
+  if (!can('equip')) { alert('權限不足'); return; }
   if (!confirm('確認歸還此器具？')) return;
   const today = localDate(new Date());
   // RLS 若不允許 update，改以刪除+重插方式（保留歷史則需後台放寬權限）
@@ -3116,13 +3207,12 @@ async function returnEquip(recId) {
 // ---- 啟動 ----
 // 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
 async function initApp() {
+  restoreAccess(); // 還原登入角色（檢視者預設唯讀）
   if (sb) {
-    currentUser = true; // 不需登入，連上雲端即可編輯
-    document.getElementById('btn-add-site-progress').style.display = '';
-    document.getElementById('btn-add-supervisor').style.display = '';
     await loadFromCloud(); // 失敗時自動沿用內建資料
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  applyAccessUI(); // 依角色顯示登入狀態與編輯按鈕
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
   Promise.all([loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具借用記錄與照片
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
