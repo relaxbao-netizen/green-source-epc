@@ -693,6 +693,21 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   </div>
 </div>
 
+<!-- ===== 器具照片 Modal ===== -->
+<div class="modal-overlay" id="equip-photo-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="equip-photo-title">器具照片</div>
+      <button class="modal-close" onclick="document.getElementById('equip-photo-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="file" id="ep-file" accept="image/*" style="display:none" onchange="onEquipPhotoPicked(event)">
+      <button class="btn-secondary" style="margin-bottom:12px" onclick="document.getElementById('ep-file').click()">＋ 上傳照片</button>
+      <div id="ep-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 施工晴雨表報表 ===== -->
 <div class="modal-overlay" id="rain-report-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="width:920px" onclick="event.stopPropagation()">
@@ -742,6 +757,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         </div>
       </div>
       <div class="form-field"><label>姓名 *</label><input type="text" id="sv-name" placeholder="例：蕭宏明 Mark"></div>
+      <div class="form-field" style="margin-top:8px"><label>身分</label><select id="sv-role"><option value="工地主任">工地主任</option><option value="工程部主管">工程部主管</option></select></div>
       <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
       <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -1026,7 +1042,7 @@ function renderHome() {
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
-  hrEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
+  hrEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const n = activeSitesOf(sv).length;
     const pct = Math.round((n / 3) * 100);
     const overload = n > 3;
@@ -1108,7 +1124,7 @@ function renderProgressTable(filter) {
 // ===================== HR =====================
 function renderHR() {
   const maxLoad = 3;
-  const overloaded = supervisors.filter(s => activeSitesOf(s).length > maxLoad);
+  const overloaded = supervisors.filter(s => s.role !== '工程部主管' && activeSitesOf(s).length > maxLoad);
 
   // Alert
   const alertEl = document.getElementById('hr-alert');
@@ -1121,7 +1137,7 @@ function renderHR() {
 
   // Full list
   const listEl = document.getElementById('hr-list');
-  listEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
+  listEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const active = activeSitesOf(sv);
     const n = active.length;
     const overload = n > maxLoad;
@@ -1149,7 +1165,7 @@ function renderHR() {
 
   // Detail cards
   const detailEl = document.getElementById('hr-detail-grid');
-  detailEl.innerHTML = [...supervisors].sort(byWorkload).map(sv => {
+  detailEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const overload = activeSitesOf(sv).length > maxLoad;
     const siteRows = activeSitesOf(sv).map(idx => {
       const s = siteById(idx);
@@ -1433,9 +1449,12 @@ function renderDispatchReport() {
     th.push(`<th>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
   }
   const mm = String(mo).padStart(2, '0');
-  const ordered = [...supervisors].sort((a, b) => dispatchRank(a.name) - dispatchRank(b.name));
+  const dispOrder = v => v.name.startsWith('林根玄') ? -1        // Aaron 置頂
+    : v.name.startsWith('許白龍') ? 99999                       // Pailung 置底
+    : dispatchRank(v.name);
+  const ordered = [...supervisors].sort((a, b) => dispOrder(a) - dispOrder(b));
   const rows = ordered.map((v) => {
-    const cells = [`<td class="nm">${v.name}</td>`];
+    const cells = [`<td class="nm" style="cursor:pointer" onclick="showAvatarCard('${v.name}',event)">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
       const ds = `${y}-${mm}-${String(d).padStart(2, '0')}`;
       const list = ((idx[v.name] && idx[v.name][d]) || []).slice().sort((a, b) => (a.id || 0) - (b.id || 0)); // 第一筆(先登記)在上、第二筆在下
@@ -2401,6 +2420,7 @@ function showAvatarCard(name, e) {
     <button class="ac-close" onclick="closeAvatarCard()">✕</button>
     <div class="ac-avatar" style="background:${sv.color}22;color:${sv.color}">${avatarInner(sv)}</div>
     <div class="ac-name">${sv.name}</div>
+    <div style="text-align:center;font-size:12px;color:var(--muted);margin:2px 0 4px">${sv.role || '工地主任'}</div>
     ${sv.phone ? `<a class="ac-phone" href="tel:${sv.phone.replace(/[^\d+]/g, '')}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.04 1.16 2 2 0 012 .01h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z"/>
@@ -2495,7 +2515,7 @@ async function loadFromCloud() {
     if (siteRes.error) throw siteRes.error;
     if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
     if (!svRes.error && svRes.data && svRes.data.length) {
-      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [], avatar: r.avatar || '' }));
+      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任' }));
     }
     supLogs = (logRes && !logRes.error && logRes.data) ? logRes.data : [];
     return true;
@@ -2599,6 +2619,7 @@ function openSupervisorForm(name) {
   const sv = name ? supervisors.find(v => v.name === name) : null;
   document.getElementById('supervisor-form-title').textContent = sv ? '✏️ 編輯工地主任' : '＋ 新增工地主任';
   document.getElementById('sv-name').value = sv ? sv.name : '';
+  document.getElementById('sv-role').value = sv ? (sv.role || '工地主任') : '工地主任';
   document.getElementById('sv-phone').value = sv ? sv.phone : '';
   editingAvatarData = sv ? (sv.avatar || '') : '';
   updateAvatarPreview();
@@ -2611,6 +2632,7 @@ async function saveSupervisorForm() {
   errEl.style.display = 'none';
   const name = document.getElementById('sv-name').value.trim();
   const phone = document.getElementById('sv-phone').value.trim();
+  const role = document.getElementById('sv-role').value;
   if (!name) {
     errEl.textContent = '請填寫姓名';
     errEl.style.display = 'block';
@@ -2623,10 +2645,10 @@ async function saveSupervisorForm() {
   }
   let q;
   if (editingSupervisorName) {
-    q = sb.from('supervisors').update({ name, phone, avatar: editingAvatarData }).eq('name', editingSupervisorName);
+    q = sb.from('supervisors').update({ name, phone, avatar: editingAvatarData, role }).eq('name', editingSupervisorName);
   } else {
     const color = supervisorPalette[supervisors.length % supervisorPalette.length];
-    q = sb.from('supervisors').insert({ name, phone, color, sites: [], avatar: editingAvatarData });
+    q = sb.from('supervisors').insert({ name, phone, color, sites: [], avatar: editingAvatarData, role });
   }
   const { error } = await q;
   if (error) {
@@ -2850,7 +2872,9 @@ const EQUIPMENT = [
   '8線綠光雷射水平儀', '鋼索防墜器*3', '拉力計', '驗電筆', '膜厚計（舊）', '游標卡尺',
 ];
 let equipLogs = [];          // equipment_borrow 記錄
+let equipPhotos = [];        // equipment_photo 記錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
+let _equipPhotoIdx = null;   // 照片 Modal 當前器具索引
 
 // 重複名稱加 #1/#2 以利辨識
 function equipDisplayName(i) {
@@ -2865,6 +2889,73 @@ async function loadEquipLogs() {
   const { data, error } = await sb.from('equipment_borrow').select('*').order('id');
   equipLogs = (!error && data) ? data : [];
   if (error) console.warn('equipment_borrow 讀取失敗（資料表可能尚未建立）', error.message);
+}
+
+async function loadEquipPhotos() {
+  if (!sb) return;
+  const { data, error } = await sb.from('equipment_photo').select('*').order('id');
+  equipPhotos = (!error && data) ? data : [];
+  if (error) console.warn('equipment_photo 讀取失敗（資料表可能尚未建立）', error.message);
+}
+
+// 縮圖（保持比例，最長邊 max）
+function resizeKeepAspect(file, max, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > h && w > max) { h = h * max / w; w = max; }
+      else if (h >= w && h > max) { w = w * max / h; h = max; }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(c.toDataURL('image/jpeg', 0.82));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function openEquipPhotos(i) {
+  _equipPhotoIdx = i;
+  document.getElementById('equip-photo-title').textContent = `器具照片：${equipDisplayName(i)}`;
+  renderEquipPhotos();
+  document.getElementById('equip-photo-overlay').classList.add('open');
+}
+
+function renderEquipPhotos() {
+  const grid = document.getElementById('ep-grid');
+  const photos = equipPhotos.filter(p => p.item_id === _equipPhotoIdx);
+  grid.innerHTML = photos.length
+    ? photos.map(p => `<div style="position:relative">
+        <img src="${p.image}" style="width:100%;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button onclick="deleteEquipPhoto(${p.id})" title="刪除" style="position:absolute;top:4px;right:4px;border:none;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer">✕</button>
+      </div>`).join('')
+    : '<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:8px 0">尚無照片，點上方按鈕上傳</div>';
+}
+
+function onEquipPhotoPicked(e) {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  if (!f.type.startsWith('image/')) { alert('請選擇圖片檔'); return; }
+  resizeKeepAspect(f, 900, async url => {
+    const { error } = await sb.from('equipment_photo').insert({ item_id: _equipPhotoIdx, item_name: EQUIPMENT[_equipPhotoIdx], image: url });
+    if (error) { alert('上傳失敗：' + error.message); return; }
+    await loadEquipPhotos();
+    renderEquipPhotos();
+    renderEquip();
+  });
+}
+
+async function deleteEquipPhoto(id) {
+  if (!confirm('確認刪除此照片？')) return;
+  const { error } = await sb.from('equipment_photo').delete().eq('id', id);
+  if (error) { alert('刪除失敗：' + error.message); return; }
+  await loadEquipPhotos();
+  renderEquipPhotos();
+  renderEquip();
 }
 
 function equipOpenRecord(i) {
@@ -2891,7 +2982,7 @@ function renderEquip() {
       : `<button class="btn-edit s-normal" onclick="openEquipBorrow(${i})">借出</button>`;
     return `<tr>
       <td>${i + 1}</td>
-      <td style="font-weight:600">${equipDisplayName(i)}</td>
+      <td style="font-weight:600;cursor:pointer" onclick="openEquipPhotos(${i})">${equipDisplayName(i)}</td>
       <td>${status}</td>
       <td>${who}</td>
       <td>${bd}</td>
@@ -2956,7 +3047,7 @@ async function initApp() {
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
-  loadEquipLogs().then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具借用記錄
+  Promise.all([loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具借用記錄與照片
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
