@@ -757,7 +757,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         </div>
       </div>
       <div class="form-field"><label>姓名 *</label><input type="text" id="sv-name" placeholder="例：蕭宏明 Mark"></div>
-      <div class="form-field" style="margin-top:8px"><label>身分</label><select id="sv-role"><option value="工地主任">工地主任</option><option value="工程部主管">工程部主管</option></select></div>
+      <div class="form-field" style="margin-top:8px"><label>身分</label><select id="sv-role"><option value="工程部主管">工程部主管</option><option value="工地主任">工地主任</option></select></div>
       <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
       <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
@@ -1460,7 +1460,7 @@ function renderDispatchReport() {
       const list = ((idx[v.name] && idx[v.name][d]) || []).slice().sort((a, b) => (a.id || 0) - (b.id || 0)); // 第一筆(先登記)在上、第二筆在下
       const chips = list.map(r => {
         const label = recLabel(r);
-        const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日') ? '#3b82f6' : (isSupport(r) ? '#16a34a' : 'inherit'));
+        const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日' || label === '颱風假') ? '#3b82f6' : (isSupport(r) ? '#16a34a' : 'inherit'));
         return `<span style="color:${color};white-space:nowrap">${label}</span>`;
       }).join('<br>');
       let empty = '<span class="disp-add">＋</span>';
