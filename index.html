@@ -2386,9 +2386,7 @@ function openKpiList(type) {
     : type === 'pv-cap'                ? sites.filter(s => (s.type.includes('太陽能') || s.type === 'PV') && s.mw > 0)
     : type === 'storage-cap'           ? sites.filter(s => s.type.includes('儲能') && (s.mwh > 0 || s.skw > 0))
     : sites.filter(s => s.status === type);
-  const sorted = type === 'pv-cap'     ? [...filtered].sort((a,b) => b.mw - a.mw)
-    : type === 'storage-cap'           ? [...filtered].sort((a,b) => b.mwh - a.mwh)
-    : [...filtered].sort((a,b) => b.pct - a.pct);   // 執行中/正常/即將落後/進度落後：依完工程度高→低
+  const sorted = [...filtered].sort(byProgress);   // 一律依完工進度高→低，同進度再依開工日早→晚
   document.getElementById('kpi-list-title').textContent = `${titleMap[type]}（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
@@ -2455,7 +2453,7 @@ function openPmModal(name) {
 // ===================== OWNER MODAL =====================
 function openOwnerModal(owner) {
   const filtered = sites.filter(s => s.owner === owner);
-  const sorted = [...filtered].sort(bySchedule);
+  const sorted = [...filtered].sort(byProgress);
   const totalKw  = +filtered.reduce((s,x) => s + (x.mw  || 0), 0).toFixed(2);
   const totalKwh = +filtered.reduce((s,x) => s + (x.mwh || 0), 0).toFixed(2);
   document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalKw} kW / ${totalKwh} kWh）`;
@@ -2480,7 +2478,7 @@ function openOwnerModal(owner) {
 // ===================== REGION MODAL =====================
 function openRegionModal(region, label) {
   const filtered = sites.filter(s => s.region === region);
-  const sorted = [...filtered].sort(bySchedule);
+  const sorted = [...filtered].sort(byProgress);
   document.getElementById('kpi-list-title').textContent = `${label}案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
