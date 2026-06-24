@@ -2354,7 +2354,7 @@ function openKpiList(type) {
     : sites.filter(s => s.status === type);
   const sorted = type === 'pv-cap'     ? [...filtered].sort((a,b) => b.mw - a.mw)
     : type === 'storage-cap'           ? [...filtered].sort((a,b) => b.mwh - a.mwh)
-    : [...filtered].sort(bySchedule);
+    : [...filtered].sort((a,b) => b.pct - a.pct);   // 執行中/正常/即將落後/進度落後：依完工程度高→低
   document.getElementById('kpi-list-title').textContent = `${titleMap[type]}（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
