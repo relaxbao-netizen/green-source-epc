@@ -807,7 +807,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>開工日期</label><input type="date" id="sf-start"></div>
         <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"></div>
         <div style="grid-column:1/-1">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">WBS 施工項目完成率（%）</div>
+          <div style="display:flex;align-items:center;margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">
+            <span style="font-size:12px;font-weight:700;color:var(--muted)">WBS 施工項目完成率（%）</span>
+            <button type="button" class="btn-secondary" style="margin-left:auto;padding:3px 10px;font-size:11px" onclick="openWbsImport()">📋 匯入工項</button>
+            <button type="button" id="sf-wbs-reset" class="btn-secondary" style="margin-left:6px;padding:3px 10px;font-size:11px;display:none" onclick="resetWbsItems()">恢復預設</button>
+          </div>
           <div id="sf-wbs-grid"></div>
         </div>
       </div>
@@ -816,6 +820,25 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <button class="btn-danger" id="sf-delete-btn" style="display:none;margin-right:auto" onclick="deleteSiteFromForm()">刪除案場</button>
         <button class="btn-secondary" onclick="document.getElementById('site-form-overlay').classList.remove('open')">取消</button>
         <button class="btn-primary" onclick="saveSiteForm()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WBS 匯入工項 Modal ===== -->
+<div class="modal-overlay" id="wbs-import-overlay" style="z-index:700" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:420px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">匯入工項</div>
+      <button class="modal-close" onclick="document.getElementById('wbs-import-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">每行一個工項，格式：<b>工項名稱,權重</b>（可用逗號、Tab 或空白分隔）。例如：<br>整地工程,10<br>支架安裝,25</div>
+      <textarea id="wbs-import-text" style="width:100%;height:160px;box-sizing:border-box;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="土建工程,15&#10;結構工程,20&#10;..."></textarea>
+      <div id="wbs-import-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn-secondary" onclick="document.getElementById('wbs-import-overlay').classList.remove('open')">取消</button>
+        <button class="btn-primary" onclick="applyWbsImport()">套用</button>
       </div>
     </div>
   </div>
@@ -842,6 +865,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 // ===================== DATA =====================
 let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
 let editingSiteId = null;
+let editingWbsItems = null; // 編輯中案場的自訂工項清單（null = 用類型範本）
 let sites = [
   { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
   { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01', label:'恩盈', lng:120.566, lat:22.571 },
@@ -941,8 +965,14 @@ function fillClass(status) {
   return 'fill-green';
 }
 
-function computeWBSFromData(wbsMap, type) {
-  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+// 取案場 WBS 分類：有自訂工項(單層清單)就用自訂，否則用類型範本
+function wbsCatsFor(type, items) {
+  if (items && items.length) return items.map(it => ({ name: it.name, weight: +it.weight || 0, subs: [] }));
+  return (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+}
+
+function computeWBSFromData(wbsMap, type, items) {
+  const cats = wbsCatsFor(type, items);
   return cats.map(cat => {
     let subs = [], catPct;
     if (cat.subs.length === 0) {
@@ -960,8 +990,8 @@ function computeWBSFromData(wbsMap, type) {
   });
 }
 
-function computeWBS2(pct, type) {
-  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+function computeWBS2(pct, type, items) {
+  const cats = wbsCatsFor(type, items);
   let rem = pct;
   return cats.map(cat => {
     let catPct;
@@ -1714,7 +1744,7 @@ function openModal(id) {
   document.getElementById('modal-status-badge').innerHTML =
     `<span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span>`;
 
-  const wbsData = s.wbs ? computeWBSFromData(s.wbs, s.type) : computeWBS2(s.pct, s.type);
+  const wbsData = s.wbs ? computeWBSFromData(s.wbs, s.type, s.wbs_items) : computeWBS2(s.pct, s.type, s.wbs_items);
 
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = cat.catPct === 100 ? '#16a34a' : cat.catPct > 0 ? '#d97706' : '#94a3b8';
@@ -2554,6 +2584,7 @@ function rowToSite(r) {
     type: r.type || '太陽能', addr: r.addr || '',
     label: r.label || r.city || '', lng: r.lng ? +r.lng : null, lat: r.lat ? +r.lat : null,
     wbs: r.wbs || undefined,
+    wbs_items: Array.isArray(r.wbs_items) ? r.wbs_items : undefined,
   };
 }
 
@@ -2750,7 +2781,7 @@ function wbsMapFromSite(s) {
   if (!s) return {};
   if (s.wbs) return s.wbs;
   const map = {};
-  computeWBS2(s.pct, s.type).forEach(cat => {
+  computeWBS2(s.pct, s.type, s.wbs_items).forEach(cat => {
     if (!cat.subs.length) map[cat.name] = cat.catPct;
     else cat.subs.forEach(sub => map[sub.name] = sub.pct);
   });
@@ -2761,7 +2792,9 @@ function wbsMapFromSite(s) {
 function renderWbsInputs(wbsMap) {
   const type = document.getElementById('sf-type').value;
   const current = wbsMap || collectWbsInputs();
-  const cats = (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+  const cats = wbsCatsFor(type, editingWbsItems);
+  const resetBtn = document.getElementById('sf-wbs-reset');
+  if (resetBtn) resetBtn.style.display = (editingWbsItems && editingWbsItems.length) ? '' : 'none';
   let rows = '';
   cats.forEach((cat, ci) => {
     const catCell = `<td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>
@@ -2793,9 +2826,41 @@ function collectWbsInputs() {
   return map;
 }
 
+// ---- 自訂工項匯入 ----
+function openWbsImport() {
+  // 預填目前工項，方便修改
+  const lines = (editingWbsItems && editingWbsItems.length)
+    ? editingWbsItems.map(it => `${it.name},${it.weight}`).join('\n') : '';
+  document.getElementById('wbs-import-text').value = lines;
+  document.getElementById('wbs-import-error').style.display = 'none';
+  document.getElementById('wbs-import-overlay').classList.add('open');
+}
+function applyWbsImport() {
+  const errEl = document.getElementById('wbs-import-error');
+  const txt = document.getElementById('wbs-import-text').value;
+  const items = [];
+  txt.split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    const m = t.split(/[,\t]+|\s{2,}|\s+(?=\d)/);  // 逗號/Tab/多空白/名稱與數字間空白
+    const name = (m[0] || '').trim();
+    const weight = Math.max(0, +(m[m.length - 1]) || 0);
+    if (name) items.push({ name, weight });
+  });
+  if (!items.length) { errEl.textContent = '請至少輸入一個工項'; errEl.style.display = 'block'; return; }
+  editingWbsItems = items;
+  document.getElementById('wbs-import-overlay').classList.remove('open');
+  renderWbsInputs(collectWbsInputs());  // 保留已填完成率
+}
+function resetWbsItems() {
+  if (!confirm('恢復為此類型的預設工項範本？目前自訂工項會清除。')) return;
+  editingWbsItems = null;
+  renderWbsInputs({});
+}
+
 // 由 WBS 各項完成率加權計算整體進度
-function wbsOverallPct(wbsMap, type) {
-  const cats = computeWBSFromData(wbsMap, type);
+function wbsOverallPct(wbsMap, type, items) {
+  const cats = computeWBSFromData(wbsMap, type, items);
   const totalW = cats.reduce((s, c) => s + c.weight, 0);
   return totalW ? Math.round(cats.reduce((s, c) => s + c.catPct * c.weight, 0) / totalW) : 0;
 }
@@ -2856,6 +2921,7 @@ function openSiteForm(id) {
   set('sf-mwh',    s && s.mwh ? s.mwh : '');
   set('sf-start',  s && s.start ? s.start.replace(/\//g, '-') : ''); // type=date 需 YYYY-MM-DD
   set('sf-end',    s && s.end ? s.end.replace(/\//g, '-') : '');
+  editingWbsItems = (s && Array.isArray(s.wbs_items) && s.wbs_items.length) ? s.wbs_items.map(it => ({ ...it })) : null;
   renderWbsInputs(wbsMapFromSite(s));
   updateCapFields();
   document.getElementById('site-form-overlay').classList.add('open');
@@ -2879,7 +2945,8 @@ async function saveSiteForm() {
   };
   // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
-  row.pct = wbsOverallPct(row.wbs, row.type);
+  row.wbs_items = (editingWbsItems && editingWbsItems.length) ? editingWbsItems : null; // 自訂工項（無則用範本）
+  row.pct = wbsOverallPct(row.wbs, row.type, editingWbsItems);
   const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
   row.status = row.pct >= 100 ? 'done'
     : (existing && existing.status !== 'done') ? existing.status
