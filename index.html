@@ -2422,12 +2422,18 @@ function bySchedule(a, b) {
   return d(a.start) - d(b.start) || d(a.end) - d(b.end) || b.pct - a.pct;
 }
 
+// 清單排序：完工進度（高→低）→ 開工日（早→晚）；無日期者排最後
+function byProgress(a, b) {
+  const d = v => { const t = Date.parse((v || '').replace(/\//g, '-')); return isNaN(t) ? Infinity : t; };
+  return b.pct - a.pct || d(a.start) - d(b.start);
+}
+
 // ===================== PM MODAL =====================
 function openPmModal(name) {
   const sv = supervisors.find(s => s.name === name);
   if (!sv) return;
   const pmSites = sites.filter(s => s.pm === sv.name);
-  const sorted = [...pmSites].sort(bySchedule);
+  const sorted = [...pmSites].sort(byProgress);
   document.getElementById('kpi-list-title').textContent = `${name} 負責案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
