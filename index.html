@@ -124,6 +124,7 @@ nav > * { flex-shrink: 0; }
 .map-pin .dot.warn    { background: var(--warn);      box-shadow: 0 0 8px var(--warn); }
 .map-pin .dot.danger  { background: var(--danger);    box-shadow: 0 0 8px var(--danger); }
 .map-pin .dot.done    { background: var(--accent2);   box-shadow: 0 0 8px var(--accent2); }
+.map-pin .dot.pending { background: #64748b;          box-shadow: 0 0 8px #64748b; }
 .map-pin .pin-label {
   position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
   font-size: 10px; white-space: nowrap;
@@ -185,6 +186,7 @@ nav > * { flex-shrink: 0; }
 .fill-blue   { background: linear-gradient(90deg, #0ea5e9, #38bdf8); }
 .fill-yellow { background: linear-gradient(90deg, #d97706, #fcd34d); }
 .fill-red    { background: linear-gradient(90deg, #dc2626, #f87171); }
+.fill-grey   { background: linear-gradient(90deg, #64748b, #94a3b8); }
 
 /* AVATAR CARD MODAL */
 #avatar-overlay {
@@ -269,6 +271,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .s-normal  { background: #dcfce7; color: #15803d; }
 .s-warn    { background: #fef9c3; color: #a16207; }
 .s-danger  { background: #fee2e2; color: #b91c1c; }
+.s-pending { background: #e2e8f0; color: #475569; }
 .table-bar-wrap { width: 120px; }
 .table-bar { height: 6px; background: var(--border); border-radius: 3px; }
 .table-bar-fill { height: 100%; border-radius: 3px; }
@@ -946,22 +949,23 @@ function byWorkload(a, b) {
   return activeSitesOf(b).length - activeSitesOf(a).length || hireIndex(a.name) - hireIndex(b.name);
 }
 
-const statusText = { normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
-const statusClass = { normal:'s-normal', warn:'s-warn', danger:'s-danger', done:'s-done' };
+const statusText = { pending:'待開工', normal:'正常', warn:'即將落後', danger:'落後', done:'完工' };
+const statusClass = { pending:'s-pending', normal:'s-normal', warn:'s-warn', danger:'s-danger', done:'s-done' };
 
 // ===================== HELPERS =====================
 function progressColor(pct, status) {
-  if (status === 'done')   return '#0ea5e9';
-  if (status === 'danger') return '#dc2626';
-  if (status === 'warn')   return '#d97706';
-  if (pct >= 70)           return '#16a34a';
+  if (status === 'done')    return '#0ea5e9';
+  if (status === 'danger')  return '#dc2626';
+  if (status === 'warn')    return '#d97706';
+  if (status === 'pending') return '#64748b';
   return '#16a34a';
 }
 
 function fillClass(status) {
-  if (status === 'done')   return 'fill-blue';
-  if (status === 'danger') return 'fill-red';
-  if (status === 'warn')   return 'fill-yellow';
+  if (status === 'done')    return 'fill-blue';
+  if (status === 'danger')  return 'fill-red';
+  if (status === 'warn')    return 'fill-yellow';
+  if (status === 'pending') return 'fill-grey';
   return 'fill-green';
 }
 
@@ -2177,7 +2181,7 @@ function closeModalDirect() {
 }
 
 // ===================== KPI LIST MODAL =====================
-const statusDotColor = { normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
+const statusDotColor = { pending:'#64748b', normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
 
 function renderKPIs() {
   const active = sites.filter(s => s.status !== 'done');
@@ -2454,7 +2458,7 @@ function openOwnerModal(owner) {
       <div class="kli-top">
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
-        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
+        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':s.status==='pending'?'#e2e8f0':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':s.status==='pending'?'#475569':'#15803d'}">${statusText[s.status]}</span>
       </div>
       <div class="kli-meta">${s.pm}<span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
@@ -2477,7 +2481,7 @@ function openRegionModal(region, label) {
       <div class="kli-top">
         <div class="kli-dot" style="background:${statusDotColor[s.status]}"></div>
         <div class="kli-name">${s.name}</div>
-        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':'#15803d'}">${statusText[s.status]}</span>
+        <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':s.status==='pending'?'#e2e8f0':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':s.status==='pending'?'#475569':'#15803d'}">${statusText[s.status]}</span>
       </div>
       <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
@@ -2550,6 +2554,7 @@ function expectedPct(s) {
 //   落差 ≤ 5%：正常／5%~15%：即將落後／> 15%：落後；進度滿 100% 為完工
 function computeStatus(s) {
   if (s.pct >= 100) return 'done';
+  if ((s.pct || 0) <= 0) return 'pending';  // 進度 0% → 待開工
   const exp = expectedPct(s);
   if (exp === null) return s.status === 'done' ? 'normal' : (s.status || 'normal');
   const gap = exp - s.pct;
