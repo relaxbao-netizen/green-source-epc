@@ -532,6 +532,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
   <button class="nav-btn"        data-page="advanced" onclick="showPage('advanced',this)">📈 進階分析</button>
   <button class="nav-btn"        data-page="equip"    onclick="showPage('equip',this)">🔧 器具借用</button>
+  <button class="nav-btn"        data-page="approval" onclick="showPage('approval',this)">📝 申請簽核</button>
   <div class="nav-right">
     <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
     <span class="clock" id="clock"></span>
@@ -860,6 +861,31 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   </div>
 </div>
 
+<!-- ===== 工程／物料申請簽核系統 ===== -->
+<div id="page-approval" class="page">
+  <div class="section-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">工程／物料申請簽核系統
+    <div id="app-subtabs" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="tab-btn active" onclick="showAppSection('dash',this)">📊 總覽</button>
+      <button class="tab-btn" onclick="showAppSection('new',this)">➕ 新增申請</button>
+      <button class="tab-btn" onclick="showAppSection('sign',this)">✅ 待簽核</button>
+      <button class="tab-btn" onclick="showAppSection('query',this)">🔍 查詢中心</button>
+      <button class="tab-btn" onclick="showAppSection('people',this)">👤 人員／角色</button>
+    </div>
+  </div>
+  <div id="approval-content"></div>
+</div>
+
+<!-- ===== 申請簽核：簽核 / 表單 / 檢視 共用彈窗 ===== -->
+<div class="modal-overlay" id="app-sign-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="app-sign-title">簽核</div>
+      <button class="modal-close" onclick="document.getElementById('app-sign-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px" id="app-sign-body"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -1072,6 +1098,7 @@ function showPage(id, btn) {
   if (id === 'hr')       renderHR();
   if (id === 'advanced') renderAdvanced();
   if (id === 'equip')    renderEquip();
+  if (id === 'approval') renderApproval();
 }
 
 // ===================== HOME =====================
@@ -3194,12 +3221,515 @@ async function returnEquip(recId) {
 
 // ---- 啟動 ----
 // 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
+// ===================== 工程／物料申請簽核系統 =====================
+const APP_DEPTS = ['工程管理部','工程設計部','採購部','業務部','維運部','品保部'];
+const APP_REASONS = ['客戶追加／變更','原工項未發包','設計未包含','其他'];
+const APP_RESP = ['業主變更','設計變更','採購疏失','施工疏失','其他'];
+const SIGN_BASE = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務'];
+const APP_ALL_ROLES = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務','協理','總經理','董事長'];
+let approvers = [];
+let appRequests = [];
+let appItems = [];
+let appSection = 'dash';
+let editingApproverId = null;
+let _signReqId = null;
+
+function appMoney(n){ return Number(n||0).toLocaleString('en-US'); }
+function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
+function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
+function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
+
+async function loadApprovalData(){
+  if(!sb) return;
+  try{
+    const [apRes, reqRes] = await Promise.all([
+      sb.from('approvers').select('*').order('id'),
+      sb.from('app_request').select('*').order('id',{ascending:false}),
+    ]);
+    if(!apRes.error && apRes.data) approvers = apRes.data;
+    if(!reqRes.error && reqRes.data) appRequests = reqRes.data.map(r=>({
+      ...r,
+      items: Array.isArray(r.items)?r.items:[],
+      sign_chain: Array.isArray(r.sign_chain)?r.sign_chain:[],
+    }));
+  }catch(e){ console.warn('簽核資料載入失敗',e); }
+}
+
+function showAppSection(sec, btn){
+  appSection = sec;
+  document.querySelectorAll('#app-subtabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else { const i=['dash','new','sign','query','people'].indexOf(sec); const bs=document.querySelectorAll('#app-subtabs .tab-btn'); if(bs[i]) bs[i].classList.add('active'); }
+  renderApproval();
+}
+
+function renderApproval(){
+  const el = document.getElementById('approval-content');
+  if(!el) return;
+  if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
+  if(appSection==='dash') el.innerHTML = appDashboardHTML();
+  else if(appSection==='new'){ el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); }
+  else if(appSection==='sign') el.innerHTML = appSignListHTML();
+  else if(appSection==='query'){ el.innerHTML = appQueryHTML(); runAppQuery(); }
+  else if(appSection==='people') el.innerHTML = appPeopleHTML();
+}
+
+// ---------- Dashboard ----------
+function appBarChart(obj, color){
+  const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
+  const max = Math.max(1, ...entries.map(e=>e[1]));
+  return entries.map(([k,v])=>`<div style="margin:6px 0">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>${appEsc(k)}</span><b>${appMoney(v)}</b></div>
+    <div style="background:#eef2f7;border-radius:6px;height:14px;overflow:hidden"><div style="height:100%;width:${v/max*100}%;background:${color}"></div></div>
+  </div>`).join('');
+}
+function appTrendSVG(byMonth){
+  const keys = Object.keys(byMonth).sort();
+  if(!keys.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
+  const vals = keys.map(k=>byMonth[k]); const max = Math.max(1, ...vals);
+  const W = Math.max(320, keys.length*64), H = 170, pad = 26;
+  const x = i => pad + i * ((W-2*pad)/Math.max(1,keys.length-1));
+  const y = v => H-pad - (v/max)*(H-2*pad);
+  const pts = vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  const dots = vals.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="#059669"/>`).join('');
+  const labels = keys.map((k,i)=>`<text x="${x(i)}" y="${H-8}" font-size="10" text-anchor="middle" fill="#64748b">${k.slice(2)}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto"><polyline points="${pts}" fill="none" stroke="#059669" stroke-width="2"/>${dots}${labels}</svg>`;
+}
+function appBillSplit(b,a){
+  const t = b+a || 1;
+  return `<div style="margin:6px 0">
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span>可向客戶請款</span><b style="color:#16a34a">${appMoney(b)}</b></div>
+    <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0 10px"><div style="height:100%;width:${b/t*100}%;background:#16a34a"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span>公司吸收</span><b style="color:#dc2626">${appMoney(a)}</b></div>
+    <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0"><div style="height:100%;width:${a/t*100}%;background:#dc2626"></div></div></div>`;
+}
+function appDashboardHTML(){
+  const now = new Date();
+  const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const monthReqs = appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym);
+  const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+Number(r.total_amount||0),0);
+  const pending = appRequests.filter(r=>r.status==='pending').length;
+  const approved = appRequests.filter(r=>r.status==='approved'||r.status==='archived').length;
+  const bySite={}, byResp={}, byMonth={}; let billable=0, absorb=0;
+  appRequests.forEach(r=>{
+    if(r.status==='rejected') return; // 退回／取消不計入金額統計
+    const amt=Number(r.total_amount||0);
+    bySite[r.site_name||'未指定']=(bySite[r.site_name||'未指定']||0)+amt;
+    byResp[r.apply_dept||'未指定']=(byResp[r.apply_dept||'未指定']||0)+amt;
+    const mk=(r.apply_date||r.created_at||'').slice(0,7); if(mk) byMonth[mk]=(byMonth[mk]||0)+amt;
+    if((r.cost_owner||'')==='可向客戶請款') billable+=(Number(r.client_amount)||amt); else absorb+=amt;
+  });
+  const card=(label,val,sub,color)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}"><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
+  return `
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+     ${card('本月申請件數', monthReqs.length, '件', '#3b82f6')}
+     ${card('待簽核件數', pending, '件', '#d97706')}
+     ${card('已核准件數', approved, '件', '#16a34a')}
+     ${card('本月追加金額', 'NT$ '+appMoney(monthAmt), ym, '#7c3aed')}
+   </div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:16px">
+     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6')}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">各申請單位追加金額</div>${appBarChart(byResp,'#f59e0b')}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢</div>${appTrendSVG(byMonth)}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">客戶請款 vs 公司吸收</div>${appBillSplit(billable,absorb)}</div>
+   </div>`;
+}
+
+// ---------- 新增申請 ----------
+function appGenSerial(){
+  const yy=String(new Date().getFullYear()).slice(-2);
+  let max=0;
+  appRequests.forEach(r=>{ const m=String(r.serial_no||'').match(/^(\d{2})(\d{3,})$/); if(m && m[1]===yy){ const n=parseInt(m[2],10); if(n>max) max=n; } });
+  return yy+String(max+1).padStart(3,'0');
+}
+function appFormHTML(){
+  const siteOpts=sites.map(s=>`<option value="${appEsc(s.name)}">`).join('');
+  const nameOpts=[...new Set([...approvers.map(a=>a.name), ...supervisors.map(s=>s.name)])].map(n=>`<option value="${appEsc(n)}">`).join('');
+  return `<div class="card" style="padding:18px 20px">
+   <div class="form-grid">
+    <div class="form-field"><label>申請單位 *</label><select id="ar-dept">${APP_DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" readonly></div>
+    <div class="form-field"><label>申請日期</label><input type="date" id="ar-date" value="${localDate(new Date())}"></div>
+    <div class="form-field"><label>工程名稱 *</label><input id="ar-site" list="ar-site-list" placeholder="選擇或輸入"><datalist id="ar-site-list">${siteOpts}</datalist></div>
+    <div class="form-field"><label>申請人 *</label><input id="ar-applicant" list="ar-name-list" placeholder="選擇或輸入"><datalist id="ar-name-list">${nameOpts}</datalist></div>
+    <div class="form-field"><label>申請原因</label><select id="ar-reason">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>費用歸屬</label><select id="ar-cost"><option>可向客戶請款</option><option>公司吸收</option></select></div>
+    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" readonly></div>
+   </div>
+   <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span><button class="btn-secondary" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="addAppItem()">＋ 新增明細</button></div>
+   <div style="overflow-x:auto"><table class="prog-table" style="min-width:600px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
+   <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
+   <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+     <button class="btn-primary" onclick="submitAppRequest()">送出申請</button>
+     <button class="btn-secondary" onclick="appPreviewForm()">📄 預覽申請單</button>
+     <button class="btn-secondary" onclick="appPreviewMemo()">📋 預覽簽呈</button>
+   </div>
+   <div style="font-size:12px;color:var(--muted);margin-top:8px">※ 送出後依金額自動套用簽核關卡：10萬以下至業務／10萬~100萬加協理、總經理／100萬以上再加董事長。</div>
+  </div>`;
+}
+function renderAppItems(){
+  const tb=document.getElementById('ar-items'); if(!tb) return;
+  tb.innerHTML = appItems.length ? appItems.map((it,i)=>`<tr>
+    <td>${i+1}</td>
+    <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:60px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input type="number" value="${it.price}" oninput="appItems[${i}].price=this.value;appUpdateTotal()" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td style="text-align:right" class="ar-amt">${appMoney((Number(it.qty)||0)*(Number(it.price)||0))}</td>
+    <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
+  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);font-size:13px;padding:8px">尚無明細，請點「＋ 新增明細」</td></tr>';
+}
+function addAppItem(){ appItems.push({name:'',qty:1,unit:'式',price:0}); renderAppItems(); appUpdateTotal(); }
+function appUpdateTotal(){
+  const el=document.getElementById('ar-total'); if(el) el.value = appMoney(appItemsTotal());
+  document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
+}
+function appDraftFromForm(){
+  const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
+  const total=appItemsTotal();
+  return {
+    serial_no:g('ar-serial'), apply_dept:g('ar-dept'), apply_date:g('ar-date'),
+    site_name:(g('ar-site')||'').trim(), applicant:(g('ar-applicant')||'').trim(),
+    reason_category:g('ar-reason'), responsibility:g('ar-resp'), cost_owner:g('ar-cost'),
+    reason_text:(g('ar-note')||'').trim(), total_amount:total, amount_tier:appTier(total),
+    items: appItems.filter(it=>it.name).map(it=>({name:it.name,qty:Number(it.qty)||0,unit:it.unit||'',price:Number(it.price)||0,amount:(Number(it.qty)||0)*(Number(it.price)||0)})),
+    sign_chain: appChain(total).map(role=>({role,approver:null,action:null,comment:'',signed_at:null})),
+    cur_step:0, status:'pending',
+  };
+}
+async function submitAppRequest(){
+  const err=document.getElementById('ar-error');
+  const d=appDraftFromForm();
+  if(!d.site_name){ err.textContent='請選擇／輸入工程名稱'; err.style.display='block'; return; }
+  if(!d.applicant){ err.textContent='請填寫申請人'; err.style.display='block'; return; }
+  if(!d.items.length){ err.textContent='請至少新增一筆追加明細'; err.style.display='block'; return; }
+  err.style.display='none';
+  const {error}=await sb.from('app_request').insert(d);
+  if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
+  appItems=[];
+  await loadApprovalData();
+  alert('申請已送出，流水號 '+d.serial_no);
+  showAppSection('sign');
+}
+
+// ---------- 列印（申請單 / 簽呈） ----------
+function appOpenPrint(title, inner){
+  const html=`<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>${title}</title>
+   <style>@page{size:A4;margin:14mm}body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#0f172a}
+   h1{font-size:18px;text-align:center;margin:0 0 12px}h2{font-size:14px;margin:14px 0 6px}
+   table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:center}
+   th{background:#059669;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+   .kv{margin:4px 0;font-size:13px;line-height:1.6}.box{border:1px solid #cbd5e1;padding:10px;border-radius:6px;margin-top:6px;min-height:48px}</style>
+   </head><body>${inner}</body></html>`;
+  const w=window.open('','_blank'); if(!w){ alert('請允許彈出視窗以列印／儲存 PDF'); return; }
+  w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+function appFormInner(r){
+  const rows=r.items.map((it,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}</td><td>${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(it.price)}</td><td style="text-align:right">${appMoney(it.amount)}</td></tr>`).join('');
+  return `<h1>工程／物料申請單</h1>
+  <table style="margin-bottom:10px">
+   <tr><td style="text-align:left;width:22%"><b>申請單位</b></td><td style="text-align:left">${appEsc(r.apply_dept)}</td><td style="text-align:left;width:22%"><b>流水號</b></td><td style="text-align:left">${appEsc(r.serial_no)}</td></tr>
+   <tr><td style="text-align:left"><b>工程名稱</b></td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="text-align:left"><b>申請日期</b></td><td style="text-align:left">${appEsc(r.apply_date)}</td></tr>
+   <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(r.total_amount)}（${r.amount_tier}）</td></tr>
+   <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appEsc(r.cost_owner)}</td></tr>
+  </table>
+  <h2>追加明細</h2>
+  <table><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th></tr></thead>
+   <tbody>${rows}<tr><td colspan="5" style="text-align:right"><b>總計</b></td><td style="text-align:right"><b>${appMoney(r.total_amount)}</b></td></tr></tbody></table>
+  <h2>原因說明</h2><div class="box">${appEsc(r.reason_text).replace(/\n/g,'<br>')}</div>
+  <h2>簽核欄位</h2>
+  <table><tr>${r.sign_chain.map(s=>`<th>${s.role}</th>`).join('')}</tr>
+   <tr>${r.sign_chain.map(s=>`<td style="height:64px;vertical-align:bottom"><div style="font-size:12px">${appEsc(s.approver)||''}</div><div style="font-size:9px;color:#888">${s.signed_at?s.signed_at.slice(0,10):''}${s.action==='reject'?' 退回':s.action==='approve'?' 核准':''}</div></td>`).join('')}</tr></table>`;
+}
+function appMemoInner(r){
+  const itemLines=r.items.map(it=>`　　${appEsc(it.name)}：${appMoney(it.amount)} 元`).join('<br>');
+  const cause = r.reason_category;
+  return `<h1>簽　呈</h1>
+  <div class="kv"><b>主旨：</b>${appEsc(r.site_name)}因${appEsc(cause)}，申請追加工程費用新台幣 ${appMoney(r.total_amount)} 元整，敬請核示。</div>
+  <h2>說明：</h2>
+  <div class="kv">一、${appEsc(r.site_name)}施工期間，${appEsc(r.reason_text)||'發生需追加之情形'}。</div>
+  <div class="kv">二、本次追加費用明細如下：<br>${itemLines||'　　（無明細）'}</div>
+  <div class="kv">三、追加總金額：新台幣 ${appMoney(r.total_amount)} 元整。</div>
+  <div class="kv">四、費用歸屬：${appEsc(r.cost_owner)}。</div>
+  <h2>擬辦：</h2><div class="kv">敬請核准辦理後續${r.cost_owner==='可向客戶請款'?'請款':'採購／施工'}作業。</div>
+  <h2>簽核</h2>
+  <table><tr>${r.sign_chain.map(s=>`<th>${s.role}</th>`).join('')}</tr>
+   <tr>${r.sign_chain.map(s=>`<td style="height:64px;vertical-align:bottom"><div style="font-size:12px">${appEsc(s.approver)||''}</div><div style="font-size:9px;color:#888">${s.signed_at?s.signed_at.slice(0,10):''}</div></td>`).join('')}</tr></table>`;
+}
+function appPreviewForm(){ appOpenPrint('工程／物料申請單', appFormInner(appDraftFromForm())); }
+function appPreviewMemo(){ appOpenPrint('簽呈', appMemoInner(appDraftFromForm())); }
+function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
+function appPrintMemo(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('簽呈', appMemoInner(r)); }
+
+// ---------- 待簽核 / 簽核 ----------
+function appSignListHTML(){
+  const pend=appRequests.filter(r=>r.status==='pending');
+  if(!pend.length) return '<div class="card" style="padding:20px;color:var(--muted)">目前沒有待簽核的申請。</div>';
+  return '<div class="card" style="padding:4px 0">'+pend.map(r=>{
+    const step=r.sign_chain[r.cur_step]; const role=step?step.role:'—';
+    return `<div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>${appEsc(r.serial_no)}</b> <span>${appEsc(r.site_name)}</span>
+        <span style="margin-left:auto;font-size:12px;color:var(--muted)">NT$ ${appMoney(r.total_amount)}・${r.amount_tier}</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:4px 0">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}・目前關卡：<b style="color:#d97706">${role}</b>（${r.cur_step+1}/${r.sign_chain.length}）</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn-edit s-normal" onclick="openAppSign(${r.id})">✅ 簽核</button>
+        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appViewReq(${r.id})">檢視</button>
+        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintForm(${r.id})">📄 申請單</button>
+        <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintMemo(${r.id})">📋 簽呈</button>
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+function openAppSign(id){
+  _signReqId=id; const r=appRequests.find(x=>x.id===id); if(!r) return;
+  const step=r.sign_chain[r.cur_step]; const role=step.role;
+  document.getElementById('app-sign-title').textContent='簽核：'+r.serial_no;
+  document.getElementById('app-sign-body').innerHTML=`
+    <div style="font-size:13px;margin-bottom:4px">${appEsc(r.site_name)}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">目前關卡：<b style="color:#d97706">${role}</b>・追加 NT$ ${appMoney(r.total_amount)}（${r.amount_tier}）</div>
+    <div class="form-field"><label>簽核人 PIN（${role}）</label><input type="password" id="app-pin" placeholder="輸入您的 PIN"></div>
+    <div class="form-field" style="margin-top:8px"><label>意見（選填）</label><input id="app-comment"></div>
+    <div id="app-sign-err" style="color:var(--danger);font-size:12px;margin:8px 0;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn-danger" onclick="doAppSign('reject')">退回</button>
+      <button class="btn-primary" onclick="doAppSign('approve')">核准</button>
+    </div>`;
+  document.getElementById('app-sign-overlay').classList.add('open');
+}
+async function doAppSign(action){
+  const r=appRequests.find(x=>x.id===_signReqId); if(!r) return;
+  const step=r.sign_chain[r.cur_step]; const role=step.role;
+  const pin=(document.getElementById('app-pin').value||'').trim();
+  const comment=(document.getElementById('app-comment').value||'').trim();
+  const err=document.getElementById('app-sign-err');
+  const who=approvers.find(a=>a.role===role && a.active!==false && pin!=='' && String(a.pin)===pin);
+  if(!who){ err.textContent='PIN 錯誤，或您不是此關卡（'+role+'）的簽核人'; err.style.display='block'; return; }
+  const chain=r.sign_chain.map(s=>({...s}));
+  chain[r.cur_step]={...step, approver:who.name, action, comment, signed_at:new Date().toISOString()};
+  let cur=r.cur_step, status=r.status;
+  if(action==='reject'){ status='rejected'; }
+  else { cur=r.cur_step+1; if(cur>=chain.length) status='approved'; }
+  const {error}=await sb.from('app_request').update({sign_chain:chain, cur_step:cur, status}).eq('id',r.id);
+  if(error){ err.textContent='更新失敗：'+error.message; err.style.display='block'; return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
+}
+async function appArchive(id){
+  if(!confirm('確認歸檔此申請？')) return;
+  const {error}=await sb.from('app_request').update({status:'archived'}).eq('id',id);
+  if(error){ alert('歸檔失敗：'+error.message); return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
+}
+
+// ---------- 檢視 ----------
+function appViewReq(id){
+  const r=appRequests.find(x=>x.id===id); if(!r) return;
+  const timeline=r.sign_chain.map((s,i)=>{
+    const cur = r.status==='pending' && i===r.cur_step;
+    const mark = s.action==='approve'?'✅':s.action==='reject'?'⛔':cur?'⏳':'○';
+    return `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0;align-items:baseline"><span>${mark}</span><b>${s.role}</b><span style="color:var(--muted)">${appEsc(s.approver)||''} ${s.signed_at?s.signed_at.slice(0,16).replace('T',' '):''}</span>${s.comment?`<span style="color:#64748b">「${appEsc(s.comment)}」</span>`:''}</div>`;
+  }).join('');
+  const items=r.items.map((it,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(it.amount)}</td></tr>`).join('');
+  const statusText={pending:'簽核中',approved:'已核准',rejected:'已退回',archived:'已歸檔'}[r.status]||r.status;
+  document.getElementById('app-sign-title').textContent=r.serial_no+'　'+r.site_name;
+  document.getElementById('app-sign-body').innerHTML=`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}・${appEsc(r.apply_date)||''}・狀態：${statusText}</div>
+    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>（${r.amount_tier}）・${appEsc(r.cost_owner)}</div>
+    <table class="prog-table" style="width:100%;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
+    <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
+    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><b style="font-size:13px">簽核進度</b>${timeline}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintForm(${r.id})">📄 申請單</button>
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintMemo(${r.id})">📋 簽呈</button>
+      ${r.status==='approved'?`<button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appArchive(${r.id})">📦 歸檔</button>`:''}
+    </div>`;
+  document.getElementById('app-sign-overlay').classList.add('open');
+}
+
+// ---------- 查詢中心 ----------
+function appQueryHTML(){
+  return `<div class="card" style="padding:14px 18px">
+   <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">查詢中心</span><button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openAppImport()">📥 匯入歷史</button></div>
+   <div class="form-grid">
+    <div class="form-field"><label>流水號</label><input id="q-serial" oninput="runAppQuery()"></div>
+    <div class="form-field"><label>工程名稱</label><input id="q-site" oninput="runAppQuery()"></div>
+    <div class="form-field"><label>申請人</label><input id="q-applicant" oninput="runAppQuery()"></div>
+    <div class="form-field"><label>申請單位</label><select id="q-resp" onchange="runAppQuery()"><option value="">全部</option>${APP_DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>簽核狀態</label><select id="q-status" onchange="runAppQuery()"><option value="">全部</option><option value="pending">簽核中</option><option value="approved">已核准</option><option value="rejected">已退回</option><option value="archived">已歸檔</option></select></div>
+    <div class="form-field"><label>起日</label><input type="date" id="q-from" onchange="runAppQuery()"></div>
+    <div class="form-field"><label>迄日</label><input type="date" id="q-to" onchange="runAppQuery()"></div>
+    <div class="form-field"><label>金額下限</label><input type="number" id="q-min" oninput="runAppQuery()"></div>
+    <div class="form-field"><label>金額上限</label><input type="number" id="q-max" oninput="runAppQuery()"></div>
+   </div>
+   <div id="q-result" style="margin-top:12px"></div>
+  </div>`;
+}
+function runAppQuery(){
+  const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
+  const serial=g('q-serial'), site=g('q-site'), app=g('q-applicant'), resp=g('q-resp'), st=g('q-status'), from=g('q-from'), to=g('q-to');
+  const min=parseFloat(g('q-min')), max=parseFloat(g('q-max'));
+  const rows=appRequests.filter(r=>{
+    if(serial && !(r.serial_no||'').includes(serial)) return false;
+    if(site && !(r.site_name||'').includes(site)) return false;
+    if(app && !(r.applicant||'').includes(app)) return false;
+    if(resp && r.apply_dept!==resp) return false;
+    if(st && r.status!==st) return false;
+    const d=(r.apply_date||r.created_at||'').slice(0,10);
+    if(from && d<from) return false;
+    if(to && d>to) return false;
+    if(!isNaN(min) && Number(r.total_amount)<min) return false;
+    if(!isNaN(max) && Number(r.total_amount)>max) return false;
+    return true;
+  });
+  const badge=s=>({pending:'<span style="color:#d97706">簽核中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">已退回</span>',archived:'<span style="color:#64748b">已歸檔</span>'}[s]||s);
+  const el=document.getElementById('q-result'); if(!el) return;
+  if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>'; return; }
+  rows.sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
+  const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:860px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr>
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r.status)}</td>
+    <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appViewReq(${r.id})">檢視</button>
+    <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appPrintForm(${r.id})">申請單</button>
+    <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appPrintMemo(${r.id})">簽呈</button>
+    ${r.status==='approved'?`<button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appArchive(${r.id})">歸檔</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ---------- 人員 / 角色 ----------
+function appPeopleHTML(){
+  const rows=approvers.map(a=>`<tr>
+    <td style="text-align:left">${appEsc(a.name)}</td><td>${appEsc(a.role)}</td><td>${appEsc(a.dept)||''}</td><td>${a.active===false?'停用':'啟用'}</td>
+    <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="openApproverForm(${a.id})">編輯</button>
+    <button class="btn-secondary" style="padding:3px 8px;font-size:11px;color:var(--danger)" onclick="delApprover(${a.id})">刪除</button></td></tr>`).join('');
+  return `<div class="card" style="padding:14px 18px">
+   <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">簽核人員／角色</span><button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openApproverForm()">＋ 新增人員</button></div>
+   <div style="font-size:12px;color:var(--muted);margin-bottom:8px">角色用於對應簽核關卡；每人設定一組 PIN 作為線上簽核驗證。可用角色：${APP_ALL_ROLES.join('、')}</div>
+   <div style="overflow-x:auto"><table class="prog-table" style="min-width:560px"><thead><tr><th>姓名</th><th>角色</th><th>部門</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="color:var(--muted);padding:8px">尚無人員，請新增</td></tr>'}</tbody></table></div>
+  </div>`;
+}
+function openApproverForm(id){
+  editingApproverId=id||null; const a=(id?approvers.find(x=>x.id===id):null)||{};
+  document.getElementById('app-sign-title').textContent=id?'編輯人員':'＋ 新增人員';
+  document.getElementById('app-sign-body').innerHTML=`
+    <div class="form-field"><label>姓名 *</label><input id="ap-name" value="${appEsc(a.name)}"></div>
+    <div class="form-field" style="margin-top:8px"><label>角色 *</label><select id="ap-role">${APP_ALL_ROLES.map(rr=>`<option ${a.role===rr?'selected':''}>${rr}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>部門</label><select id="ap-dept"><option value=""></option>${APP_DEPTS.map(d=>`<option ${a.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>PIN 碼 *</label><input id="ap-pin" value="${appEsc(a.pin)}" placeholder="例：1234"></div>
+    <div class="form-field" style="margin-top:8px"><label>狀態</label><select id="ap-active"><option value="true" ${a.active!==false?'selected':''}>啟用</option><option value="false" ${a.active===false?'selected':''}>停用</option></select></div>
+    <div id="ap-err" style="color:var(--danger);font-size:12px;margin:8px 0;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn-secondary" onclick="document.getElementById('app-sign-overlay').classList.remove('open')">取消</button>
+      <button class="btn-primary" onclick="saveApprover()">儲存</button>
+    </div>`;
+  document.getElementById('app-sign-overlay').classList.add('open');
+}
+async function saveApprover(){
+  const err=document.getElementById('ap-err');
+  const rec={ name:document.getElementById('ap-name').value.trim(), role:document.getElementById('ap-role').value, dept:document.getElementById('ap-dept').value||null, pin:document.getElementById('ap-pin').value.trim(), active:document.getElementById('ap-active').value==='true' };
+  if(!rec.name||!rec.pin){ err.textContent='請填寫姓名與 PIN'; err.style.display='block'; return; }
+  let res;
+  if(editingApproverId) res=await sb.from('approvers').update(rec).eq('id',editingApproverId);
+  else res=await sb.from('approvers').insert(rec);
+  if(res.error){ err.textContent='儲存失敗：'+res.error.message; err.style.display='block'; return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
+}
+async function delApprover(id){
+  if(!confirm('確認刪除此人員？')) return;
+  const {error}=await sb.from('approvers').delete().eq('id',id);
+  if(error){ alert('刪除失敗：'+error.message); return; }
+  await loadApprovalData(); renderApproval();
+}
+
+// ---------- 匯入歷史申請（貼上試算表） ----------
+// 欄位順序：0是否結束 1流水編號 2日期 3案場 4申請人 5責任單位 6追加明細 7原因 8數量 9追加款總額 10業務對客戶追加 11對客戶追加金額
+function appParseDelimited(text){
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const firstLine=text.split('\n')[0]||'';
+  const delim = firstLine.indexOf('\t')>=0 ? '\t' : ',';
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===delim){ row.push(cur); cur=''; } else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; } else cur+=c; }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function appParseNum(s){ if(!s) return 0; const n=parseFloat(String(s).replace(/[,\s]/g,'')); return isNaN(n)?0:n; }
+function appParseDate(s){ if(!s) return null; const m=String(s).trim().match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); return m?(m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0')):null; }
+function appParseQty(s){ s=String(s||'').trim(); const m=s.match(/^([\d,.]+)\s*(.*)$/); if(m&&m[1]) return {qty:appParseNum(m[1]), unit:(m[2]||'').trim()}; return {qty:null, unit:s}; }
+function appNormPerson(n){
+  n=(n||'').trim(); if(!n) return n;
+  const hit=supervisors.find(s=>s.name && s.name.indexOf(n)===0);
+  return hit?hit.name:n;
+}
+function appParseHistory(text){
+  const rows=appParseDelimited(text).filter(r=>r.some(c=>(c||'').trim()!==''));
+  if(!rows.length) return [];
+  let start=0; const h=rows[0].join();
+  if(h.indexOf('流水編號')>=0||h.indexOf('是否結束')>=0||h.indexOf('追加款總額')>=0) start=1;
+  const recs=[]; let cur=null;
+  for(let i=start;i<rows.length;i++){ const r=rows[i]; const g=n=>(r[n]||'').trim();
+    const serial=g(1);
+    if(serial){
+      if(cur) recs.push(cur);
+      const total=appParseNum(g(9)); const q=appParseQty(g(8));
+      cur={ serial_no:serial, apply_date:appParseDate(g(2)), site_name:g(3), applicant:appNormPerson(g(4)),
+        responsibility:g(5), reason_text:g(7), total_amount:total, amount_tier:appTier(total),
+        cost_owner: g(10)==='O'?'可向客戶請款':'公司吸收', client_amount:appParseNum(g(11)),
+        status: g(0)==='X'?'rejected':'archived', apply_dept:'',
+        items: g(6)?[Object.assign({name:g(6),price:0,amount:0}, q)]:[], sign_chain:[], cur_step:0 };
+    } else if(cur){
+      const name=g(6); if(name){ const q=appParseQty(g(8)); cur.items.push(Object.assign({name:name,price:0,amount:0}, q)); }
+    }
+  }
+  if(cur) recs.push(cur);
+  return recs.filter(rec=> rec.site_name || rec.total_amount>0 || rec.items.length);
+}
+function openAppImport(){
+  document.getElementById('app-sign-title').textContent='📥 匯入歷史申請';
+  document.getElementById('app-sign-body').innerHTML=`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">從 Google 試算表選取「含標題列」的範圍 → 複製 → 貼到下方（支援 Tab／逗號分隔）。欄位順序需為：是否結束、流水編號、日期、案場名稱、申請人、責任單位、追加明細、原因、數量、追加款總額、業務對客戶追加、對客戶追加金額。可分年度多次貼上匯入。</div>
+    <textarea id="imp-text" style="width:100%;box-sizing:border-box;height:180px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px" placeholder="貼上試算表內容…"></textarea>
+    <div id="imp-info" style="font-size:13px;margin:8px 0;color:var(--muted)"></div>
+    <div id="imp-err" style="color:var(--danger);font-size:12px;display:none;margin:6px 0"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-secondary" onclick="appPreviewImport()">預覽</button>
+      <button class="btn-primary" onclick="doAppImport()">匯入</button>
+    </div>`;
+  document.getElementById('app-sign-overlay').classList.add('open');
+}
+function appImportFresh(){
+  const recs=appParseHistory(document.getElementById('imp-text').value);
+  const exist=new Set(appRequests.map(r=>String(r.serial_no)));
+  return { recs, fresh: recs.filter(r=>!exist.has(String(r.serial_no))) };
+}
+function appPreviewImport(){
+  const {recs, fresh}=appImportFresh();
+  document.getElementById('imp-info').innerHTML=`解析到 <b>${recs.length}</b> 筆，其中 <b>${fresh.length}</b> 筆為新資料（已存在 ${recs.length-fresh.length} 筆將略過）。<br>${recs.slice(0,4).map(r=>`・${appEsc(r.serial_no)} ${appEsc(r.site_name)} ${appMoney(r.total_amount)}（${r.items.length}項）`).join('<br>')}`;
+}
+async function doAppImport(){
+  const err=document.getElementById('imp-err');
+  const {fresh}=appImportFresh();
+  if(!fresh.length){ err.textContent='沒有可匯入的新資料（可能皆已存在或格式不符）'; err.style.display='block'; return; }
+  err.style.display='none';
+  const {error}=await sb.from('app_request').insert(fresh);
+  if(error){ err.textContent='匯入失敗：'+error.message; err.style.display='block'; return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
+  alert('已匯入 '+fresh.length+' 筆歷史申請。');
+}
+
 async function initApp() {
   if (sb) {
     currentUser = true; // 不需登入，連上雲端即可編輯
     document.getElementById('btn-add-site-progress').style.display = '';
     document.getElementById('btn-add-supervisor').style.display = '';
     await loadFromCloud(); // 失敗時自動沿用內建資料
+    loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
