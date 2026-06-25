@@ -1921,7 +1921,7 @@ async function renderSiteWeather(site) {
         <div class="wx-pop${rain ? ' on' : ''}">🌧 ${p.pop == null ? '-' : p.pop}%</div>
       </div>`;
     }).join('');
-    box.innerHTML = `<div class="wbs-title" style="margin-top:20px;display:flex;align-items:center">未來天氣（${locDisplay}）${reportBtn}</div><div class="wx-row">${cards}</div>`;
+    box.innerHTML = `<div class="wbs-title" style="margin-top:20px;display:flex;align-items:center">未來天氣（${locDisplay}）${reportBtn}</div><div class="wx-row">${cards}</div><div style="font-size:12px;color:var(--muted);margin-top:6px">資料來源：中央氣象署 CWA 開放資料平臺</div>`;
   } catch (e) {
     box.innerHTML = `<div class="wbs-title" style="margin-top:20px">未來天氣</div><div style="color:var(--muted);font-size:13px;padding:8px 0">天氣資料載入失敗（${e.message}）</div>`;
   }
@@ -2123,7 +2123,8 @@ function buildRainReportHTML(logs, site) {
 
     const totals = `<div style="font-size:13px;margin-top:8px">
       統計：<b style="color:#16a34a">晴 ${cnt['⭕']} 天</b>　<b style="color:#dc2626">雨 ${cnt['X']} 天</b>　<b style="color:#64748b">陰 ${cnt['●']} 天</b></div>`;
-    const footer = `<div style="font-size:12px;color:var(--muted);margin-top:4px">監工人員：${s.pm || '—'}</div>`;
+    const footer = `<div style="font-size:12px;color:var(--muted);margin-top:4px">監工人員：${s.pm || '—'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px">資料來源：中央氣象署 CWA 開放資料平臺</div>`;
 
     return `<div>${head}${info}
       <div style="overflow-x:auto"><table class="rain-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${body}</tbody></table></div>
