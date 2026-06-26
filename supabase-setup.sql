@@ -13,6 +13,7 @@ create table if not exists public.sites (
   cap         text default '待確認',
   owner       text default '',
   pm          text default '',          -- 工地主任
+  sales       text default '',          -- 案場業務
   type        text default '太陽能',    -- 太陽能 / 儲能 / 太陽能+儲能 / 儀電配管
   addr        text default '',
   mw          numeric default 0,        -- 光電容量 kW
@@ -40,6 +41,9 @@ create table if not exists public.supervisors (
 
 -- 既有資料庫升級：補上 avatar 欄位（已存在則略過）
 alter table public.supervisors add column if not exists avatar text default '';
+
+-- 既有資料庫升級：案場補上 sales（案場業務）欄位
+alter table public.sites add column if not exists sales text default '';
 
 -- 施工晴雨表：每日各縣市上午/下午天氣記錄（自開始使用日起累積）
 create table if not exists public.weather_log (
@@ -139,10 +143,13 @@ create table if not exists public.approvers (
   name       text not null,
   role       text not null,   -- 申請人主管/採購部主管/工程設計部主管/專案管理部主管/業務/協理/總經理/董事長
   dept       text,
+  email      text default '',
   pin        text,            -- 簽核 PIN
   active     boolean default true,
   created_at timestamptz default now()
 );
+-- 既有資料庫升級
+alter table public.approvers add column if not exists email text default '';
 
 -- 申請單（含追加明細與簽核流程）
 create table if not exists public.app_request (

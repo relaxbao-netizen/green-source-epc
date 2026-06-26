@@ -805,6 +805,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs();updateCapFields()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
         <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
         <div class="form-field"><label>工地主任</label><select id="sf-pm"></select></div>
+        <div class="form-field"><label>案場業務</label><select id="sf-sales"></select></div>
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
@@ -1805,6 +1806,7 @@ function openModal(id) {
       <div class="modal-info" style="background:#f8fafc;border-radius:10px;padding:16px">
         <div class="info-row"><span class="info-label">業主</span><span class="info-val">${s.owner}</span></div>
         <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${s.pm}</span></div>
+        <div class="info-row"><span class="info-label">案場業務</span><span class="info-val">${s.sales || '—'}</span></div>
         <div class="info-row"><span class="info-label">案場地址</span><span class="info-val" style="font-size:12px">${s.addr}</span></div>
         <div class="info-row"><span class="info-label">類型</span><span class="info-val">${s.type}</span></div>
         ${(()=>{
@@ -2614,7 +2616,7 @@ function rerenderAll() {
 function rowToSite(r) {
   return {
     id: r.id, name: r.name || '', region: r.region || 'north', city: r.city || '',
-    cap: r.cap || '待確認', owner: r.owner || '', pm: r.pm || '',
+    cap: r.cap || '待確認', owner: r.owner || '', pm: r.pm || '', sales: r.sales || '',
     start: r.start_date || '', end: r.end_date || '',
     pct: r.pct ?? 0, status: r.status || 'normal',
     mw: +r.mw || 0, mwh: +r.mwh || 0, skw: +r.skw || 0,
@@ -2943,6 +2945,10 @@ function openSiteForm(id) {
   const pms = supervisors.map(v => v.name);
   if (s && s.pm && !pms.includes(s.pm)) pms.push(s.pm);
   document.getElementById('sf-pm').innerHTML = pms.map(p => `<option>${p}</option>`).join('');
+  // 案場業務下拉：列出角色為「業務」的人員；編輯舊案時保留原業務名
+  const salesNames = approvers.filter(a => a.role === '業務').map(a => a.name);
+  if (s && s.sales && !salesNames.includes(s.sales)) salesNames.push(s.sales);
+  document.getElementById('sf-sales').innerHTML = '<option value="">未指定</option>' + salesNames.map(n => `<option>${n}</option>`).join('');
 
   const set = (fid, v) => document.getElementById(fid).value = (v ?? '');
   set('sf-name',   s ? s.name : '');
@@ -2952,6 +2958,7 @@ function openSiteForm(id) {
   set('sf-type',   s ? s.type : '太陽能');
   set('sf-owner',  s ? s.owner : '');
   set('sf-pm',     s && s.pm ? s.pm : (pms[0] || ''));
+  set('sf-sales',  s && s.sales ? s.sales : '');
   set('sf-addr',   s ? s.addr : '');
   set('sf-mw',     s && s.mw  ? s.mw  : '');
   set('sf-skw',    s && s.skw ? s.skw : '');
@@ -2976,7 +2983,7 @@ async function saveSiteForm() {
   }
   const row = {
     name: val('sf-name'), label: val('sf-label'), region: val('sf-region'), city: val('sf-city'),
-    type: val('sf-type'), owner: val('sf-owner'), pm: val('sf-pm'), addr: val('sf-addr'),
+    type: val('sf-type'), owner: val('sf-owner'), pm: val('sf-pm'), sales: val('sf-sales'), addr: val('sf-addr'),
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start').replace(/-/g, '/'), end_date: val('sf-end').replace(/-/g, '/'), // 存回 YYYY/MM/DD
   };
@@ -3222,7 +3229,7 @@ async function returnEquip(recId) {
 // ---- 啟動 ----
 // 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
 // ===================== 工程／物料申請簽核系統 =====================
-const APP_DEPTS = ['工程管理部','工程設計部','採購部','業務部','維運部','品保部'];
+const APP_DEPTS = ['工程管理部','工程設計部','採購部','GSBU','維運部','品保部','管理階層'];
 const APP_REASONS = ['客戶追加／變更','原工項未發包','設計未包含','其他'];
 const APP_RESP = ['業主變更','設計變更','採購疏失','施工疏失','其他'];
 const SIGN_BASE = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務'];
@@ -3345,16 +3352,16 @@ function appGenSerial(){
   return yy+String(max+1).padStart(3,'0');
 }
 function appFormHTML(){
-  const siteOpts=sites.map(s=>`<option value="${appEsc(s.name)}">`).join('');
-  const nameOpts=[...new Set([...approvers.map(a=>a.name), ...supervisors.map(s=>s.name)])].map(n=>`<option value="${appEsc(n)}">`).join('');
+  const siteOpts=sites.filter(s=>s.status!=='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
+  const nameOpts=[...new Set([...approvers.map(a=>a.name), ...supervisors.map(s=>s.name)])].map(n=>`<option>${appEsc(n)}</option>`).join('');
   return `<div class="card" style="padding:18px 20px">
    <div class="form-grid">
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept">${APP_DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
     <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" readonly></div>
     <div class="form-field"><label>申請日期</label><input type="date" id="ar-date" value="${localDate(new Date())}"></div>
-    <div class="form-field"><label>工程名稱 *</label><input id="ar-site" list="ar-site-list" placeholder="選擇或輸入"><datalist id="ar-site-list">${siteOpts}</datalist></div>
-    <div class="form-field"><label>申請人 *</label><input id="ar-applicant" list="ar-name-list" placeholder="選擇或輸入"><datalist id="ar-name-list">${nameOpts}</datalist></div>
-    <div class="form-field"><label>申請原因</label><select id="ar-reason">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>工程名稱 *</label><select id="ar-site"><option value="">請選擇</option>${siteOpts}</select></div>
+    <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
+    <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
     <div class="form-field"><label>費用歸屬</label><select id="ar-cost"><option>可向客戶請款</option><option>公司吸收</option></select></div>
     <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" readonly></div>
    </div>
@@ -3383,6 +3390,7 @@ function renderAppItems(){
   </tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);font-size:13px;padding:8px">尚無明細，請點「＋ 新增明細」</td></tr>';
 }
 function addAppItem(){ appItems.push({name:'',qty:1,unit:'式',price:0}); renderAppItems(); appUpdateTotal(); }
+function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
 function appUpdateTotal(){
   const el=document.getElementById('ar-total'); if(el) el.value = appMoney(appItemsTotal());
   document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
@@ -3393,7 +3401,7 @@ function appDraftFromForm(){
   return {
     serial_no:g('ar-serial'), apply_dept:g('ar-dept'), apply_date:g('ar-date'),
     site_name:(g('ar-site')||'').trim(), applicant:(g('ar-applicant')||'').trim(),
-    reason_category:g('ar-reason'), responsibility:g('ar-resp'), cost_owner:g('ar-cost'),
+    reason_category:(g('ar-reason')==='其他' ? ((g('ar-reason-other')||'').trim()||'其他') : g('ar-reason')), responsibility:g('ar-resp'), cost_owner:g('ar-cost'),
     reason_text:(g('ar-note')||'').trim(), total_amount:total, amount_tier:appTier(total),
     items: appItems.filter(it=>it.name).map(it=>({name:it.name,qty:Number(it.qty)||0,unit:it.unit||'',price:Number(it.price)||0,amount:(Number(it.qty)||0)*(Number(it.price)||0)})),
     sign_chain: appChain(total).map(role=>({role,approver:null,action:null,comment:'',signed_at:null})),
@@ -3601,13 +3609,13 @@ function runAppQuery(){
 // ---------- 人員 / 角色 ----------
 function appPeopleHTML(){
   const rows=approvers.map(a=>`<tr>
-    <td style="text-align:left">${appEsc(a.name)}</td><td>${appEsc(a.role)}</td><td>${appEsc(a.dept)||''}</td><td>${a.active===false?'停用':'啟用'}</td>
+    <td style="text-align:left">${appEsc(a.name)}</td><td>${appEsc(a.role)}</td><td>${appEsc(a.dept)||''}</td><td style="text-align:left;font-size:12px">${appEsc(a.email)||''}</td>
     <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="openApproverForm(${a.id})">編輯</button>
     <button class="btn-secondary" style="padding:3px 8px;font-size:11px;color:var(--danger)" onclick="delApprover(${a.id})">刪除</button></td></tr>`).join('');
   return `<div class="card" style="padding:14px 18px">
    <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">簽核人員／角色</span><button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openApproverForm()">＋ 新增人員</button></div>
    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">角色用於對應簽核關卡；每人設定一組 PIN 作為線上簽核驗證。可用角色：${APP_ALL_ROLES.join('、')}</div>
-   <div style="overflow-x:auto"><table class="prog-table" style="min-width:560px"><thead><tr><th>姓名</th><th>角色</th><th>部門</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="color:var(--muted);padding:8px">尚無人員，請新增</td></tr>'}</tbody></table></div>
+   <div style="overflow-x:auto"><table class="prog-table" style="min-width:640px"><thead><tr><th>姓名</th><th>角色</th><th>部門</th><th>Email</th><th>動作</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="color:var(--muted);padding:8px">尚無人員，請新增</td></tr>'}</tbody></table></div>
   </div>`;
 }
 function openApproverForm(id){
@@ -3615,10 +3623,10 @@ function openApproverForm(id){
   document.getElementById('app-sign-title').textContent=id?'編輯人員':'＋ 新增人員';
   document.getElementById('app-sign-body').innerHTML=`
     <div class="form-field"><label>姓名 *</label><input id="ap-name" value="${appEsc(a.name)}"></div>
-    <div class="form-field" style="margin-top:8px"><label>角色 *</label><select id="ap-role">${APP_ALL_ROLES.map(rr=>`<option ${a.role===rr?'selected':''}>${rr}</option>`).join('')}</select></div>
-    <div class="form-field" style="margin-top:8px"><label>部門</label><select id="ap-dept"><option value=""></option>${APP_DEPTS.map(d=>`<option ${a.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>角色 *</label><select id="ap-role">${[...APP_ALL_ROLES,'無'].map(rr=>`<option ${a.role===rr?'selected':''}>${rr}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>部門</label><select id="ap-dept"><option value=""></option>${[...new Set([...APP_DEPTS, ...approvers.map(x=>x.dept).filter(Boolean), ...(a.dept?[a.dept]:[])])].map(d=>`<option ${a.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>Email</label><input id="ap-email" value="${appEsc(a.email)}" placeholder="例：name@greensource-tech.com"></div>
     <div class="form-field" style="margin-top:8px"><label>PIN 碼 *</label><input id="ap-pin" value="${appEsc(a.pin)}" placeholder="例：1234"></div>
-    <div class="form-field" style="margin-top:8px"><label>狀態</label><select id="ap-active"><option value="true" ${a.active!==false?'selected':''}>啟用</option><option value="false" ${a.active===false?'selected':''}>停用</option></select></div>
     <div id="ap-err" style="color:var(--danger);font-size:12px;margin:8px 0;display:none"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
       <button class="btn-secondary" onclick="document.getElementById('app-sign-overlay').classList.remove('open')">取消</button>
@@ -3628,7 +3636,7 @@ function openApproverForm(id){
 }
 async function saveApprover(){
   const err=document.getElementById('ap-err');
-  const rec={ name:document.getElementById('ap-name').value.trim(), role:document.getElementById('ap-role').value, dept:document.getElementById('ap-dept').value||null, pin:document.getElementById('ap-pin').value.trim(), active:document.getElementById('ap-active').value==='true' };
+  const rec={ name:document.getElementById('ap-name').value.trim(), role:document.getElementById('ap-role').value, dept:document.getElementById('ap-dept').value||null, email:document.getElementById('ap-email').value.trim(), pin:document.getElementById('ap-pin').value.trim(), active:true };
   if(!rec.name||!rec.pin){ err.textContent='請填寫姓名與 PIN'; err.style.display='block'; return; }
   let res;
   if(editingApproverId) res=await sb.from('approvers').update(rec).eq('id',editingApproverId);
