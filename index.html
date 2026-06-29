@@ -333,6 +333,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 /* CLOUD FORM */
 .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; }
 .form-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 0; min-width: 0; }
+.form-field input, .form-field select { width: 100%; box-sizing: border-box; }
 .form-field label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .form-field input, .form-field select {
   width: 100%; box-sizing: border-box;
@@ -1097,7 +1098,7 @@ function showPage(id, btn) {
   if (id === 'hr')       renderHR();
   if (id === 'advanced') renderAdvanced();
   if (id === 'equip')    renderEquip();
-  if (id === 'approval') renderApproval();
+  if (id === 'approval') showAppSection('dash');
 }
 
 // ===================== HOME =====================
@@ -3235,6 +3236,8 @@ const APP_ALL_ROLES = ['申請人主管','採購部主管','工程設計部主�
 let approvers = [];
 let appRequests = [];
 let appItems = [];
+let editItems = [];
+let editBills = [];
 let appSection = 'dash';
 let editingApproverId = null;
 let _signReqId = null;
@@ -3269,6 +3272,7 @@ async function loadApprovalData(){
       ...r,
       items: Array.isArray(r.items)?r.items:[],
       sign_chain: Array.isArray(r.sign_chain)?r.sign_chain:[],
+      client_bills: Array.isArray(r.client_bills)?r.client_bills:[],
     }));
   }catch(e){ console.warn('簽核資料載入失敗',e); }
 }
@@ -3293,8 +3297,8 @@ function renderApproval(){
 }
 
 // ---------- Dashboard ----------
-function appBarChart(obj, color, clickFn){
-  const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,8);
+function appBarChart(obj, color, clickFn, limit){
+  const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0, limit||8);
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
   const max = Math.max(1, ...entries.map(e=>e[1]));
   return entries.map(([k,v])=>{
@@ -3304,6 +3308,15 @@ function appBarChart(obj, color, clickFn){
     <div style="background:#eef2f7;border-radius:6px;height:14px;overflow:hidden"><div style="height:100%;width:${v/max*100}%;background:${color}"></div></div>
   </div>`;
   }).join('');
+}
+function appQueryDeptChange(){
+  const dept=document.getElementById('q-resp').value;
+  const sel=document.getElementById('q-applicant'); if(!sel) return;
+  const prev=sel.value;
+  const names=[...new Set(appRequests.filter(r=>!dept||r.apply_dept===dept).map(r=>r.applicant).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">全部</option>'+names.map(n=>`<option>${appEsc(n)}</option>`).join('');
+  sel.value=names.includes(prev)?prev:'';
+  runAppQuery();
 }
 function appGoQuerySite(name){
   showAppSection('query');
@@ -3355,30 +3368,32 @@ function appExportMonth(){
   const reqs=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && r.status!=='rejected')
     .sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
   if(!reqs.length){ alert('本月（'+ym+'）沒有追加申請'); return; }
-  const headers=['日期','案場名稱','申請人','追加明細','原因','數量','追加款總額','業務對客戶追加'];
-  const aoa=[['工程/物料申請控管單','','','','','','',''], headers];
-  const merges=[{s:{r:0,c:0},e:{r:0,c:7}}];
+  const headers=['日期','案場名稱','申請人','追加明細','原因','數量','追加款總額','業務對客戶追加','對客戶追加金額','開票時間','收款時間'];
+  const NC=headers.length;
+  const aoa=[['工程/物料申請控管單', ...Array(NC-1).fill('')], headers];
+  const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}}];
   let totG=0, totH=0;
   reqs.forEach(r=>{
     const items=(r.items&&r.items.length)?r.items:[{name:'',qty:'',unit:''}];
     const startRow=aoa.length;
     const billable=(r.cost_owner==='可向客戶請款');
-    const hVal=billable?Number(r.client_amount||0):'X';
-    totG+=Number(r.total_amount||0); if(billable) totH+=Number(r.client_amount||0);
+    const cAmt=Number(r.client_amount||0);
+    totG+=Number(r.total_amount||0); if(billable) totH+=cAmt;
     items.forEach((it,i)=>{
       const qtyStr=(it.qty!=null&&it.qty!=='')?(it.qty+(it.unit||'')):(it.unit||'');
       aoa.push([ i===0?fmtD(r.apply_date):'', i===0?(r.site_name||''):'', i===0?(r.applicant||''):'',
         it.name||'', i===0?(r.reason_text||''):'', qtyStr,
-        i===0?Number(r.total_amount||0):'', i===0?hVal:'' ]);
+        i===0?Number(r.total_amount||0):'', i===0?(billable?'O':'X'):'', i===0?(cAmt||''):'',
+        i===0?fmtD(r.invoice_date):'', i===0?fmtD(r.payment_date):'' ]);
     });
     const endRow=aoa.length-1;
-    if(endRow>startRow) [0,1,2,4,6,7].forEach(c=>merges.push({s:{r:startRow,c},e:{r:endRow,c}}));
+    if(endRow>startRow) [0,1,2,4,6,7,8,9,10].forEach(c=>merges.push({s:{r:startRow,c},e:{r:endRow,c}}));
   });
   const totalRow=aoa.length;
-  aoa.push(['','','','','','總計',totG,totH]);
+  aoa.push(['','','','','','總計',totG,'',totH,'','']);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
-  ws['!cols']=[{wch:11},{wch:14},{wch:10},{wch:34},{wch:36},{wch:9},{wch:13},{wch:16}];
+  ws['!cols']=[{wch:11},{wch:14},{wch:10},{wch:34},{wch:36},{wch:9},{wch:13},{wch:14},{wch:14},{wch:12},{wch:12}];
   const bd={style:'thin',color:{rgb:'CBD5E1'}}; const allB={top:bd,bottom:bd,left:bd,right:bd};
   const range=XLSX.utils.decode_range(ws['!ref']);
   for(let R=range.s.r;R<=range.e.r;R++) for(let C=range.s.c;C<=range.e.c;C++){
@@ -3408,6 +3423,14 @@ function appDashboardHTML(){
     const mk=(r.apply_date||r.created_at||'').slice(0,7); if(mk) byMonth[mk]=(byMonth[mk]||0)+amt;
     if(mk===ym){ if((r.cost_owner||'')==='可向客戶請款') billable+=(Number(r.client_amount)||amt); else absorb+=amt; }
   });
+  // 未完工案場一律列出（無追加金額者顯示 0）；已有對應記錄則不重複
+  sites.filter(s=>s.status!=='done').forEach(s=>{
+    const k=s.label||s.name;
+    const exists=Object.keys(bySite).some(rk=> rk===k || rk===s.name || rk===s.label || (s.name&&s.name.includes(rk)) || (s.label&&rk.includes(s.label)) );
+    if(!exists) bySite[k]=0;
+  });
+  // 只保留「在案場清單且未完工」的案場（排除已完工與非清單）
+  Object.keys(bySite).forEach(k=>{ const s=sites.find(s=> s.name===k||s.label===k||(s.name&&s.name.includes(k))||(s.label&&k.includes(s.label)) ); if(!s || s.status==='done') delete bySite[k]; });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appExportMonth()">📥 匯出本月追加明細</button></div>
@@ -3418,7 +3441,7 @@ function appDashboardHTML(){
      ${card('本月追加金額', 'NT$ '+appMoney(monthAmt), ym, '#7c3aed', 'appGoQueryMonth()')}
    </div>
    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:14px;margin-top:16px">
-     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite')}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite',99)}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">需向客戶請款 vs 公司自行吸收（${ym}）</div>${appBillSplit(billable,absorb)}</div>
    </div>`;
@@ -3526,7 +3549,7 @@ function appFormInner(r){
   <table style="margin-bottom:10px">
    <tr><td style="text-align:left;width:22%"><b>申請單位</b></td><td style="text-align:left">${appEsc(r.apply_dept)}</td><td style="text-align:left;width:22%"><b>流水號</b></td><td style="text-align:left">${appEsc(r.serial_no)}</td></tr>
    <tr><td style="text-align:left"><b>工程名稱</b></td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="text-align:left"><b>申請日期</b></td><td style="text-align:left">${appEsc(r.apply_date)}</td></tr>
-   <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(r.total_amount)}（${r.amount_tier}）</td></tr>
+   <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(r.total_amount)}</td></tr>
    <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appEsc(r.cost_owner)}</td></tr>
   </table>
   <h2>追加明細</h2>
@@ -3610,6 +3633,13 @@ async function doAppSign(action){
   document.getElementById('app-sign-overlay').classList.remove('open');
   await loadApprovalData(); renderApproval();
 }
+async function appDeleteReq(id){
+  if(!confirm('確認刪除此申請單？此動作無法復原。')) return;
+  const {error}=await sb.from('app_request').delete().eq('id',id);
+  if(error){ alert('刪除失敗：'+error.message); return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
+}
 async function appArchive(id){
   if(!confirm('確認歸檔此申請？')) return;
   const {error}=await sb.from('app_request').update({status:'archived'}).eq('id',id);
@@ -3631,16 +3661,104 @@ function appViewReq(id){
   document.getElementById('app-sign-title').textContent=r.serial_no+'　'+r.site_name;
   document.getElementById('app-sign-body').innerHTML=`
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}・${appEsc(r.apply_date)||''}・狀態：${statusText}</div>
-    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>・${appEsc(r.cost_owner)}</div>
-    <table class="prog-table" style="width:100%;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
+    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>・${appEsc(r.cost_owner)}${Number(r.client_amount)>0?'（對客戶 NT$ '+appMoney(r.client_amount)+'）':''}</div>
+    ${(Array.isArray(r.client_bills)&&r.client_bills.length)?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">請款對象：<br>${r.client_bills.map(b=>'・'+appEsc(b.vendor||'—')+' NT$ '+appMoney(b.amount)+((b.invoice_date||b.payment_date)?'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）':'')).join('<br>')}</div>`:''}
+    ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
+    <table class="prog-table" style="width:100%;min-width:0;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
     <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><b style="font-size:13px">簽核進度</b>${timeline}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
       <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintForm(${r.id})">📄 申請單</button>
       <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintMemo(${r.id})">📋 簽呈</button>
-      ${r.status==='approved'?`<button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appArchive(${r.id})">📦 歸檔</button>`:''}
+      ${r.status==='approved'?`<button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appArchive(${r.id})">📦 歸檔</button>`:''}
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
+}
+
+// ---------- 編輯申請 ----------
+function appEditReq(id){
+  const r=appRequests.find(x=>x.id===id); if(!r) return;
+  editItems=(r.items||[]).map(it=>({name:it.name||'',qty:(it.qty??''),unit:it.unit||'',amount:Number(it.amount)||0}));
+  editBills=(Array.isArray(r.client_bills)&&r.client_bills.length)
+    ? r.client_bills.map(b=>({vendor:b.vendor||'',amount:Number(b.amount)||0,invoice_date:b.invoice_date||'',payment_date:b.payment_date||''}))
+    : (Number(r.client_amount)>0?[{vendor:'',amount:Number(r.client_amount),invoice_date:r.invoice_date||'',payment_date:r.payment_date||''}]:[]);
+  const siteOpts=[...new Set([...appRequests.map(x=>x.site_name), ...sites.map(s=>s.label||s.name), r.site_name].filter(Boolean))].sort();
+  const nameDir=[...new Set([...approvers.map(a=>a.name), ...supervisors.map(s=>s.name), r.applicant].filter(Boolean))].sort();
+  const deptList=[...new Set([...APP_DEPTS, ...approvers.map(a=>a.dept).filter(Boolean), r.apply_dept].filter(Boolean))].sort();
+  const bill=r.cost_owner==='可向客戶請款';
+  document.getElementById('app-sign-title').textContent='✏️ 編輯 '+r.serial_no;
+  document.getElementById('app-sign-body').innerHTML=`
+   <div class="form-grid">
+    <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
+    <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(r.total_amount)||0}"></div>
+    <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option ${bill?'selected':''}>可向客戶請款</option><option ${!bill?'selected':''}>公司吸收</option></select></div>
+   </div>
+   <div id="e-bill-sec"><div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="e-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appEditAddBill()">＋ 廠商</button></div><div id="e-bills"></div></div>
+   <div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">追加明細</span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appEditAddItem()">＋ 明細</button></div>
+   <div id="e-items"></div>
+   <div class="form-field" style="margin-top:10px"><label>原因說明</label><textarea id="e-reason" style="width:100%;box-sizing:border-box;height:70px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">${appEsc(r.reason_text)}</textarea></div>
+   <div id="e-err" style="color:var(--danger);font-size:12px;display:none;margin:6px 0"></div>
+   <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px">
+     <button class="btn-secondary" onclick="appViewReq(${id})">取消</button>
+     <button class="btn-primary" onclick="appSaveEdit(${id})">儲存</button>
+   </div>`;
+  appEditRenderItems(); appEditBillsRender(); appEditCostToggle();
+  document.getElementById('app-sign-overlay').classList.add('open');
+}
+function appEditBillsSum(){ return editBills.reduce((s,b)=>s+(Number(b.amount)||0),0); }
+function appEditBillsRender(){
+  const el=document.getElementById('e-bills'); if(!el) return;
+  const fld=(lbl,inner)=>`<div><div style="font-size:11px;color:var(--muted)">${lbl}</div>${inner}</div>`;
+  const ist='width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:4px';
+  el.innerHTML = editBills.length ? editBills.map((b,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input placeholder="請款廠商" value="${appEsc(b.vendor)}" oninput="editBills[${i}].vendor=this.value" style="flex:1;${ist}">
+      <button onclick="editBills.splice(${i},1);appEditBillsRender()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      ${fld('金額',`<input type="number" value="${Number(b.amount)||0}" oninput="editBills[${i}].amount=this.value;appEditBillsSum2()" style="${ist}">`)}
+      ${fld('開票時間',`<input type="date" value="${b.invoice_date||''}" oninput="editBills[${i}].invoice_date=this.value" style="${ist}">`)}
+      ${fld('收款時間',`<input type="date" value="${b.payment_date||''}" oninput="editBills[${i}].payment_date=this.value" style="${ist}">`)}
+    </div>
+  </div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px">尚無請款對象</div>';
+  appEditBillsSum2();
+}
+function appEditBillsSum2(){ const el=document.getElementById('e-bill-sum'); if(el) el.textContent='合計 NT$ '+appMoney(appEditBillsSum()); }
+function appEditAddBill(){ editBills.push({vendor:'',amount:0,invoice_date:'',payment_date:''}); appEditBillsRender(); }
+function appEditRenderItems(){
+  const el=document.getElementById('e-items'); if(!el) return;
+  el.innerHTML='<table class="prog-table" style="width:100%;min-width:0"><thead><tr><th>品項</th><th>數量</th><th>單位</th><th></th></tr></thead><tbody>'+
+    (editItems.length?editItems.map((it,i)=>`<tr>
+      <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" style="width:64px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button></td>
+    </tr>`).join(''):'<tr><td colspan="4" style="color:var(--muted);font-size:12px;padding:6px">尚無明細</td></tr>')+'</tbody></table>';
+}
+function appEditAddItem(){ editItems.push({name:'',qty:'',unit:'',amount:0}); appEditRenderItems(); }
+function appEditCostToggle(){ const bill=document.getElementById('e-cost').value==='可向客戶請款'; const sec=document.getElementById('e-bill-sec'); if(sec) sec.style.display=bill?'':'none'; }
+async function appSaveEdit(id){
+  const g=i=>{ const e=document.getElementById(i); return e?e.value:''; };
+  const bill=g('e-cost')==='可向客戶請款';
+  const total=Number(g('e-total'))||0;
+  const bills= bill ? editBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
+  const upd={
+    apply_date:g('e-date')||null, site_name:g('e-site'), applicant:g('e-applicant'), apply_dept:g('e-dept'),
+    total_amount:total, amount_tier:appTier(total), cost_owner:g('e-cost'),
+    client_bills: bills, client_amount: bill?bills.reduce((s,b)=>s+b.amount,0):0,
+    invoice_date: (bill&&bills.length===1)?bills[0].invoice_date:null, payment_date: (bill&&bills.length===1)?bills[0].payment_date:null,
+    reason_text:g('e-reason'),
+    items: editItems.filter(it=>it.name).map(it=>({ name:it.name, qty:(it.qty===''||it.qty==null)?'':(isNaN(Number(it.qty))?it.qty:Number(it.qty)), unit:it.unit||'', price:0, amount:Number(it.amount)||0 })),
+  };
+  const {error}=await sb.from('app_request').update(upd).eq('id',id);
+  if(error){ const e=document.getElementById('e-err'); e.textContent='儲存失敗：'+error.message; e.style.display='block'; return; }
+  document.getElementById('app-sign-overlay').classList.remove('open');
+  await loadApprovalData(); renderApproval();
 }
 
 // ---------- 查詢中心 ----------
@@ -3651,7 +3769,7 @@ function appQueryHTML(){
     <div class="form-field"><label>流水號</label><input id="q-serial" oninput="runAppQuery()"></div>
     <div class="form-field"><label>工程名稱</label><select id="q-site" onchange="runAppQuery()"><option value="">全部</option>${[...new Set(appRequests.map(r=>r.site_name).filter(Boolean))].sort().map(n=>`<option>${appEsc(n)}</option>`).join('')}</select></div>
     <div class="form-field"><label>申請人</label><select id="q-applicant" onchange="runAppQuery()"><option value="">全部</option>${[...new Set(appRequests.map(r=>r.applicant).filter(Boolean))].sort().map(n=>`<option>${appEsc(n)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>申請單位</label><select id="q-resp" onchange="runAppQuery()"><option value="">全部</option>${APP_DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div class="form-field"><label>申請單位</label><select id="q-resp" onchange="appQueryDeptChange()"><option value="">全部</option>${APP_DEPTS.map(d=>`<option>${d}</option>`).join('')}</select></div>
     <div class="form-field"><label>簽核狀態</label><select id="q-status" onchange="runAppQuery()"><option value="">全部</option><option value="pending">簽核中</option><option value="approved">已核准</option><option value="rejected">已退回</option><option value="archived">已歸檔</option></select></div>
     <div class="form-field"><label>起日</label><input type="date" id="q-from" onchange="runAppQuery()"></div>
     <div class="form-field"><label>迄日</label><input type="date" id="q-to" onchange="runAppQuery()"></div>
@@ -3683,8 +3801,8 @@ function runAppQuery(){
   if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>'; return; }
   rows.sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:860px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td>
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>對客戶請款</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td>
     <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintForm(${r.id})">申請單</button>
     <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintMemo(${r.id})">簽呈</button>
     ${r.status==='approved'?`<button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appArchive(${r.id})">歸檔</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
@@ -3765,6 +3883,11 @@ function appNormPerson(n){
   if(!hit && /^[一-鿿]{2,}$/.test(n)) hit=dir.find(d=>d.split(/\s+/).some(x=>/[一-鿿]/.test(x) && (x.includes(n)||n.includes(x))));
   return hit||n;
 }
+function appDeptOfPerson(name){
+  const a=approvers.find(x=>x.name===name); if(a&&a.dept) return a.dept;
+  if(supervisors.some(s=>s.name===name)) return '工程管理部';
+  return '';
+}
 function appParseHistory(text){
   const rows=appParseDelimited(text).filter(r=>r.some(c=>(c||'').trim()!==''));
   if(!rows.length) return [];
@@ -3777,7 +3900,7 @@ function appParseHistory(text){
     const find=(...keys)=>{ for(let c=0;c<H.length;c++){ if(keys.some(k=>H[c].includes(k))) return c; } return -1; };
     idx={ status:find('是否結束','結束'), serial:find('流水'), date:find('日期'), site:find('案場','工程名稱'), applicant:find('申請人'),
       detail:find('追加明細','明細'), reason:find('原因'), qty:find('數量'), total:find('追加款總額','總額'),
-      billable:find('業務對客戶','對客戶追加'), clientAmt:find('對客戶追加金額') };
+      billable:find('業務對客戶','對客戶追加'), clientAmt:find('對客戶追加金額'), invoice:find('開票'), payment:find('收款') };
     if(idx.clientAmt===idx.billable) idx.clientAmt=-1;
   }
   if(!idx){
@@ -3790,7 +3913,7 @@ function appParseHistory(text){
     for(let i=start;i<rows.length && qC<0;i++){ const r=rows[i]; for(let c=sC+4;c<r.length-1;c++){ if(qtyLike((r[c]||'').trim()) && pureNum((r[c+1]||'').trim())){ qC=c; break; } } }
     if(qC<0) for(let i=start;i<rows.length && qC<0;i++){ const r=rows[i]; for(let c=sC+4;c<r.length-1;c++){ if(pureNum((r[c]||'').trim()) && pureNum((r[c+1]||'').trim())){ qC=c; break; } } }
     if(qC<0) qC=sC+6;
-    idx={ status:sC-1, serial:sC, date:sC+1, site:sC+2, applicant:sC+3, detail:qC-2, reason:qC-1, qty:qC, total:qC+1, billable:qC+2, clientAmt:qC+3 };
+    idx={ status:sC-1, serial:sC, date:sC+1, site:sC+2, applicant:sC+3, detail:qC-2, reason:qC-1, qty:qC, total:qC+1, billable:qC+2, clientAmt:qC+3, invoice:qC+4, payment:qC+5 };
   }
   const g=(r,k)=> (idx[k]>=0 && idx[k]<r.length) ? (r[idx[k]]||'').trim() : '';
   const recs=[]; let cur=null;
@@ -3804,10 +3927,14 @@ function appParseHistory(text){
       let cost='公司吸收', ca=0;
       if(v2==='O'){ cost='可向客戶請款'; ca=appParseNum(v3); }
       else if(v2!=='' && v2!=='X' && pureNum(v2)){ cost='可向客戶請款'; ca=appParseNum(v2); }
-      cur={ serial_no:serial, apply_date:appParseDate(g(r,'date')), site_name:g(r,'site'), applicant:appNormPerson(g(r,'applicant')),
+      const billable = cost==='可向客戶請款'; // 僅可向客戶請款才記對客戶金額/開票/收款
+      const appl=appNormPerson(g(r,'applicant'));
+      cur={ serial_no:serial, apply_date:appParseDate(g(r,'date')), site_name:g(r,'site'), applicant:appl,
         responsibility:g(r,'resp'), reason_text:g(r,'reason'), total_amount:total, amount_tier:appTier(total),
-        cost_owner: cost, client_amount: ca,
-        status: g(r,'status')==='X'?'rejected':'archived', apply_dept:'',
+        cost_owner: cost, client_amount: billable?ca:0,
+        invoice_date: billable ? (appParseDate(g(r,'invoice'))||null) : null, payment_date: billable ? (appParseDate(g(r,'payment'))||null) : null,
+        client_bills: (billable&&ca>0) ? [{vendor:'', amount:ca, invoice_date:appParseDate(g(r,'invoice'))||null, payment_date:appParseDate(g(r,'payment'))||null}] : [],
+        status: g(r,'status')==='X'?'rejected':'archived', apply_dept: appDeptOfPerson(appl),
         items: g(r,'detail')?[Object.assign({name:g(r,'detail'),price:0,amount:0}, q)]:[], sign_chain:[], cur_step:0 };
     } else if(cur){
       const name=g(r,'detail'); if(name){ const q=appParseQty(g(r,'qty')); cur.items.push(Object.assign({name:name,price:0,amount:0}, q)); }

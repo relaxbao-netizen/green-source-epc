@@ -170,10 +170,15 @@ create table if not exists public.app_request (
   cur_step       int default 0,              -- 目前待簽關卡索引
   status         text default 'pending',     -- pending/approved/rejected/archived
   client_amount  numeric default 0,          -- 對客戶追加金額（業務可向客戶請款金額）
+  invoice_date   text,                       -- 開票時間
+  payment_date   text,                       -- 收款時間
   created_at     timestamptz default now()
 );
 -- 既有資料庫升級
 alter table public.app_request add column if not exists client_amount numeric default 0;
+alter table public.app_request add column if not exists invoice_date text;
+alter table public.app_request add column if not exists payment_date text;
+alter table public.app_request add column if not exists client_bills jsonb default '[]'::jsonb;
 
 alter table public.approvers   enable row level security;
 alter table public.app_request enable row level security;
