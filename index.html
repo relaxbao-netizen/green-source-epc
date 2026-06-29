@@ -3244,6 +3244,18 @@ function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
 function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
+// 申請單顯示狀態：通過的單子，案場已完工→已歸檔，否則→已核准
+function appSiteDone(name){
+  if(!name) return false;
+  const s=sites.find(x=> x.name===name || x.label===name || (x.name&&x.name.includes(name)) || (x.label&&name.includes(x.label)));
+  return !!(s && s.status==='done');
+}
+function appStatusKey(r){
+  if(r.status==='pending') return 'pending';
+  if(r.status==='rejected') return 'rejected';
+  return appSiteDone(r.site_name) ? 'archived' : 'approved';
+}
+function appStatusText(r){ return {pending:'簽核中',approved:'已核准',rejected:'已退回',archived:'已歸檔'}[appStatusKey(r)]; }
 
 async function loadApprovalData(){
   if(!sb) return;
@@ -3281,14 +3293,30 @@ function renderApproval(){
 }
 
 // ---------- Dashboard ----------
-function appBarChart(obj, color){
+function appBarChart(obj, color, clickFn){
   const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,8);
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
   const max = Math.max(1, ...entries.map(e=>e[1]));
-  return entries.map(([k,v])=>`<div style="margin:6px 0">
+  return entries.map(([k,v])=>{
+    const clk = clickFn ? ` onclick="${clickFn}('${appEsc(k).replace(/'/g,"\\'")}')" style="margin:6px 0;cursor:pointer"` : ' style="margin:6px 0"';
+    return `<div${clk}>
     <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>${appEsc(k)}</span><b>${appMoney(v)}</b></div>
     <div style="background:#eef2f7;border-radius:6px;height:14px;overflow:hidden"><div style="height:100%;width:${v/max*100}%;background:${color}"></div></div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
+}
+function appGoQuerySite(name){
+  showAppSection('query');
+  const sel=document.getElementById('q-site'); if(sel){ sel.value=name; }
+  runAppQuery();
+}
+function appGoQueryMonthKey(k){
+  showAppSection('query');
+  const [y,m]=k.split('-').map(Number);
+  const last=new Date(y,m,0);
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
+  set('q-from', k+'-01'); set('q-to', y+'-'+String(m).padStart(2,'0')+'-'+String(last.getDate()).padStart(2,'0'));
+  runAppQuery();
 }
 function appTrendSVG(byMonth){
   const keys = Object.keys(byMonth).sort();
@@ -3298,16 +3326,16 @@ function appTrendSVG(byMonth){
   const x = i => pad + i * ((W-2*pad)/Math.max(1,keys.length-1));
   const y = v => H-pad - (v/max)*(H-2*pad);
   const pts = vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
-  const dots = vals.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="#059669" style="cursor:pointer"><title>${keys[i]}　NT$ ${appMoney(v)}</title></circle>`).join('');
+  const dots = vals.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="#059669" style="cursor:pointer" onclick="appGoQueryMonthKey('${keys[i]}')"><title>${keys[i]}　NT$ ${appMoney(v)}</title></circle>`).join('');
   const labels = keys.map((k,i)=>`<text x="${x(i)}" y="${H-8}" font-size="10" text-anchor="middle" fill="#64748b">${k.slice(2)}</text>`).join('');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto"><polyline points="${pts}" fill="none" stroke="#059669" stroke-width="2"/>${dots}${labels}</svg>`;
 }
 function appBillSplit(b,a){
   const t = b+a || 1;
   return `<div style="margin:6px 0">
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span>可向客戶請款</span><b style="color:#16a34a">${appMoney(b)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span>需向客戶請款</span><b style="color:#16a34a">${appMoney(b)}</b></div>
     <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0 10px"><div style="height:100%;width:${b/t*100}%;background:#16a34a"></div></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px"><span>公司吸收</span><b style="color:#dc2626">${appMoney(a)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span>公司自行吸收</span><b style="color:#dc2626">${appMoney(a)}</b></div>
     <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0"><div style="height:100%;width:${a/t*100}%;background:#dc2626"></div></div></div>`;
 }
 function appGoQueryMonth(){
@@ -3390,9 +3418,9 @@ function appDashboardHTML(){
      ${card('本月追加金額', 'NT$ '+appMoney(monthAmt), ym, '#7c3aed', 'appGoQueryMonth()')}
    </div>
    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:14px;margin-top:16px">
-     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6')}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite')}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
-     <div class="card" style="padding:14px 16px"><div class="card-title">客戶請款 vs 公司吸收（本月）</div>${appBillSplit(billable,absorb)}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title">需向客戶請款 vs 公司自行吸收（${ym}）</div>${appBillSplit(billable,absorb)}</div>
    </div>`;
 }
 
@@ -3599,11 +3627,11 @@ function appViewReq(id){
     return `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0;align-items:baseline"><span>${mark}</span><b>${s.role}</b><span style="color:var(--muted)">${appEsc(s.approver)||''} ${s.signed_at?s.signed_at.slice(0,16).replace('T',' '):''}</span>${s.comment?`<span style="color:#64748b">「${appEsc(s.comment)}」</span>`:''}</div>`;
   }).join('');
   const items=r.items.map((it,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(it.amount)}</td></tr>`).join('');
-  const statusText={pending:'簽核中',approved:'已核准',rejected:'已退回',archived:'已歸檔'}[r.status]||r.status;
+  const statusText=appStatusText(r);
   document.getElementById('app-sign-title').textContent=r.serial_no+'　'+r.site_name;
   document.getElementById('app-sign-body').innerHTML=`
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}・${appEsc(r.apply_date)||''}・狀態：${statusText}</div>
-    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>（${r.amount_tier}）・${appEsc(r.cost_owner)}</div>
+    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>・${appEsc(r.cost_owner)}</div>
     <table class="prog-table" style="width:100%;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
     <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><b style="font-size:13px">簽核進度</b>${timeline}</div>
@@ -3642,7 +3670,7 @@ function runAppQuery(){
     if(site && !(r.site_name||'').includes(site)) return false;
     if(app && !(r.applicant||'').includes(app)) return false;
     if(resp && r.apply_dept!==resp) return false;
-    if(st && r.status!==st) return false;
+    if(st && appStatusKey(r)!==st) return false;
     const d=(r.apply_date||r.created_at||'').slice(0,10);
     if(from && d<from) return false;
     if(to && d>to) return false;
@@ -3650,17 +3678,16 @@ function runAppQuery(){
     if(!isNaN(max) && Number(r.total_amount)>max) return false;
     return true;
   });
-  const badge=s=>({pending:'<span style="color:#d97706">簽核中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">已退回</span>',archived:'<span style="color:#64748b">已歸檔</span>'}[s]||s);
+  const badge=r=>({pending:'<span style="color:#d97706">簽核中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">已退回</span>',archived:'<span style="color:#64748b">已歸檔</span>'}[appStatusKey(r)]);
   const el=document.getElementById('q-result'); if(!el) return;
   if(!rows.length){ el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>'; return; }
   rows.sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:860px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr>
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r.status)}</td>
-    <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appViewReq(${r.id})">檢視</button>
-    <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appPrintForm(${r.id})">申請單</button>
-    <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appPrintMemo(${r.id})">簽呈</button>
-    ${r.status==='approved'?`<button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="appArchive(${r.id})">歸檔</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:860px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td>
+    <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintForm(${r.id})">申請單</button>
+    <button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintMemo(${r.id})">簽呈</button>
+    ${r.status==='approved'?`<button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appArchive(${r.id})">歸檔</button>`:''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 // ---------- 人員 / 角色 ----------
