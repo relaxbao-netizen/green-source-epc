@@ -786,6 +786,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="form-field"><label>姓名 *</label><input type="text" id="sv-name" placeholder="例：蕭宏明 Mark"></div>
       <div class="form-field" style="margin-top:8px"><label>身分</label><select id="sv-role"><option value="工程部主管">工程部主管</option><option value="工地主任">工地主任</option></select></div>
       <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
+      <div class="form-field" style="margin-top:8px"><label>Email</label><input type="text" id="sv-email" placeholder="例：mark.hsiao@greensource-tech.com"></div>
       <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
         <button class="btn-secondary" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">取消</button>
@@ -2674,6 +2675,7 @@ function rowToSite(r) {
     label: r.label || r.city || '', lng: r.lng ? +r.lng : null, lat: r.lat ? +r.lat : null,
     wbs: r.wbs || undefined,
     wbs_items: Array.isArray(r.wbs_items) ? r.wbs_items : undefined,
+    mail_to: r.mail_to || '',
   };
 }
 
@@ -2689,7 +2691,7 @@ async function loadFromCloud() {
     if (siteRes.error) throw siteRes.error;
     if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
     if (!svRes.error && svRes.data && svRes.data.length) {
-      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任' }));
+      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', email: r.email || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任' }));
     }
     supLogs = (logRes && !logRes.error && logRes.data) ? logRes.data : [];
     return true;
@@ -2795,6 +2797,7 @@ function openSupervisorForm(name) {
   document.getElementById('sv-name').value = sv ? sv.name : '';
   document.getElementById('sv-role').value = sv ? (sv.role || '工地主任') : '工地主任';
   document.getElementById('sv-phone').value = sv ? sv.phone : '';
+  document.getElementById('sv-email').value = sv ? (sv.email || '') : '';
   editingAvatarData = sv ? (sv.avatar || '') : '';
   updateAvatarPreview();
   document.getElementById('supervisor-form-error').style.display = 'none';
@@ -2806,6 +2809,7 @@ async function saveSupervisorForm() {
   errEl.style.display = 'none';
   const name = document.getElementById('sv-name').value.trim();
   const phone = document.getElementById('sv-phone').value.trim();
+  const email = document.getElementById('sv-email').value.trim();
   const role = document.getElementById('sv-role').value;
   if (!name) {
     errEl.textContent = '請填寫姓名';
@@ -2819,10 +2823,10 @@ async function saveSupervisorForm() {
   }
   let q;
   if (editingSupervisorName) {
-    q = sb.from('supervisors').update({ name, phone, avatar: editingAvatarData, role }).eq('name', editingSupervisorName);
+    q = sb.from('supervisors').update({ name, phone, email, avatar: editingAvatarData, role }).eq('name', editingSupervisorName);
   } else {
     const color = supervisorPalette[supervisors.length % supervisorPalette.length];
-    q = sb.from('supervisors').insert({ name, phone, color, sites: [], avatar: editingAvatarData, role });
+    q = sb.from('supervisors').insert({ name, phone, email, color, sites: [], avatar: editingAvatarData, role });
   }
   const { error } = await q;
   if (error) {
@@ -3696,6 +3700,30 @@ function appFormInner(r){
 }
 function appPreviewForm(){ appOpenPrint('工程／物料申請單', appFormInner(appDraftFromForm())); }
 function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
+// 依名字在 approvers / supervisors 兩張表找 email
+function emailOfPerson(name){
+  if(!name) return '';
+  const a=approvers.find(x=>x.name===name); if(a&&a.email) return a.email;
+  const s=supervisors.find(x=>x.name===name); if(s&&s.email) return s.email;
+  return '';
+}
+// 依規則計算某申請單的寄送收件人 email 清單（去重）
+// 固定：該案工地主任、洪璽二 Second、林根玄 Aaron、許白龍 Pailung、陳采嶸 Gio、詹士緯 Jet、該案業務
+// 依追加總額：協理≥1萬、總經理≥10萬、董事長≥100萬
+function appRecipientEmails(r){
+  const site=sites.find(s=>appReqMatchSite(r,s));
+  const names=[];
+  if(site&&site.pm) names.push(site.pm);
+  names.push('洪璽二 Second','林根玄 Aaron','許白龍 Pailung','陳采嶸 Gio','詹士緯 Jet');
+  if(site&&site.sales) names.push(site.sales);
+  const amt=Number(r.total_amount)||0;
+  if(amt>=10000) names.push('詹素真 Vera');
+  if(amt>=100000) names.push('張丞廷 Tim');
+  if(amt>=1000000) names.push('壽明驛 Eric');
+  const emails=[];
+  names.forEach(n=>{ const e=emailOfPerson(n); if(e && !emails.includes(e)) emails.push(e); });
+  return emails;
+}
 function appMailSend(id){
   const r=appRequests.find(x=>x.id===id); if(!r) return;
   const costLine=appIsBillable(r)?'費用歸屬：需向客戶請款（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'NT$ '+appMoney(r.client_amount))+'）':'費用歸屬：公司自行吸收';
@@ -3706,8 +3734,9 @@ function appMailSend(id){
     '追加款總額：NT$ '+appMoney(r.total_amount), costLine, '狀態：'+appStatusText(r), '',
     '追加明細：', itemLines||'（無明細）', '', '原因說明：', (r.reason_text||'—'),
   ].join('\n');
-  const a=approvers.find(x=>x.name===r.applicant && x.email);
-  const to=encodeURIComponent(a?a.email:'');
+  let toList=appRecipientEmails(r);
+  if(!toList.length){ const a=approvers.find(x=>x.name===r.applicant && x.email); if(a) toList=[a.email]; }
+  const to=encodeURIComponent(toList.join(','));
   const subject=encodeURIComponent('工程／物料申請單　'+r.serial_no+'　'+(r.site_name||''));
   window.location.href='mailto:'+to+'?subject='+subject+'&body='+encodeURIComponent(body);
 }
