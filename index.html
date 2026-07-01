@@ -3503,6 +3503,29 @@ function appGoQueryMonth(){
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
   appShowResultModal(`${k}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
+// 已核准件數卡片：只列該月已核准（含已建單）
+function appGoQueryMonthApproved(){
+  const k=appSelectedExportYm();
+  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && (r.status==='approved'||r.status==='archived'));
+  appShowResultModal(`${k}　已核准（${rows.length}筆）`, appResultTableHTML(rows, true));
+}
+// 追加金額卡片：列該月計入金額的單（排除遭退回）
+function appGoQueryMonthAmount(){
+  const k=appSelectedExportYm();
+  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected');
+  appShowResultModal(`${k}　追加明細（${rows.length}筆）`, appResultTableHTML(rows, true));
+}
+// 該月各案場追加金額（只含該月有追加、排除遭退回）
+function appMonthBySite(ym){
+  const o={};
+  appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const k=r.site_name||'未指定'; o[k]=(o[k]||0)+Number(r.total_amount||0); });
+  return o;
+}
+function appGoQueryMonthSite(name){
+  const k=appSelectedExportYm();
+  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected' && (r.site_name||'未指定')===name);
+  appShowResultModal(`${k}　${name}（${rows.length}筆）`, appResultTableHTML(rows, true));
+}
 // 月份選擇改變時，更新「追加金額」卡片
 function appMonthCardRefresh(){
   const ym=appSelectedExportYm();
@@ -3518,6 +3541,9 @@ function appMonthCardRefresh(){
   appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const v=Number(r.total_amount||0); if(appIsBillable(r)) bil+=(Number(r.client_amount)||v); else abs+=v; });
   const bt=document.getElementById('app-billsplit-title'); if(bt) bt.textContent='需向客戶請款 vs 公司自行吸收（'+ym+'）';
   const bb=document.getElementById('app-billsplit-body'); if(bb) bb.innerHTML=appBillSplit(bil,abs,ym);
+  // 該月各案場追加金額排行
+  const st=document.getElementById('app-monthsite-title'); if(st) st.textContent='各案場追加金額排行（'+ym+'）';
+  const sb2=document.getElementById('app-monthsite-body'); if(sb2) sb2.innerHTML=appBarChart(appMonthBySite(ym),'#3b82f6','appGoQueryMonthSite',99);
 }
 function appExportMonth(){
   if(typeof XLSX==='undefined'){ alert('匯出元件未載入，請稍後再試'); return; }
@@ -3599,16 +3625,17 @@ function appDashboardHTML(){
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
      ${card('已建單件數', archivedCount, '件', '#3b82f6', `appGoQueryStatus('archived')`)}
      ${card('跑單中件數', pending, '件', '#d97706', "appGoQueryPending()")}
-     <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonth()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+     <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
      <div class="card" style="padding:14px 16px;border-left:4px solid #7c3aed">
-       <div style="cursor:pointer" onclick="appGoQueryMonth()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+       <div style="cursor:pointer" onclick="appGoQueryMonthAmount()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
        <button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:12px;width:100%" onclick="appExportMonth()">📥 匯出追加明細</button>
      </div>
    </div>
    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:14px;margin-top:16px">
      <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite',99)}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
-     <div class="card" style="padding:14px 16px"><div class="card-title" id="app-billsplit-title">需向客戶請款 vs 公司自行吸收（${ym}）</div><div id="app-billsplit-body">${appBillSplit(billable,absorb,ym)}</div></div>
+     <div class="card" style="padding:14px 16px"><div class="card-title" id="app-billsplit-title">需向客戶請款 vs 公司自行吸收（${ym}）</div><div id="app-billsplit-body">${appBillSplit(billable,absorb,ym)}</div>
+       <div class="card-title" id="app-monthsite-title" style="margin-top:14px">各案場追加金額排行（${ym}）</div><div id="app-monthsite-body">${appBarChart(appMonthBySite(ym),'#3b82f6','appGoQueryMonthSite',99)}</div></div>
    </div>`;
 }
 
@@ -4008,7 +4035,8 @@ function runAppQuery(){
   el.innerHTML=appResultTableHTML(rows);
 }
 function appGoQueryPending(){
-  appShowResultModal('待簽核', appSignListHTML());
+  const n=appRequests.filter(r=>r.status==='pending').length;
+  appShowResultModal(`跑單中（${n}筆）`, appSignListHTML());
 }
 function appShowResultModal(title, bodyHTML){
   document.getElementById('app-result-title').textContent=title;
