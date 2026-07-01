@@ -1862,7 +1862,7 @@ function openModal(id) {
     })()}
     ${(() => {
       if (typeof appRequests === 'undefined') return '';
-      const reqs = appRequests.filter(r => r.site_name === s.name || r.site_name === s.label);
+      const reqs = appRequests.filter(r => appReqMatchSite(r, s));
       const total = reqs.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0);
       return `<div class="wbs-title" style="margin-top:20px">工程／物料申請累計追加總額</div>
         <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="appGoQuerySiteForSite(${s.id})">
@@ -2992,7 +2992,7 @@ function openSiteForm(id) {
   document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
   // 工地主任下拉：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
-  const pms = supervisors.map(v => v.name);
+  const pms = orderedSupervisors().filter(v => v.role !== '工程部主管').map(v => v.name);
   if (s && s.pm && !pms.includes(s.pm)) pms.push(s.pm);
   document.getElementById('sf-pm').innerHTML = pms.map(p => `<option>${p}</option>`).join('');
   // 案場業務下拉：列出角色為「業務」的人員；編輯舊案時保留原業務名
@@ -3283,7 +3283,7 @@ async function returnEquip(recId) {
 // ---- 啟動 ----
 // 啟動：等雲端資料載入完成才首次渲染（避免內建→雲端切換造成閃爍）
 // ===================== 工程／物料申請簽核系統 =====================
-const APP_DEPTS = ['工程管理部','工程設計部','採購部','GSBU','維運部','品保部','管理階層'];
+const APP_DEPTS = ['工程管理部','工程設計部','專案管理部','採購部','GSBU','研發部','品保部'];
 const APP_REASONS = ['客戶追加／變更','原工項未發包','設計未包含','其他'];
 const APP_RESP = ['業主變更','設計變更','採購疏失','施工疏失','其他'];
 const SIGN_BASE = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務'];
@@ -3392,7 +3392,10 @@ function appQueryRefreshOptions(){
   // 工程名稱
   {
     const rows=appRequests.filter(r=>appQueryFilterPass(r,'site'));
-    const names=[...new Set(rows.map(r=>r.site_name).filter(Boolean))].sort();
+    const dateCmp=(x,y)=>{ if(!x&&!y) return 0; if(!x) return 1; if(!y) return -1; return x.localeCompare(y); };
+    const orderedSites=sites.slice().sort((a,b)=>(b.pct-a.pct)||dateCmp(a.start,b.start)||dateCmp(a.end,b.end));
+    const siteRank=n=>{ const i=orderedSites.findIndex(s=>appReqMatchSite({site_name:n},s)); return i<0?9999:i; };
+    const names=[...new Set(rows.map(r=>r.site_name).filter(Boolean))].sort((a,b)=>(siteRank(a)-siteRank(b))||a.localeCompare(b));
     const sel=document.getElementById('q-site'); const prev=g('q-site');
     sel.innerHTML='<option value="">全部</option>'+names.map(n=>`<option>${appEsc(n)}</option>`).join('');
     sel.value=names.includes(prev)?prev:'';
@@ -3418,7 +3421,7 @@ function appQueryRefreshOptions(){
   {
     const rows=appRequests.filter(r=>appQueryFilterPass(r,'status'));
     const keys=new Set(rows.map(r=>appStatusKey(r)).filter(Boolean));
-    const order=['pending','approved','rejected','archived'].filter(k=>keys.has(k));
+    const order=['archived','pending','approved','rejected'].filter(k=>keys.has(k));
     const sel=document.getElementById('q-status'); const prev=g('q-status');
     sel.innerHTML='<option value="">全部</option>'+order.map(k=>`<option value="${k}">${STATUS_LABELS[k]}</option>`).join('');
     sel.value=order.includes(prev)?prev:'';
@@ -3437,9 +3440,17 @@ function appGoQuerySite(name){
   const rows=appRequests.filter(r=>r.site_name===name);
   appShowResultModal(`${name}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
+function appReqMatchSite(r, s){
+  const rn=(r.site_name||'').trim(); if(!rn||!s) return false;
+  const name=(s.name||'').trim(), label=(s.label||'').trim();
+  if(rn===name || rn===label) return true;
+  if(label && (rn.includes(label) || label.includes(rn))) return true;
+  if(name && (rn.includes(name) || name.includes(rn))) return true;
+  return false;
+}
 function appGoQuerySiteForSite(siteId){
   const s=siteById(siteId); if(!s) return;
-  const rows=appRequests.filter(r=>r.site_name===s.name || r.site_name===s.label);
+  const rows=appRequests.filter(r=>appReqMatchSite(r,s));
   appShowResultModal(`${s.name}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
 function appGoQueryMonthKey(k){
@@ -3703,7 +3714,7 @@ function appMailSend(id){
 
 // ---------- 待簽核 / 簽核 ----------
 function appSignListHTML(){
-  const pend=appRequests.filter(r=>r.status==='pending');
+  const pend=appRequests.filter(r=>r.status==='pending').slice().sort((a,b)=>(b.serial_no||'').localeCompare(a.serial_no||''));
   if(!pend.length) return '<div class="card" style="padding:20px;color:var(--muted)">目前沒有待簽核的申請。</div>';
   return '<div class="card" style="padding:4px 0">'+pend.map(r=>{
     const step=r.sign_chain[r.cur_step]; const role=step?step.role:'—';
@@ -3917,7 +3928,7 @@ function appQueryHTML(){
 function appResultTableHTML(rows, compact){
   const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>',archived:'<span style="color:#64748b">已建單</span>'}[appStatusKey(r)]);
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
-  rows=[...rows].sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
+  rows=[...rows].sort((a,b)=>String(b.serial_no||'').localeCompare(String(a.serial_no||''),undefined,{numeric:true}));
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
     return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
