@@ -3731,7 +3731,7 @@ function appMailSend(id){
   const body=[
     (r.site_name||'')+' 工程／物料申請單 '+r.serial_no,
     '申請單位：'+(r.apply_dept||''), '工程名稱：'+(r.site_name||''), '申請人：'+(r.applicant||''), '申請日期：'+(r.apply_date||''),
-    '追加款總額：NT$ '+appMoney(r.total_amount), costLine, '狀態：'+appStatusText(r), '',
+    '追加款總額：NT$ '+appMoney(r.total_amount), costLine, '',
     '追加明細：', itemLines||'（無明細）', '', '原因說明：', (r.reason_text||'—'),
   ].join('\n');
   let toList=appRecipientEmails(r);
