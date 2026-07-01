@@ -3493,19 +3493,42 @@ function appGoQueryStatus(statusKey){
   const rows=appRequests.filter(r=>appStatusKey(r)===statusKey);
   appShowResultModal(`${STATUS_LABELS[statusKey]}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
-function appGoQueryMonth(){
+function appSelectedExportYm(){
+  const inp=document.getElementById('app-export-month');
   const now=new Date();
-  const k=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  return (inp&&inp.value)?inp.value:(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'));
+}
+function appGoQueryMonth(){
+  const k=appSelectedExportYm();
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
   appShowResultModal(`${k}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
+// 月份選擇改變時，更新「追加金額」卡片
+function appMonthCardRefresh(){
+  const ym=appSelectedExportYm();
+  const amt=appRequests.filter(r=>r.status!=='rejected' && (r.apply_date||r.created_at||'').slice(0,7)===ym).reduce((s,r)=>s+Number(r.total_amount||0),0);
+  const a=document.getElementById('app-month-amt'); if(a) a.textContent='NT$ '+appMoney(amt);
+  const su=document.getElementById('app-month-sub'); if(su) su.textContent=ym;
+  // 已核准件數
+  const approved=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
+  const ap=document.getElementById('app-month-approved'); if(ap) ap.textContent=approved;
+  const aps=document.getElementById('app-month-approved-sub'); if(aps) aps.textContent=ym;
+  // 需向客戶請款 vs 公司自行吸收
+  let bil=0, abs=0;
+  appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const v=Number(r.total_amount||0); if(appIsBillable(r)) bil+=(Number(r.client_amount)||v); else abs+=v; });
+  const bt=document.getElementById('app-billsplit-title'); if(bt) bt.textContent='需向客戶請款 vs 公司自行吸收（'+ym+'）';
+  const bb=document.getElementById('app-billsplit-body'); if(bb) bb.innerHTML=appBillSplit(bil,abs,ym);
+}
 function appExportMonth(){
   if(typeof XLSX==='undefined'){ alert('匯出元件未載入，請稍後再試'); return; }
-  const now=new Date(); const ym=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'); const mNum=now.getMonth()+1;
+  const now=new Date();
+  const inp=document.getElementById('app-export-month');
+  const ym=(inp&&inp.value)?inp.value:(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'));
+  const mNum=+(ym.slice(5,7));
   const fmtD=d=>{ const m=String(d||'').slice(0,10).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}/${+m[3]}`:''; };
   const reqs=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && r.status!=='rejected')
     .sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
-  if(!reqs.length){ alert('本月（'+ym+'）沒有追加申請'); return; }
+  if(!reqs.length){ alert(ym+' 沒有追加申請'); return; }
   const headers=['日期','案場名稱','申請人','追加明細','原因','數量','追加款總額','業務對客戶追加','對客戶追加金額','開票時間','收款時間'];
   const NC=headers.length;
   const aoa=[['工程/物料申請控管單', ...Array(NC-1).fill('')], headers];
@@ -3572,17 +3595,20 @@ function appDashboardHTML(){
   Object.keys(bySite).forEach(k=>{ const s=sites.find(s=> s.name===k||s.label===k||(s.name&&s.name.includes(k))||(s.label&&k.includes(s.label)) ); if(!s || s.status==='done') delete bySite[k]; });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
-   <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appExportMonth()">📥 匯出本月追加明細</button></div>
+   <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><input type="month" id="app-export-month" value="${ym}" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px"></div>
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
      ${card('已建單件數', archivedCount, '件', '#3b82f6', `appGoQueryStatus('archived')`)}
      ${card('跑單中件數', pending, '件', '#d97706', "appGoQueryPending()")}
-     ${card('本月已核准件數', approved, '件', '#16a34a', 'appGoQueryMonth()')}
-     ${card('本月追加金額', 'NT$ '+appMoney(monthAmt), ym, '#7c3aed', 'appGoQueryMonth()')}
+     <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonth()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+     <div class="card" style="padding:14px 16px;border-left:4px solid #7c3aed">
+       <div style="cursor:pointer" onclick="appGoQueryMonth()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+       <button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:12px;width:100%" onclick="appExportMonth()">📥 匯出追加明細</button>
+     </div>
    </div>
    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:14px;margin-top:16px">
      <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite',99)}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
-     <div class="card" style="padding:14px 16px"><div class="card-title">需向客戶請款 vs 公司自行吸收（${ym}）</div>${appBillSplit(billable,absorb,ym)}</div>
+     <div class="card" style="padding:14px 16px"><div class="card-title" id="app-billsplit-title">需向客戶請款 vs 公司自行吸收（${ym}）</div><div id="app-billsplit-body">${appBillSplit(billable,absorb,ym)}</div></div>
    </div>`;
 }
 
@@ -3693,10 +3719,7 @@ function appFormInner(r){
   <h2>追加明細</h2>
   <table><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th></tr></thead>
    <tbody>${rows}<tr><td colspan="4" style="text-align:right"><b>總計</b></td><td style="text-align:right"><b>${appMoney(r.total_amount)}</b></td></tr></tbody></table>
-  <h2>原因說明</h2><div class="box">${appEsc(r.reason_text).replace(/\n/g,'<br>')}</div>
-  <h2>簽核欄位</h2>
-  <table><tr>${r.sign_chain.map(s=>`<th>${s.role}</th>`).join('')}</tr>
-   <tr>${r.sign_chain.map(s=>`<td style="height:64px;vertical-align:bottom"><div style="font-size:12px">${appEsc(s.approver)||''}</div><div style="font-size:9px;color:#888">${s.signed_at?s.signed_at.slice(0,10):''}${s.action==='reject'?' 退回':s.action==='approve'?' 核准':''}</div></td>`).join('')}</tr></table>`;
+  <h2>原因說明</h2><div class="box">${appEsc(r.reason_text).replace(/\n/g,'<br>')}</div>`;
 }
 function appPreviewForm(){ appOpenPrint('工程／物料申請單', appFormInner(appDraftFromForm())); }
 function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
@@ -3838,11 +3861,8 @@ function appViewReq(id){
     ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
     <table class="prog-table" style="width:100%;min-width:0;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
     <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
-    <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px"><b style="font-size:13px">簽核進度</b>${timeline}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
-      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appPrintForm(${r.id})">📄 申請單</button>
-      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appMailSend(${r.id})">✉️ 寄出</button>
       <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
