@@ -3129,7 +3129,8 @@ const EQUIP_BROKEN = new Set([6]);   // 故障器具的索引（顯示故障、�
 const EQUIP_BASE_LEN = EQUIPMENT.length;                       // 內建器具數量（自訂器具接在後面）
 const EQUIP_GROUP_BASE = EQUIP_GROUPS.map(g => g.idxs.slice()); // 各登記表內建索引快照
 let equipExtra = [];         // equipment 表：使用者自訂新增的器具
-let equipRemovedRuntime = new Set(); // 自訂器具中被刪除（軟刪除）者的索引
+let equipRemovedRuntime = new Set(); // 被軟刪除者的索引
+let equipRowByIdx = {};      // 索引 → equipment 資料列（可編輯／刪除者）
 let equipLogs = [];          // equipment_borrow 記錄
 let equipPhotos = [];        // equipment_photo 記錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
@@ -3147,18 +3148,37 @@ function equipDisplayName(i) {
 async function loadEquipList() {
   if (!sb) return;
   const { data, error } = await sb.from('equipment').select('*').order('id');
-  equipExtra = (!error && data) ? data : [];
+  const rows = (!error && data) ? data : [];
+  equipExtra = rows;
   if (error) console.warn('equipment 讀取失敗（資料表可能尚未建立）', error.message);
-  // 還原到內建基底後，接上自訂器具（索引延續，不影響既有借用記錄）
-  EQUIPMENT.length = EQUIP_BASE_LEN;
-  EQUIP_GROUPS.forEach((g, gi) => { g.idxs = EQUIP_GROUP_BASE[gi].slice(); });
+  equipRowByIdx = {};
   equipRemovedRuntime = new Set();
-  equipExtra.forEach(e => {
-    const idx = EQUIPMENT.length;
-    EQUIPMENT.push(e.name);
-    EQUIP_GROUPS[(e.grp === '南部') ? 1 : 0].idxs.push(idx);
-    if (e.removed) equipRemovedRuntime.add(idx); // 軟刪除者隱藏，但保留索引
-  });
+  const migrated = rows.some(r => r.idx != null); // 內建器具是否已遷入資料庫
+  if (migrated) {
+    // 全部以資料庫為準（每一項都可編輯／刪除）
+    EQUIPMENT.length = 0;
+    EQUIP_GROUPS[0].idxs = []; EQUIP_GROUPS[1].idxs = [];
+    EQUIP_BROKEN.clear();
+    rows.filter(r => r.idx != null).sort((a, b) => a.idx - b.idx).forEach(r => {
+      const i = r.idx;
+      EQUIPMENT[i] = r.name;
+      equipRowByIdx[i] = r;
+      EQUIP_GROUPS[(r.grp === '南部') ? 1 : 0].idxs.push(i);
+      if (r.broken) EQUIP_BROKEN.add(i);
+      if (r.removed) equipRemovedRuntime.add(i);
+    });
+  } else {
+    // 尚未遷移：沿用內建清單，自訂器具接在後面（索引延續，不影響既有借用記錄）
+    EQUIPMENT.length = EQUIP_BASE_LEN;
+    EQUIP_GROUPS.forEach((g, gi) => { g.idxs = EQUIP_GROUP_BASE[gi].slice(); });
+    rows.forEach(e => {
+      const idx = EQUIPMENT.length;
+      EQUIPMENT.push(e.name);
+      equipRowByIdx[idx] = e;
+      EQUIP_GROUPS[(e.grp === '南部') ? 1 : 0].idxs.push(idx);
+      if (e.removed) equipRemovedRuntime.add(idx);
+    });
+  }
 }
 
 async function loadEquipLogs() {
@@ -3197,10 +3217,10 @@ function resizeKeepAspect(file, max, cb) {
 function openEquipPhotos(i) {
   _equipPhotoIdx = i;
   document.getElementById('equip-photo-title').textContent = `器具照片：${equipDisplayName(i)}`;
-  // 自訂器具可編輯／刪除
+  // 資料庫內的器具可編輯／刪除
   const manage = document.getElementById('ep-manage');
-  if (i >= EQUIP_BASE_LEN) {
-    const row = equipExtra[i - EQUIP_BASE_LEN];
+  const row = equipRowByIdx[i];
+  if (row) {
     manage.style.display = 'flex';
     manage.innerHTML = `<button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="openEquipEdit(${row.id})">✏️ 編輯器具</button>
       <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger)" onclick="delEquip(${row.id})">🗑 刪除器具</button>`;
