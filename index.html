@@ -720,6 +720,22 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   </div>
 </div>
 
+<!-- ===== 新增器具 Modal ===== -->
+<div class="modal-overlay" id="equip-add-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:420px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">＋ 新增器具</div>
+      <button class="modal-close" onclick="document.getElementById('equip-add-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field" style="margin-bottom:10px"><label>器具名稱 *</label><input type="text" id="ea-name" placeholder="例：雷射測距儀"></div>
+      <div class="form-field" style="margin-bottom:10px"><label>登記表</label><select id="ea-grp" style="font-weight:400"><option value="工程部">工程部測量器具</option><option value="南部">南部辦公室測量器具</option></select></div>
+      <div id="ea-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
+      <button class="btn-primary" onclick="saveEquipAdd()">確認新增</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== 器具照片 Modal ===== -->
 <div class="modal-overlay" id="equip-photo-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="kpi-list-box" style="max-width:560px" onclick="event.stopPropagation()">
@@ -728,6 +744,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <button class="modal-close" onclick="document.getElementById('equip-photo-overlay').classList.remove('open')">✕</button>
     </div>
     <div class="modal-body">
+      <div id="ep-manage" style="display:none;gap:8px;margin-bottom:12px"></div>
       <input type="file" id="ep-file" accept="image/*" style="display:none" onchange="onEquipPhotoPicked(event)">
       <button id="ep-upload-btn" class="btn-secondary" style="margin-bottom:12px" onclick="document.getElementById('ep-file').click()">＋ 上傳照片</button>
       <div id="ep-grid" style="display:grid;grid-template-columns:repeat(1,1fr);gap:8px"></div>
@@ -812,7 +829,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
         <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs();updateCapFields()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
         <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
-        <div class="form-field"><label>工地主任</label><select id="sf-pm"></select></div>
+        <div class="form-field" style="grid-column:1/-1"><label>工地主任（可複選）</label><div id="sf-pm" style="display:flex;flex-wrap:wrap;gap:6px 14px;border:1px solid var(--border);border-radius:8px;padding:10px"></div></div>
         <div class="form-field"><label>案場業務</label><select id="sf-sales"></select></div>
         <div class="form-field"><label>光電容量 (kW)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
@@ -968,9 +985,14 @@ let supLogs = [];
 // 以 id 取得案場（雲端模式下 id 不一定等於陣列索引）
 function siteById(id) { return sites.find(s => s.id === id); }
 
+// 工地主任可多位，pm 欄位以逗號／頓號分隔
+function pmList(s){ return String((s&&s.pm)||'').split(/[,、]+/).map(x=>x.trim()).filter(Boolean); }
+function pmHas(s,name){ return pmList(s).includes(name); }
+function pmText(s){ return pmList(s).join('、'); }
+
 // 主任負責的案場直接由案場的工地主任欄位推算（編輯案場即自動更新負荷）
 function sitesOfPm(name) {
-  return sites.filter(s => s.pm === name).map(s => s.id);
+  return sites.filter(s => pmHas(s, name)).map(s => s.id);
 }
 
 // 主任頭像內容：有大頭貼顯示圖片，否則顯示姓名首字
@@ -1197,7 +1219,7 @@ function renderProgressTable(filter) {
         <td style="font-weight:600">${s.name}</td>
         <td>${regionName[s.region] || s.region}</td>
         <td>${s.owner}</td>
-        <td>${s.pm}</td>
+        <td>${pmText(s)}</td>
         <td>${s.mw ? s.mw + ' kW' : '—'}</td>
         <td>${(s.skw || s.mwh) ? (s.skw||0)+'kW / '+(s.mwh||0)+'kWh' : '—'}</td>
         <td>
@@ -1374,7 +1396,7 @@ function autoOffLabel(ds) {
 function isSupport(rec) {
   if (rec.site_id == null) return false;
   const s = siteById(rec.site_id);
-  return !!(s && s.pm !== rec.supervisor);
+  return !!(s && !pmHas(s, rec.supervisor));
 }
 // 記錄顯示：案場用短名，特殊項目用 place
 function recLabel(rec) {
@@ -1823,7 +1845,7 @@ function openModal(id) {
     <div class="modal-grid">
       <div class="modal-info" style="background:#f8fafc;border-radius:10px;padding:16px">
         <div class="info-row"><span class="info-label">業主</span><span class="info-val">${s.owner}</span></div>
-        <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${s.pm}</span></div>
+        <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${pmText(s)}</span></div>
         <div class="info-row"><span class="info-label">案場業務</span><span class="info-val">${s.sales || '—'}</span></div>
         <div class="info-row"><span class="info-label">案場地址</span><span class="info-val" style="font-size:12px">${s.addr}</span></div>
         <div class="info-row"><span class="info-label">類型</span><span class="info-val">${s.type}</span></div>
@@ -2180,7 +2202,7 @@ function buildRainReportHTML(logs, site) {
 
     const totals = `<div style="font-size:13px;margin-top:8px">
       統計：<b style="color:#16a34a">晴 ${cnt['⭕']} 天</b>　<b style="color:#dc2626">雨 ${cnt['X']} 天</b>　<b style="color:#64748b">陰 ${cnt['●']} 天</b></div>`;
-    const footer = `<div style="font-size:12px;color:var(--muted);margin-top:4px">監工人員：${s.pm || '—'}</div>
+    const footer = `<div style="font-size:12px;color:var(--muted);margin-top:4px">監工人員：${pmText(s) || '—'}</div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px">資料來源：中央氣象署 CWA 開放資料平臺</div>`;
 
     return `<div>${head}${info}
@@ -2454,7 +2476,7 @@ function openKpiList(type) {
         ${type === 'pv-cap' ? `<span style="font-size:13px;font-weight:700;color:#7c3aed">${s.mw}kW</span>` : ''}
         ${type === 'storage-cap' ? `<span style="font-size:13px;font-weight:700;color:#0891b2">${s.skw||0}kW / ${s.mwh}kWh</span>` : ''}
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.pm}</span>${(type==='pv-cap'||type==='storage-cap') ? (s.end ? '<span>預計完工日 '+s.end+'</span>' : '') : '<span>'+siteCapStr(s)+'</span>'+(s.end?'<span>預計完工日 '+s.end+'</span>':'')}</div>
+      <div class="kli-meta">${s.owner}<span>${pmText(s)}</span>${(type==='pv-cap'||type==='storage-cap') ? (s.end ? '<span>預計完工日 '+s.end+'</span>' : '') : '<span>'+siteCapStr(s)+'</span>'+(s.end?'<span>預計完工日 '+s.end+'</span>':'')}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -2488,7 +2510,7 @@ function byProgress(a, b) {
 function openPmModal(name) {
   const sv = supervisors.find(s => s.name === name);
   if (!sv) return;
-  const pmSites = sites.filter(s => s.pm === sv.name);
+  const pmSites = sites.filter(s => pmHas(s, sv.name));
   const sorted = [...pmSites].sort(byProgress);
   document.getElementById('kpi-list-title').textContent = `${name} 負責案場（${sorted.length}案）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
@@ -2522,7 +2544,7 @@ function openOwnerModal(owner) {
         <div class="kli-name">${s.name}</div>
         <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':s.status==='pending'?'#e2e8f0':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':s.status==='pending'?'#475569':'#15803d'}">${statusText[s.status]}</span>
       </div>
-      <div class="kli-meta">${s.pm}<span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
+      <div class="kli-meta">${pmText(s)}<span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -2545,7 +2567,7 @@ function openRegionModal(region, label) {
         <div class="kli-name">${s.name}</div>
         <span style="font-size:11px;font-weight:600;padding:2px 9px;border-radius:10px;background:${s.status==='done'?'#e0f2fe':s.status==='danger'?'#fee2e2':s.status==='warn'?'#fef3c7':s.status==='pending'?'#e2e8f0':'#dcfce7'};color:${s.status==='done'?'#0ea5e9':s.status==='danger'?'#dc2626':s.status==='warn'?'#d97706':s.status==='pending'?'#475569':'#15803d'}">${statusText[s.status]}</span>
       </div>
-      <div class="kli-meta">${s.owner}<span>${s.pm}</span><span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
+      <div class="kli-meta">${s.owner}<span>${pmText(s)}</span><span>${siteCapStr(s)}</span>${s.end ? '<span>預計完工日 '+s.end+'</span>' : ''}</div>
       <div class="kli-bar-row">
         <div class="kli-bar-wrap">
           <div class="kli-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
@@ -2834,9 +2856,13 @@ async function saveSupervisorForm() {
     errEl.style.display = 'block';
     return;
   }
-  // 改名時同步更新所有掛在此主任名下的案場
+  // 改名時同步更新所有掛在此主任名下的案場（含多位主任的案場）
   if (editingSupervisorName && name !== editingSupervisorName) {
-    await sb.from('sites').update({ pm: name }).eq('pm', editingSupervisorName);
+    const affected = sites.filter(s => pmHas(s, editingSupervisorName));
+    for (const s of affected) {
+      const newPm = pmList(s).map(n => n === editingSupervisorName ? name : n).join(',');
+      await sb.from('sites').update({ pm: newPm }).eq('id', s.id);
+    }
   }
   document.getElementById('supervisor-form-overlay').classList.remove('open');
   await loadFromCloud();
@@ -2995,10 +3021,11 @@ function openSiteForm(id) {
   document.getElementById('site-form-title').textContent = s ? '✏ 編輯案場' : '＋ 新增案場';
   document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
-  // 工地主任下拉：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
+  // 工地主任複選：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
   const pms = orderedSupervisors().filter(v => v.role !== '工程部主管').map(v => v.name);
-  if (s && s.pm && !pms.includes(s.pm)) pms.push(s.pm);
-  document.getElementById('sf-pm').innerHTML = pms.map(p => `<option>${p}</option>`).join('');
+  const chosenPm = s ? pmList(s) : [];
+  chosenPm.forEach(n => { if (!pms.includes(n)) pms.push(n); });
+  document.getElementById('sf-pm').innerHTML = pms.map(p => `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:400;white-space:nowrap"><input type="checkbox" class="sf-pm-cb" value="${appEsc(p)}"${chosenPm.includes(p) ? ' checked' : ''}>${appEsc(p)}</label>`).join('');
   // 案場業務下拉：列出角色為「業務」的人員；編輯舊案時保留原業務名
   const salesNames = approvers.filter(a => a.role === '業務').map(a => a.name);
   if (s && s.sales && !salesNames.includes(s.sales)) salesNames.push(s.sales);
@@ -3011,7 +3038,6 @@ function openSiteForm(id) {
   updateCityOptions(s ? s.city : null); // 縣市選單跟隨區域
   set('sf-type',   s ? s.type : '太陽能');
   set('sf-owner',  s ? s.owner : '');
-  set('sf-pm',     s && s.pm ? s.pm : (pms[0] || ''));
   set('sf-sales',  s && s.sales ? s.sales : '');
   set('sf-addr',   s ? s.addr : '');
   set('sf-mw',     s && s.mw  ? s.mw  : '');
@@ -3037,7 +3063,7 @@ async function saveSiteForm() {
   }
   const row = {
     name: val('sf-name'), label: val('sf-label'), region: val('sf-region'), city: val('sf-city'),
-    type: val('sf-type'), owner: val('sf-owner'), pm: val('sf-pm'), sales: val('sf-sales'), addr: val('sf-addr'),
+    type: val('sf-type'), owner: val('sf-owner'), pm: [...document.querySelectorAll('.sf-pm-cb:checked')].map(o=>o.value).join(','), sales: val('sf-sales'), addr: val('sf-addr'),
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start').replace(/-/g, '/'), end_date: val('sf-end').replace(/-/g, '/'), // 存回 YYYY/MM/DD
   };
@@ -3100,6 +3126,10 @@ const EQUIP_GROUPS = [
 ];
 const EQUIP_REMOVED = new Set([19]); // 已移除器具的索引（保留索引避免位移，畫面隱藏）
 const EQUIP_BROKEN = new Set([6]);   // 故障器具的索引（顯示故障、不可借）
+const EQUIP_BASE_LEN = EQUIPMENT.length;                       // 內建器具數量（自訂器具接在後面）
+const EQUIP_GROUP_BASE = EQUIP_GROUPS.map(g => g.idxs.slice()); // 各登記表內建索引快照
+let equipExtra = [];         // equipment 表：使用者自訂新增的器具
+let equipRemovedRuntime = new Set(); // 自訂器具中被刪除（軟刪除）者的索引
 let equipLogs = [];          // equipment_borrow 記錄
 let equipPhotos = [];        // equipment_photo 記錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
@@ -3112,6 +3142,23 @@ function equipDisplayName(i) {
   const dupIdx = EQUIPMENT.map((n, k) => n === raw ? k : -1).filter(k => k >= 0);
   if (dupIdx.length > 1) return `${name} #${dupIdx.indexOf(i) + 1}`;
   return name;
+}
+
+async function loadEquipList() {
+  if (!sb) return;
+  const { data, error } = await sb.from('equipment').select('*').order('id');
+  equipExtra = (!error && data) ? data : [];
+  if (error) console.warn('equipment 讀取失敗（資料表可能尚未建立）', error.message);
+  // 還原到內建基底後，接上自訂器具（索引延續，不影響既有借用記錄）
+  EQUIPMENT.length = EQUIP_BASE_LEN;
+  EQUIP_GROUPS.forEach((g, gi) => { g.idxs = EQUIP_GROUP_BASE[gi].slice(); });
+  equipRemovedRuntime = new Set();
+  equipExtra.forEach(e => {
+    const idx = EQUIPMENT.length;
+    EQUIPMENT.push(e.name);
+    EQUIP_GROUPS[(e.grp === '南部') ? 1 : 0].idxs.push(idx);
+    if (e.removed) equipRemovedRuntime.add(idx); // 軟刪除者隱藏，但保留索引
+  });
 }
 
 async function loadEquipLogs() {
@@ -3150,6 +3197,17 @@ function resizeKeepAspect(file, max, cb) {
 function openEquipPhotos(i) {
   _equipPhotoIdx = i;
   document.getElementById('equip-photo-title').textContent = `器具照片：${equipDisplayName(i)}`;
+  // 自訂器具可編輯／刪除
+  const manage = document.getElementById('ep-manage');
+  if (i >= EQUIP_BASE_LEN) {
+    const row = equipExtra[i - EQUIP_BASE_LEN];
+    manage.style.display = 'flex';
+    manage.innerHTML = `<button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="openEquipEdit(${row.id})">✏️ 編輯器具</button>
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger)" onclick="delEquip(${row.id})">🗑 刪除器具</button>`;
+  } else {
+    manage.style.display = 'none';
+    manage.innerHTML = '';
+  }
   renderEquipPhotos();
   document.getElementById('equip-photo-overlay').classList.add('open');
 }
@@ -3198,8 +3256,8 @@ function equipOpenRecord(i) {
 function renderEquip() {
   const cont = document.getElementById('equip-container');
   if (!cont) return;
-  cont.innerHTML = EQUIP_GROUPS.map(g => {
-    const idxs = g.idxs.filter(i => !EQUIP_REMOVED.has(i));
+  cont.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button></div>` + EQUIP_GROUPS.map(g => {
+    const idxs = g.idxs.filter(i => !EQUIP_REMOVED.has(i) && !equipRemovedRuntime.has(i));
     const out = idxs.filter(i => equipOpenRecord(i)).length;
     let seq = 0;
     const rows = idxs.map(i => {
@@ -3239,6 +3297,51 @@ function renderEquip() {
   }).join('');
 }
 
+let _equipEditId = null; // null = 新增模式；否則為編輯中的 equipment.id
+function openEquipAdd() {
+  _equipEditId = null;
+  document.querySelector('#equip-add-overlay .modal-title').textContent = '＋ 新增器具';
+  document.getElementById('ea-name').value = '';
+  document.getElementById('ea-grp').value = '工程部';
+  document.getElementById('ea-error').style.display = 'none';
+  document.getElementById('equip-add-overlay').classList.add('open');
+}
+function openEquipEdit(id) {
+  const row = equipExtra.find(e => e.id === id);
+  if (!row) return;
+  _equipEditId = id;
+  document.getElementById('equip-photo-overlay').classList.remove('open');
+  document.querySelector('#equip-add-overlay .modal-title').textContent = '✏️ 編輯器具';
+  document.getElementById('ea-name').value = row.name || '';
+  document.getElementById('ea-grp').value = row.grp === '南部' ? '南部' : '工程部';
+  document.getElementById('ea-error').style.display = 'none';
+  document.getElementById('equip-add-overlay').classList.add('open');
+}
+async function saveEquipAdd() {
+  const err = document.getElementById('ea-error');
+  err.style.display = 'none';
+  const name = document.getElementById('ea-name').value.trim();
+  const grp = document.getElementById('ea-grp').value;
+  if (!name) { err.textContent = '請填寫器具名稱'; err.style.display = 'block'; return; }
+  if (!sb) { err.textContent = '未連線資料庫，無法儲存'; err.style.display = 'block'; return; }
+  const q = _equipEditId
+    ? sb.from('equipment').update({ name, grp }).eq('id', _equipEditId)
+    : sb.from('equipment').insert({ name, grp });
+  const { error } = await q;
+  if (error) { err.textContent = '儲存失敗：' + error.message; err.style.display = 'block'; return; }
+  document.getElementById('equip-add-overlay').classList.remove('open');
+  await loadEquipList();
+  renderEquip();
+}
+async function delEquip(id) {
+  if (!confirm('確定刪除此器具？')) return;
+  if (!sb) { alert('未連線資料庫'); return; }
+  const { error } = await sb.from('equipment').update({ removed: true }).eq('id', id);
+  if (error) { alert('刪除失敗：' + error.message); return; }
+  document.getElementById('equip-photo-overlay').classList.remove('open');
+  await loadEquipList();
+  renderEquip();
+}
 function openEquipBorrow(i) {
   _equipBorrowIdx = i;
   document.getElementById('equip-borrow-title').textContent = `借出登記：${equipDisplayName(i)}`;
@@ -3763,7 +3866,7 @@ function emailOfPerson(name){
 function appRecipientEmails(r){
   const site=sites.find(s=>appReqMatchSite(r,s));
   const names=[];
-  if(site&&site.pm) names.push(site.pm);
+  if(site) pmList(site).forEach(n=>names.push(n));
   names.push('洪璽二 Second','林根玄 Aaron','許白龍 Pailung','陳采嶸 Gio','詹士緯 Jet');
   if(site&&site.sales) names.push(site.sales);
   const amt=Number(r.total_amount)||0;
@@ -4222,7 +4325,7 @@ async function initApp() {
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
-  Promise.all([loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具借用記錄與照片
+  Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
