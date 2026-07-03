@@ -730,8 +730,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div class="modal-body">
       <div class="form-field" style="margin-bottom:10px"><label>器具名稱 *</label><input type="text" id="ea-name" placeholder="例：雷射測距儀"></div>
       <div class="form-field" style="margin-bottom:10px"><label>登記表</label><select id="ea-grp" style="font-weight:400"><option value="工程部">工程部測量器具</option><option value="南部">南部辦公室測量器具</option></select></div>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="ea-broken">標記為故障（不可借出）</label>
       <div id="ea-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
-      <button class="btn-primary" onclick="saveEquipAdd()">確認新增</button>
+      <div style="display:flex;justify-content:flex-end"><button class="btn-primary" onclick="saveEquipAdd()">確認</button></div>
     </div>
   </div>
 </div>
@@ -1877,11 +1878,12 @@ function openModal(id) {
       const recs = supLogs.filter(r => r.site_id === s.id);
       const by = {};
       recs.forEach(r => { by[r.supervisor] = (by[r.supervisor] || 0) + 1; });
+      const tot = recs.length || 1;
       const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
-        .map(([n, c]) => `<tr><td>${n}</td><td style="text-align:right;font-weight:600">${c}</td></tr>`).join('');
+        .map(([n, c]) => `<tr><td>${n}</td><td style="text-align:right;font-weight:600">${c}</td><td style="text-align:right;color:var(--muted)">${(c / tot * 100).toFixed(1)}%</td></tr>`).join('');
       return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${recs.length} 人天）</div>
-        <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="2" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
+        <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th><th style="text-align:right">佔比</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
     })()}
     ${(() => {
       if (typeof appRequests === 'undefined') return '';
@@ -3323,6 +3325,7 @@ function openEquipAdd() {
   document.querySelector('#equip-add-overlay .modal-title').textContent = '＋ 新增器具';
   document.getElementById('ea-name').value = '';
   document.getElementById('ea-grp').value = '工程部';
+  document.getElementById('ea-broken').checked = false;
   document.getElementById('ea-error').style.display = 'none';
   document.getElementById('equip-add-overlay').classList.add('open');
 }
@@ -3334,6 +3337,7 @@ function openEquipEdit(id) {
   document.querySelector('#equip-add-overlay .modal-title').textContent = '✏️ 編輯器具';
   document.getElementById('ea-name').value = row.name || '';
   document.getElementById('ea-grp').value = row.grp === '南部' ? '南部' : '工程部';
+  document.getElementById('ea-broken').checked = !!row.broken;
   document.getElementById('ea-error').style.display = 'none';
   document.getElementById('equip-add-overlay').classList.add('open');
 }
@@ -3342,11 +3346,12 @@ async function saveEquipAdd() {
   err.style.display = 'none';
   const name = document.getElementById('ea-name').value.trim();
   const grp = document.getElementById('ea-grp').value;
+  const broken = document.getElementById('ea-broken').checked;
   if (!name) { err.textContent = '請填寫器具名稱'; err.style.display = 'block'; return; }
   if (!sb) { err.textContent = '未連線資料庫，無法儲存'; err.style.display = 'block'; return; }
   const q = _equipEditId
-    ? sb.from('equipment').update({ name, grp }).eq('id', _equipEditId)
-    : sb.from('equipment').insert({ name, grp });
+    ? sb.from('equipment').update({ name, grp, broken }).eq('id', _equipEditId)
+    : sb.from('equipment').insert({ name, grp, broken });
   const { error } = await q;
   if (error) { err.textContent = '儲存失敗：' + error.message; err.style.display = 'block'; return; }
   document.getElementById('equip-add-overlay').classList.remove('open');
