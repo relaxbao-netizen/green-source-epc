@@ -527,7 +527,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <body>
 
 <nav>
-  <button class="logo" onclick="showPage('home')">
+  <button class="logo" onclick="location.reload()">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -539,6 +539,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
   <button class="nav-btn"        data-page="approval" onclick="showPage('approval',this)">📝 工程／物料申請</button>
   <button class="nav-btn"        data-page="equip"    onclick="showPage('equip',this)">🔧 器具借用</button>
+  <button class="nav-btn"        data-page="dailylog" onclick="showPage('dailylog',this)">📋 施工日誌</button>
   <button class="nav-btn"        data-page="advanced" onclick="showPage('advanced',this)">📈 進階分析</button>
   <div class="nav-right">
     <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
@@ -701,6 +702,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <!-- ===== 器具借用 ===== -->
 <div id="page-equip" class="page">
   <div id="equip-container"></div>
+</div>
+
+<div id="page-dailylog" class="page">
+  <div id="dailylog-container"></div>
 </div>
 
 <!-- ===== 器具借出 Modal ===== -->
@@ -1127,6 +1132,73 @@ function updateNavBadge() {
 }
 
 // ===================== PAGE NAV =====================
+// ===================== 施工日誌繳交狀況 =====================
+let dailyLogRows = [];
+let dailyLogYm = null;
+async function loadDailyLog() {
+  if (!sb) return;
+  const { data, error } = await sb.from('daily_log_status').select('*').order('project');
+  dailyLogRows = (!error && data) ? data : [];
+  if (error) console.warn('daily_log_status 讀取失敗（資料表可能尚未建立）', error.message);
+}
+async function renderDailyLog() {
+  await loadDailyLog();
+  drawDailyLog();
+}
+function drawDailyLog() {
+  const cont = document.getElementById('dailylog-container');
+  if (!cont) return;
+  const yms = [...new Set(dailyLogRows.map(r => r.ym))].sort().reverse();
+  if (!dailyLogYm || !yms.includes(dailyLogYm)) {
+    const n = new Date();
+    dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
+  }
+  const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
+  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px">施工日誌繳交狀況 ${monthSel}</div>`;
+  const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
+  if (!rows.length) {
+    html += '<div class="card" style="padding:20px;color:var(--muted)">尚無資料。請在本機執行「執行.bat」，跑完會自動上傳到這裡。</div>';
+    cont.innerHTML = html;
+    return;
+  }
+  const [y, m] = dailyLogYm.split('-').map(Number);
+  const days = new Date(y, m, 0).getDate();
+  // 只顯示「該月有派工」的案場：以派工排程(supLogs)當月出現的案場，比對日誌專案名稱
+  const dispIds = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm).map(r => r.site_id));
+  const dispSites = (typeof sites !== 'undefined' ? sites : []).filter(s => dispIds.has(s.id));
+  const matchSite = project => dispSites.find(s => (s.label && project.includes(s.label)) || (s.name && project.includes(s.name)));
+  const isDispatched = project => !!matchSite(project);
+  const FORM_ORDER = ['施工日誌', '工具箱會議記錄'];
+  const formRank = f => { const i = FORM_ORDER.indexOf(f); return i < 0 ? 99 : i; };
+  const shownForms = [...new Set(rows.map(r => r.form))].map(form => ({ form, frows: rows.filter(r => r.form === form && isDispatched(r.project)) })).filter(f => f.frows.length).sort((a, b) => formRank(a.form) - formRank(b.form));
+  if (!shownForms.length) {
+    html += '<div class="card" style="padding:20px;color:var(--muted)">本月沒有已派工案場的日誌資料。</div>';
+    cont.innerHTML = html;
+    return;
+  }
+  shownForms.forEach(({ form, frows }) => {
+    const th = Array.from({ length: days }, (_, i) => {
+      const d = i + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
+      return `<th style="${off ? 'background:#f1f5f9;' : ''}min-width:22px">${d}</th>`;
+    }).join('');
+    const body = frows.map((r, i) => {
+      const marks = r.marks || {};
+      const cells = Array.from({ length: days }, (_, k) => {
+        const d = k + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
+        const v = marks[d] || marks[String(d)] || '';
+        const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : '');
+        const bg = off ? 'background:#f1f5f9;' : '';
+        return `<td style="${bg}${color}text-align:center">${v}</td>`;
+      }).join('');
+      const ms = matchSite(r.project);
+      return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
+    }).join('');
+    html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(form)}</div>
+      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:12px"><thead><tr><th>#</th><th>專案名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+  });
+  cont.innerHTML = html;
+}
+
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -1140,6 +1212,7 @@ function showPage(id, btn) {
   if (id === 'hr')       renderHR();
   if (id === 'advanced') renderAdvanced();
   if (id === 'equip')    renderEquip();
+  if (id === 'dailylog') renderDailyLog();
   if (id === 'approval') showAppSection('dash');
 }
 
@@ -2350,6 +2423,7 @@ async function renderTaiwanMap() {
     }
     (byLoc[loc.key] = byLoc[loc.key] || { loc, list: [] }).list.push(sv);
   });
+  const placedPts = []; // 已放置頭貼的螢幕座標，供跨案場避免重疊
   Object.values(byLoc).forEach(({ loc, list }) => {
     const [sx, sy] = projection([loc.lng, loc.lat]);
     // 辦公室沒有案場圖釘，補一個小點當白線目標
@@ -2411,13 +2485,17 @@ async function renderTaiwanMap() {
       for (const ang of angs) {
         const o = offsetsFor(ang, depth);
         const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
-        // 分數：頭貼壓陸為重、白線穿陸次之、偏離最近海岸方向再次
+        // 與其他已放置頭貼重疊的數量
+        const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 32)).length;
+        // 分數：頭貼壓陸為重、重疊次之、白線穿陸再次、偏離最近海岸方向最後
         const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
-        const score = avatarLand * 100000 + lineLand(ang, depth) * 1000 + dA * 10;
+        const score = avatarLand * 100000 + overlap * 40000 + lineLand(ang, depth) * 1000 + dA * 10;
         if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
       }
     }
     if (!chosen) { const o = offsetsFor(baseAng, LINE); chosen = { ang: baseAng, depth: LINE, ...o }; }
+    // 記錄本組頭貼座標，供後續案場避讓
+    if (canSense) chosen.arr.forEach(p => placedPts.push({ x: baseX + p.mlx, y: baseY + p.mly }));
 
     // 同一地點只畫一條白線：從案場圖釘指向頭貼群
     const line = document.createElement('div');
