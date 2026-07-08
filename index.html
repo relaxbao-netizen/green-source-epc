@@ -1155,7 +1155,8 @@ function drawDailyLog() {
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
-  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dailyLogDirty.size}）</button>` : '';
+  const dirtyCells = [...dailyLogDirty].reduce((n, id) => { const r = dailyLogRows.find(x => x.id === id); return n + (r && r.overrides ? Object.keys(r.overrides).length : 0); }, 0);
+  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dirtyCells}）</button>` : '';
   let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
@@ -1170,9 +1171,26 @@ function drawDailyLog() {
   const dispSites = (typeof sites !== 'undefined' ? sites : []).filter(s => dispIds.has(s.id));
   const matchSite = project => dispSites.find(s => (s.label && project.includes(s.label)) || (s.name && project.includes(s.name)));
   const isDispatched = project => !!matchSite(project);
+  // 每案場每日是否有派工（供自動判斷「-」）
+  const dispDay = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm && r.site_id != null).map(r => r.site_id + '|' + r.log_date));
+  // 自動值：有交→○；否則當日有派工→x、當日沒派工→-；無資料(未來)→空白
+  const autoMark = (r, d) => {
+    const mk = (r.marks || {})[String(d)];
+    if (mk === undefined || mk === null || mk === '') return '';
+    if (mk === '○') return '○';
+    const ms = matchSite(r.project);
+    const dateStr = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
+    return (ms && dispDay.has(ms.id + '|' + dateStr)) ? 'x' : '-';
+  };
+  // 生效值：手動 override 優先，否則用自動值
+  const effMark = (r, d) => (r.overrides || {})[String(d)] || autoMark(r, d);
+  // 案場排序照工程進度總覽（進度高→低、再開工日、完工日）
+  const dateCmp2 = (x, y) => { if (!x && !y) return 0; if (!x) return 1; if (!y) return -1; return x.localeCompare(y); };
+  const orderedSites = (typeof sites !== 'undefined' ? sites : []).slice().sort((a, b) => (b.pct - a.pct) || dateCmp2(a.start, b.start) || dateCmp2(a.end, b.end));
+  const siteRank = r => { const ms = matchSite(r.project); if (!ms) return 9999; const i = orderedSites.indexOf(ms); return i < 0 ? 9999 : i; };
   const FORM_ORDER = ['施工日誌', '工具箱會議記錄'];
   const formRank = f => { const i = FORM_ORDER.indexOf(f); return i < 0 ? 99 : i; };
-  const shownForms = [...new Set(rows.map(r => r.form))].map(form => ({ form, frows: rows.filter(r => r.form === form && isDispatched(r.project)) })).filter(f => f.frows.length).sort((a, b) => formRank(a.form) - formRank(b.form));
+  const shownForms = [...new Set(rows.map(r => r.form))].map(form => ({ form, frows: rows.filter(r => r.form === form && isDispatched(r.project)).sort((a, b) => siteRank(a) - siteRank(b)) })).filter(f => f.frows.length).sort((a, b) => formRank(a.form) - formRank(b.form));
   if (!shownForms.length) {
     html += '<div class="card" style="padding:20px;color:var(--muted)">本月沒有已派工案場的日誌資料。</div>';
     cont.innerHTML = html;
@@ -1185,15 +1203,15 @@ function drawDailyLog() {
     frows.forEach(r => {
       const ms = matchSite(r.project);
       const key = ms ? ms.name : r.project;
-      const ov = r.overrides || {}, mk = r.marks || {};
-      const miss = Array.from({ length: days }, (_, k) => ov[String(k + 1)] || mk[String(k + 1)]).filter(v => v === 'x').length;
+      const miss = Array.from({ length: days }, (_, k) => effMark(r, k + 1)).filter(v => v === 'x').length;
       const s = summary[key] || (summary[key] = { pm: ms ? pmText(ms) : '', forms: {}, total: 0 });
       s.forms[form] = (s.forms[form] || 0) + miss;
       s.total += miss;
     });
   });
-  const sumRows = Object.entries(summary).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) =>
-    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc(s.pm) || '—'}</td>${formsShown.map(f => `<td style="text-align:center;${(s.forms[f] || 0) > 0 ? 'color:#dc2626;font-weight:600' : 'color:var(--muted)'}">${s.forms[f] || 0}</td>`).join('')}<td style="text-align:center;font-weight:700">${s.total}</td></tr>`).join('');
+  const sumRows = Object.entries(summary).filter(([, s]) => s.total > 0).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) =>
+    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc(s.pm) || '—'}</td>${formsShown.map(f => `<td style="text-align:center;${(s.forms[f] || 0) > 0 ? 'color:#dc2626;font-weight:600' : 'color:var(--muted)'}">${s.forms[f] || 0}</td>`).join('')}<td style="text-align:center;font-weight:700">${s.total}</td></tr>`).join('')
+    || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
   html += `<div class="section-title" style="font-size:15px;margin-top:14px">缺繳統計（缺繳＝當日未交，x）</div>
       <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th>${appEsc(f)}缺繳</th>`).join('')}<th>合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
@@ -1202,10 +1220,9 @@ function drawDailyLog() {
       return `<th style="${off ? 'background:#f1f5f9;' : ''}min-width:22px">${d}</th>`;
     }).join('');
     const body = frows.map((r, i) => {
-      const marks = r.marks || {}, ovs = r.overrides || {};
       const cells = Array.from({ length: days }, (_, k) => {
         const d = k + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
-        const v = ovs[String(d)] || marks[d] || marks[String(d)] || '';
+        const v = effMark(r, d);
         const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
         const bg = off ? 'background:#f1f5f9;' : '';
         return `<td onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
