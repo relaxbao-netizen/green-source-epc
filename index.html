@@ -537,9 +537,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <button class="nav-btn active" data-page="home"    onclick="showPage('home',this)">🏠 首頁總覽</button>
   <button class="nav-btn"        data-page="progress" onclick="showPage('progress',this)">📊 工程進度</button>
   <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
+  <button class="nav-btn"        data-page="dailylog" onclick="showPage('dailylog',this)">📋 施工日誌</button>
   <button class="nav-btn"        data-page="approval" onclick="showPage('approval',this)">📝 工程／物料申請</button>
   <button class="nav-btn"        data-page="equip"    onclick="showPage('equip',this)">🔧 器具借用</button>
-  <button class="nav-btn"        data-page="dailylog" onclick="showPage('dailylog',this)">📋 施工日誌</button>
   <button class="nav-btn"        data-page="advanced" onclick="showPage('advanced',this)">📈 進階分析</button>
   <div class="nav-right">
     <span class="badge-alert" id="nav-badge">⚠ 2案落後</span>
@@ -1135,6 +1135,7 @@ function updateNavBadge() {
 // ===================== 施工日誌繳交狀況 =====================
 let dailyLogRows = [];
 let dailyLogYm = null;
+let dailyLogDirty = new Set(); // 尚未儲存的手動變更列 id
 async function loadDailyLog() {
   if (!sb) return;
   const { data, error } = await sb.from('daily_log_status').select('*').order('project');
@@ -1154,7 +1155,8 @@ function drawDailyLog() {
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
-  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px">施工日誌繳交狀況 ${monthSel}</div>`;
+  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dailyLogDirty.size}）</button>` : '';
+  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
     html += '<div class="card" style="padding:20px;color:var(--muted)">尚無資料。請在本機執行「執行.bat」，跑完會自動上傳到這裡。</div>';
@@ -1176,19 +1178,37 @@ function drawDailyLog() {
     cont.innerHTML = html;
     return;
   }
+  // 缺繳統計：每個案場該月缺繳(x)次數與負責工地主任
+  const formsShown = shownForms.map(f => f.form);
+  const summary = {};
+  shownForms.forEach(({ form, frows }) => {
+    frows.forEach(r => {
+      const ms = matchSite(r.project);
+      const key = ms ? ms.name : r.project;
+      const ov = r.overrides || {}, mk = r.marks || {};
+      const miss = Array.from({ length: days }, (_, k) => ov[String(k + 1)] || mk[String(k + 1)]).filter(v => v === 'x').length;
+      const s = summary[key] || (summary[key] = { pm: ms ? pmText(ms) : '', forms: {}, total: 0 });
+      s.forms[form] = (s.forms[form] || 0) + miss;
+      s.total += miss;
+    });
+  });
+  const sumRows = Object.entries(summary).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) =>
+    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc(s.pm) || '—'}</td>${formsShown.map(f => `<td style="text-align:center;${(s.forms[f] || 0) > 0 ? 'color:#dc2626;font-weight:600' : 'color:var(--muted)'}">${s.forms[f] || 0}</td>`).join('')}<td style="text-align:center;font-weight:700">${s.total}</td></tr>`).join('');
+  html += `<div class="section-title" style="font-size:15px;margin-top:14px">缺繳統計（缺繳＝當日未交，x）</div>
+      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th>${appEsc(f)}缺繳</th>`).join('')}<th>合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
       return `<th style="${off ? 'background:#f1f5f9;' : ''}min-width:22px">${d}</th>`;
     }).join('');
     const body = frows.map((r, i) => {
-      const marks = r.marks || {};
+      const marks = r.marks || {}, ovs = r.overrides || {};
       const cells = Array.from({ length: days }, (_, k) => {
         const d = k + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
-        const v = marks[d] || marks[String(d)] || '';
-        const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : '');
+        const v = ovs[String(d)] || marks[d] || marks[String(d)] || '';
+        const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
         const bg = off ? 'background:#f1f5f9;' : '';
-        return `<td style="${bg}${color}text-align:center">${v}</td>`;
+        return `<td onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
@@ -1197,6 +1217,32 @@ function drawDailyLog() {
       <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:12px"><thead><tr><th>#</th><th>專案名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   });
   cont.innerHTML = html;
+}
+// 點擊儲存格手動切換：自動 → ○ → x → -（再回自動）。只在本地暫存，按「儲存」才寫入
+function appCycleDailyMark(id, day) {
+  const r = dailyLogRows.find(x => x.id === id);
+  if (!r) return;
+  const ov = Object.assign({}, r.overrides || {});
+  const cur = ov[String(day)] || '';
+  const order = ['', '○', 'x', '-'];
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  if (next === '') delete ov[String(day)]; else ov[String(day)] = next;
+  r.overrides = ov;
+  dailyLogDirty.add(id);
+  drawDailyLog();
+}
+// 儲存手動變更：寫入 overrides 並鎖定該列（locked），自動刷新不再覆蓋
+async function appSaveDailyOverrides() {
+  if (!sb) { alert('未連線資料庫'); return; }
+  for (const id of [...dailyLogDirty]) {
+    const r = dailyLogRows.find(x => x.id === id);
+    if (!r) continue;
+    const { error } = await sb.from('daily_log_status').update({ overrides: r.overrides || {}, locked: true }).eq('id', id);
+    if (error) { alert('儲存失敗（overrides／locked 欄位可能尚未建立）：' + error.message); return; }
+    r.locked = true;
+  }
+  dailyLogDirty.clear();
+  drawDailyLog();
 }
 
 function showPage(id, btn) {
