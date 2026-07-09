@@ -2069,7 +2069,9 @@ function openModal(id) {
       <tbody>${wbsRows}</tbody>
     </table>
     ${(() => {
-      const recs = supLogs.filter(r => r.site_id === s.id);
+      // 派工可能綁 site_id，也可能只記在 place 文字（例：中科）；place 與案場 label 互相包含也算
+      const recs = supLogs.filter(r => r.site_id === s.id ||
+        (r.place && s.label && (s.label.includes(r.place) || r.place.includes(s.label))));
       const by = {};
       recs.forEach(r => { by[r.supervisor] = (by[r.supervisor] || 0) + 1; });
       const tot = recs.length || 1;
