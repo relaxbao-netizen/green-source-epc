@@ -1136,6 +1136,7 @@ function updateNavBadge() {
 let dailyLogRows = [];
 let dailyLogYm = null;
 let dailyLogDirty = new Set(); // 尚未儲存的手動變更列 id
+let dailyMissDetail = {};      // 案場名稱 → { 表單: [缺繳日] }（供點數字看日期）
 async function loadDailyLog() {
   if (!sb) return;
   const { data, error } = await sb.from('daily_log_status').select('*').order('project');
@@ -1169,7 +1170,12 @@ function drawDailyLog() {
   // 只顯示「該月有派工」的案場：以派工排程(supLogs)當月出現的案場，比對日誌專案名稱
   const dispIds = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm).map(r => r.site_id));
   const dispSites = (typeof sites !== 'undefined' ? sites : []).filter(s => dispIds.has(s.id));
-  const matchSite = project => dispSites.find(s => (s.label && project.includes(s.label)) || (s.name && project.includes(s.name)));
+  // 案場 label 與 ezteamwork 專案名不一致時的別名對照
+  const SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'] };
+  const matchSite = project => dispSites.find(s =>
+    (s.label && project.includes(s.label)) ||
+    (s.name && project.includes(s.name)) ||
+    ((SITE_ALIASES[s.label] || []).some(a => project.includes(a))));
   const isDispatched = project => !!matchSite(project);
   // 每案場每日是否有派工（供自動判斷「-」）
   const dispDay = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm && r.site_id != null).map(r => r.site_id + '|' + r.log_date));
@@ -1199,21 +1205,37 @@ function drawDailyLog() {
   // 缺繳統計：每個案場該月缺繳(x)次數與負責工地主任
   const formsShown = shownForms.map(f => f.form);
   const summary = {};
+  const supLogsAll = (typeof supLogs !== 'undefined' ? supLogs : []);
+  const engMgrs = new Set((typeof supervisors !== 'undefined' ? supervisors : []).filter(v => v.role === '工程部主管').map(v => v.name)); // Aaron、白龍等主管不列為責任工地主任
   shownForms.forEach(({ form, frows }) => {
     frows.forEach(r => {
       const ms = matchSite(r.project);
       const key = ms ? ms.name : r.project;
-      const miss = Array.from({ length: days }, (_, k) => effMark(r, k + 1)).filter(v => v === 'x').length;
-      const s = summary[key] || (summary[key] = { pm: ms ? pmText(ms) : '', forms: {}, total: 0 });
+      const s = summary[key] || (summary[key] = { resp: new Set(), forms: {}, missByForm: {}, total: 0 });
+      let miss = 0;
+      for (let d = 1; d <= days; d++) {
+        if (effMark(r, d) !== 'x') continue;
+        miss++;
+        (s.missByForm[form] = s.missByForm[form] || []).push(d);
+        if (ms) {
+          const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
+          supLogsAll.forEach(g => { if (g.site_id === ms.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)) s.resp.add(g.supervisor); });
+        }
+      }
       s.forms[form] = (s.forms[form] || 0) + miss;
       s.total += miss;
     });
   });
+  dailyMissDetail = {};
+  Object.entries(summary).forEach(([name, s]) => { dailyMissDetail[name] = s.missByForm; });
+  const missCell = (name, f, n) => n > 0
+    ? `<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','${f}')" title="點看缺交日期" style="text-align:center;color:#dc2626;font-weight:600;cursor:pointer">${n}</td>`
+    : `<td style="text-align:center;color:var(--muted)">0</td>`;
   const sumRows = Object.entries(summary).filter(([, s]) => s.total > 0).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) =>
-    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc(s.pm) || '—'}</td>${formsShown.map(f => `<td style="text-align:center;${(s.forms[f] || 0) > 0 ? 'color:#dc2626;font-weight:600' : 'color:var(--muted)'}">${s.forms[f] || 0}</td>`).join('')}<td style="text-align:center;font-weight:700">${s.total}</td></tr>`).join('')
+    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`).join('')
     || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
   html += `<div class="section-title" style="font-size:15px;margin-top:14px">缺繳統計（缺繳＝當日未交，x）</div>
-      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th>${appEsc(f)}缺繳</th>`).join('')}<th>合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
+      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(f)}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
@@ -1231,9 +1253,35 @@ function drawDailyLog() {
       return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
     }).join('');
     html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(form)}</div>
-      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:12px"><thead><tr><th>#</th><th>專案名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   });
   cont.innerHTML = html;
+}
+// 點缺繳數字 → 顯示是哪幾天缺交
+function appShowMissDays(name, form) {
+  const byForm = dailyMissDetail[name] || {};
+  const wk = ['日', '一', '二', '三', '四', '五', '六'];
+  const [y, m] = dailyLogYm.split('-').map(Number);
+  // 當天該案場派工的人（排除工程部主管）＝該交沒交的責任人
+  const site = (typeof sites !== 'undefined' ? sites : []).find(s => s.name === name);
+  const engMgrs = new Set((typeof supervisors !== 'undefined' ? supervisors : []).filter(v => v.role === '工程部主管').map(v => v.name));
+  const whoOn = d => {
+    if (!site) return '';
+    const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
+    const ppl = [...new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(g => g.site_id === site.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)).map(g => g.supervisor))];
+    return ppl.length ? `　<b>${appEsc(ppl.join('、'))}</b>` : '';
+  };
+  const line = (f, d) => `${dailyLogYm}-${String(d).padStart(2, '0')}（週${wk[new Date(y, m - 1, d).getDay()]}）${whoOn(d)}`;
+  let items, n, sub;
+  if (form === '__total__') {
+    const parts = Object.keys(byForm).map(f => `<div style="font-weight:600;margin:6px 0 2px">${appEsc(f)}</div>` + (byForm[f] || []).slice().sort((a, b) => a - b).map(d => line(f, d)).join('<br>'));
+    n = Object.values(byForm).reduce((t, a) => t + a.length, 0);
+    items = parts.join(''); sub = '合計';
+  } else {
+    const days = (byForm[form] || []).slice().sort((a, b) => a - b);
+    n = days.length; items = days.map(d => line(form, d)).join('<br>'); sub = form;
+  }
+  appShowResultModal(`${name}　${sub}缺繳（${n}天）`, `<div style="padding:4px 2px;font-size:14px;line-height:1.9">${items || '—'}</div>`);
 }
 // 點擊儲存格手動切換：自動 → ○ → x → -（再回自動）。只在本地暫存，按「儲存」才寫入
 function appCycleDailyMark(id, day) {
@@ -1246,6 +1294,16 @@ function appCycleDailyMark(id, day) {
   if (next === '') delete ov[String(day)]; else ov[String(day)] = next;
   r.overrides = ov;
   dailyLogDirty.add(id);
+  // 改成「-」（當天沒施工）時，同案場同一天的另一表單也自動變「-」
+  if (next === '-') {
+    const sib = dailyLogRows.find(x => x.ym === r.ym && x.project === r.project && x.form !== r.form);
+    if (sib) {
+      const so = Object.assign({}, sib.overrides || {});
+      so[String(day)] = '-';
+      sib.overrides = so;
+      dailyLogDirty.add(sib.id);
+    }
+  }
   drawDailyLog();
 }
 // 儲存手動變更：寫入 overrides 並鎖定該列（locked），自動刷新不再覆蓋
