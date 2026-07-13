@@ -1135,7 +1135,7 @@ function updateNavBadge() {
 // ===================== 施工日誌繳交狀況 =====================
 let dailyLogRows = [];
 let dailyLogYm = null;
-let dailyLogDirty = new Set(); // 尚未儲存的手動變更列 id
+let dailyLogDirty = new Set(); // 尚未儲存的手動變更格子（key = "列id|日"）
 let dailyMissDetail = {};      // 案場名稱 → { 表單: [缺繳日] }（供點數字看日期）
 async function loadDailyLog() {
   if (!sb) return;
@@ -1156,8 +1156,7 @@ function drawDailyLog() {
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
-  const dirtyCells = [...dailyLogDirty].reduce((n, id) => { const r = dailyLogRows.find(x => x.id === id); return n + (r && r.overrides ? Object.keys(r.overrides).length : 0); }, 0);
-  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dirtyCells}）</button>` : '';
+  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dailyLogDirty.size}）</button>` : '';
   let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
@@ -1293,7 +1292,7 @@ function appCycleDailyMark(id, day) {
   const next = order[(order.indexOf(cur) + 1) % order.length];
   if (next === '') delete ov[String(day)]; else ov[String(day)] = next;
   r.overrides = ov;
-  dailyLogDirty.add(id);
+  dailyLogDirty.add(id + '|' + day); // 記「變更的格子」，非整列
   // 改成「-」（當天沒施工）時，同案場同一天的另一表單也自動變「-」
   if (next === '-') {
     const sib = dailyLogRows.find(x => x.ym === r.ym && x.project === r.project && x.form !== r.form);
@@ -1301,7 +1300,7 @@ function appCycleDailyMark(id, day) {
       const so = Object.assign({}, sib.overrides || {});
       so[String(day)] = '-';
       sib.overrides = so;
-      dailyLogDirty.add(sib.id);
+      dailyLogDirty.add(sib.id + '|' + day);
     }
   }
   drawDailyLog();
@@ -1309,7 +1308,8 @@ function appCycleDailyMark(id, day) {
 // 儲存手動變更：寫入 overrides 並鎖定該列（locked），自動刷新不再覆蓋
 async function appSaveDailyOverrides() {
   if (!sb) { alert('未連線資料庫'); return; }
-  for (const id of [...dailyLogDirty]) {
+  const ids = [...new Set([...dailyLogDirty].map(k => Number(k.split('|')[0])))]; // 變更格子 → 去重的列 id
+  for (const id of ids) {
     const r = dailyLogRows.find(x => x.id === id);
     if (!r) continue;
     const { error } = await sb.from('daily_log_status').update({ overrides: r.overrides || {}, locked: true }).eq('id', id);
