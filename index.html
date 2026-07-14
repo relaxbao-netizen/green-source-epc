@@ -1293,8 +1293,8 @@ function appCycleDailyMark(id, day) {
   if (next === '') delete ov[String(day)]; else ov[String(day)] = next;
   r.overrides = ov;
   dailyLogDirty.add(id + '|' + day); // 記「變更的格子」，非整列
-  // 改成「-」（當天沒施工）時，同案場同一天的另一表單也自動變「-」
-  if (next === '-') {
+  // 只有「施工日誌」改成「-」時，工具箱會議記錄同案場同日自動也變「-」（單向，反向不連動）
+  if (next === '-' && r.form === '施工日誌') {
     const sib = dailyLogRows.find(x => x.ym === r.ym && x.project === r.project && x.form !== r.form);
     if (sib) {
       const so = Object.assign({}, sib.overrides || {});
