@@ -1546,7 +1546,7 @@ function dispatchOptGroups() {
   const done = sites.filter(s => s.status === 'done').map(opt).join('');
   const spec = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
   return `<optgroup label="案場">${active}</optgroup>`
-    + `<optgroup label="其他">${spec}</optgroup>`
+    + `<optgroup label="其他">${spec}<option value="__other__">其他（自行輸入）</option></optgroup>`
     + (done ? `<optgroup label="已完工案場">${done}</optgroup>` : '');
 }
 
@@ -1641,8 +1641,13 @@ async function addDispatch() {
   if (!sb) { alert('需連接雲端才能記錄'); return; }
   const date = document.getElementById('disp-date').value;
   const sv = document.getElementById('disp-sv').value;
-  const val = document.getElementById('disp-site').value;
+  let val = document.getElementById('disp-site').value;
   if (!date || !sv || !val) { alert('請填寫日期、主任與案場／項目'); return; }
+  if (val === '__other__') {
+    const t = (prompt('請輸入地點／事由：') || '').trim();
+    if (!t) return;
+    val = 'p:' + t;
+  }
   const row = val.startsWith('p:')
     ? { log_date: date, supervisor: sv, site_id: null, place: val.slice(2) }
     : { log_date: date, supervisor: sv, site_id: +val.slice(2), place: null };
@@ -1818,7 +1823,16 @@ function renderCellEditor() {
   document.getElementById('disp-edit-body').innerHTML =
     `<div style="margin-bottom:14px">${chips}</div>
      <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option>${dispatchOptGroups()}</select>`;
-  document.getElementById('disp-edit-sel').onchange = function () { if (this.value) dispAddEditor(this.value); };
+  document.getElementById('disp-edit-sel').onchange = function () {
+    if (!this.value) return;
+    if (this.value === '__other__') {
+      const t = (prompt('請輸入地點／事由：') || '').trim();
+      this.value = '';
+      if (t) dispAddEditor('p:' + t);
+      return;
+    }
+    dispAddEditor(this.value);
+  };
 }
 
 async function dispAddEditor(val) {
