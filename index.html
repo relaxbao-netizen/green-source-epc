@@ -3849,7 +3849,7 @@ function appGoQueryMonth(){
 // 已核准件數卡片：只列該月已核准（含已建單）
 function appGoQueryMonthApproved(){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && (r.status==='approved'||r.status==='archived'));
+  const rows=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===k && (r.status==='approved'||r.status==='archived'));
   appShowResultModal(`${k}　已核准（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
 // 追加金額卡片：列該月計入金額的單（排除遭退回）
@@ -3876,7 +3876,7 @@ function appMonthCardRefresh(){
   const a=document.getElementById('app-month-amt'); if(a) a.textContent='NT$ '+appMoney(amt);
   const su=document.getElementById('app-month-sub'); if(su) su.textContent=ym;
   // 已核准件數
-  const approved=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
+  const approved=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
   const ap=document.getElementById('app-month-approved'); if(ap) ap.textContent=approved;
   const aps=document.getElementById('app-month-approved-sub'); if(aps) aps.textContent=ym;
   // 需向客戶請款 vs 公司自行吸收
@@ -3944,7 +3944,7 @@ function appDashboardHTML(){
   const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+Number(r.total_amount||0),0);
   const pending = appRequests.filter(r=>r.status==='pending').length;
   const archivedCount = appRequests.filter(r=>appStatusKey(r)==='archived').length;
-  const approved = monthReqs.filter(r=>r.status==='approved'||r.status==='archived').length;
+  const approved = appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
   const bySite={}, byResp={}, byMonth={}; let billable=0, absorb=0;
   appRequests.forEach(r=>{
     if(r.status==='rejected') return; // 退回／取消不計入金額統計
@@ -4201,7 +4201,13 @@ document.addEventListener('click', (e)=>{
 });
 async function appChangeStatus(id, status){
   if(!status) return;
-  const {error}=await sb.from('app_request').update({status}).eq('id',id);
+  const patch={status};
+  const cur=appRequests.find(x=>x.id===id);
+  // 首次進入「已核准／已建單」時記下核准日期（已有則保留原日期）
+  if((status==='approved'||status==='archived') && cur && !cur.approved_date){
+    patch.approved_date=new Date().toISOString().slice(0,10);
+  }
+  const {error}=await sb.from('app_request').update(patch).eq('id',id);
   if(error){ alert('更新狀態失敗：'+error.message); return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
   await loadApprovalData(); renderApproval();
