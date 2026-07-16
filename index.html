@@ -523,11 +523,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .form-grid { grid-template-columns: 1fr; gap: 10px; }
 
   /* 篩選鈕與寬表格同在可橫向捲動的 card 內，須擋掉壓縮否則文字被擠成一字一行。
-     375px 下五顆膠囊＋新增鈕要同列只剩 310px，故縮內距並把標籤收短為「＋ 新增」 */
-  .tab-row { flex-wrap: wrap; }
+     375px 下同列只有 310px，收窄間距與內距才放得下新增鈕；更窄的螢幕才換行 */
+  .tab-row { flex-wrap: wrap; gap: 4px; }
   .tab-btn { white-space: nowrap; flex-shrink: 0; padding: 6px 9px; }
-  .hide-sm { display: none; }
-  #btn-add-site-progress { padding: 0 9px; font-size: 12px; height: 28px; flex-shrink: 0; }
+  #btn-add-site-progress { padding: 0 6px; font-size: 12px; height: 28px; flex-shrink: 0; }
 }
 </style>
 </head>
@@ -646,7 +645,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <button class="tab-btn" onclick="filterProgress('center',this)">中部</button>
       <button class="tab-btn" onclick="filterProgress('south',this)">南部</button>
       <button class="tab-btn" onclick="filterProgress('east',this)">東部</button>
-      <button class="btn-primary" id="btn-add-site-progress" style="display:none;margin-left:auto" onclick="openSiteForm()">＋ 新增<span class="hide-sm">案場</span></button>
+      <button class="btn-primary" id="btn-add-site-progress" style="display:none;margin-left:auto" onclick="openSiteForm()">＋ 新增案場</button>
     </div>
     <div id="progress-table-wrap"></div>
   </div>
