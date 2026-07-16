@@ -521,6 +521,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
   /* 表單欄位：手機改單欄，避免下拉選單/輸入框過窄 */
   .form-grid { grid-template-columns: 1fr; gap: 10px; }
+
+  /* 篩選鈕與寬表格同在可橫向捲動的 card 內，須擋掉壓縮否則文字被擠成一字一行 */
+  .tab-row { flex-wrap: wrap; }
+  .tab-btn { white-space: nowrap; flex-shrink: 0; }
 }
 </style>
 </head>
