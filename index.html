@@ -1176,6 +1176,26 @@ async function loadDailyLog() {
   dailyLogRows = (!error && data) ? data : [];
   if (error) console.warn('daily_log_status 讀取失敗（資料表可能尚未建立）', error.message);
 }
+
+// ---- 施工日誌「工別／本日人數」累計統計（manpower_stats，由 upload.py 上傳） ----
+let manpowerRows = [];   // { project, trade, headcount }
+async function loadManpower() {
+  if (!sb) return;
+  const { data, error } = await sb.from('manpower_stats').select('*');
+  manpowerRows = (!error && data) ? data : [];
+  if (error) console.warn('manpower_stats 讀取失敗（資料表可能尚未建立）', error.message);
+}
+// 案場 label 與 ezteamwork 專案名不一致時的別名對照（與施工日誌分頁同一份）
+const MANPOWER_SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'] };
+function manpowerRowsForSite(s) {
+  if (!s) return [];
+  return manpowerRows.filter(r => {
+    const p = r.project || '';
+    return (s.label && p.includes(s.label)) ||
+      (s.name && p.includes(s.name)) ||
+      ((MANPOWER_SITE_ALIASES[s.label] || []).some(a => p.includes(a)));
+  });
+}
 async function renderDailyLog() {
   await loadDailyLog();
   drawDailyLog();
@@ -2125,6 +2145,19 @@ function openModal(id) {
       return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${recs.length} 人天）</div>
         <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th><th style="text-align:right">佔比</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
+    })()}
+    ${(() => {
+      const mrows = manpowerRowsForSite(s).filter(r => (Number(r.headcount) || 0) > 0);
+      const total = mrows.reduce((sum, r) => sum + (Number(r.headcount) || 0), 0);
+      const tot = total || 1;
+      const rows = mrows.slice().sort((a, b) => (Number(b.headcount) || 0) - (Number(a.headcount) || 0))
+        .map(r => {
+          const c = Number(r.headcount) || 0;
+          return `<tr><td>${r.trade}</td><td style="text-align:right;font-weight:600">${c.toLocaleString('en-US')}</td><td style="text-align:right;color:var(--muted)">${(c / tot * 100).toFixed(1)}%</td></tr>`;
+        }).join('');
+      return `<div class="wbs-title" style="margin-top:20px">工別人數統計（累計 ${total.toLocaleString('en-US')} 人）</div>
+        <table class="wbs-table"><thead><tr><th>工別</th><th style="text-align:right">累計人數</th><th style="text-align:right">佔比</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無工別人數記錄</td></tr>'}</tbody></table>`;
     })()}
     ${(() => {
       if (typeof appRequests === 'undefined') return '';
@@ -4612,6 +4645,7 @@ async function initApp() {
     loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  loadManpower(); // 載入施工日誌工別人數（案場明細用；失敗不影響其他功能）
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
   Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
