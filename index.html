@@ -3783,7 +3783,7 @@ function renderApproval(){
   if(!el) return;
   if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
   if(appSection==='dash') el.innerHTML = appDashboardHTML();
-  else if(appSection==='new'){ el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); }
+  else if(appSection==='new'){ el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
   else if(appSection==='sign') el.innerHTML = appSignListHTML();
   else if(appSection==='query'){ el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); runAppQuery(); }
   else if(appSection==='people') el.innerHTML = appPeopleHTML();
@@ -4102,15 +4102,16 @@ function appFormHTML(){
   const nameOpts=appApplicantsForDept(firstDept).map(n=>`<option>${appEsc(n)}</option>`).join('');
   return `<div class="card" style="padding:18px 20px">
    <div class="form-grid">
-    <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" maxlength="5" inputmode="numeric" pattern="\\d{5}" oninput="appSerialInput(this)"></div>
     <div class="form-field"><label>申請日期</label><input type="date" id="ar-date" value="${localDate(new Date())}"></div>
     <div class="form-field"><label>工程名稱 *</label><select id="ar-site"><option value="">請選擇</option>${siteOpts}</select></div>
+    <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
-    <div class="form-field"><label>費用歸屬</label><select id="ar-cost"><option>需向客戶請款</option><option>公司自行吸收</option></select></div>
     <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" readonly></div>
+    <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option>公司自行吸收</option><option>需向客戶請款</option></select></div>
    </div>
+   <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appNewAddBill()">＋ 廠商</button></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span><button class="btn-secondary" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="addAppItem()">＋ 新增明細</button></div>
    <div style="overflow-x:auto"><table class="prog-table" style="min-width:600px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
    <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
@@ -4135,6 +4136,34 @@ function renderAppItems(){
   </tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);font-size:13px;padding:8px">尚無明細，請點「＋ 新增明細」</td></tr>';
 }
 function addAppItem(){ appItems.push({name:'',qty:1,unit:'式',price:0}); renderAppItems(); appUpdateTotal(); }
+// 新增申請表單的「請款對象明細」（費用歸屬＝需向客戶請款時顯示）
+let appNewBills = [];
+function appNewBillsSum(){ return appNewBills.reduce((s,b)=>s+(Number(b.amount)||0),0); }
+function appNewBillsSum2(){ const el=document.getElementById('ar-bill-sum'); if(el) el.textContent='合計 NT$ '+appMoney(appNewBillsSum()); }
+function appNewBillsRender(){
+  const el=document.getElementById('ar-bills'); if(!el) return;
+  const fld=(lbl,inner)=>`<div><div style="font-size:11px;color:var(--muted)">${lbl}</div>${inner}</div>`;
+  const ist='width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:4px';
+  el.innerHTML = appNewBills.length ? appNewBills.map((b,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input placeholder="請款廠商" value="${appEsc(b.vendor)}" oninput="appNewBills[${i}].vendor=this.value" style="flex:1;${ist}">
+      <button onclick="appNewBills.splice(${i},1);appNewBillsRender()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      ${fld('金額',`<input type="number" value="${Number(b.amount)||0}" oninput="appNewBills[${i}].amount=this.value;appNewBillsSum2()" style="${ist}">`)}
+      ${fld('開票時間',`<input type="date" value="${b.invoice_date||''}" oninput="appNewBills[${i}].invoice_date=this.value" style="${ist}">`)}
+      ${fld('收款時間',`<input type="date" value="${b.payment_date||''}" oninput="appNewBills[${i}].payment_date=this.value" style="${ist}">`)}
+    </div>
+  </div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px">尚無請款對象</div>';
+  appNewBillsSum2();
+}
+function appNewAddBill(){ appNewBills.push({vendor:'',amount:0,invoice_date:'',payment_date:''}); appNewBillsRender(); }
+function appNewCostToggle(){
+  const bill=(document.getElementById('ar-cost')||{}).value==='需向客戶請款';
+  const sec=document.getElementById('ar-bill-sec'); if(sec) sec.style.display=bill?'':'none';
+  // 首次切到需向客戶請款且尚無廠商時，帶入一筆金額＝追加款總額
+  if(bill && !appNewBills.length){ appNewBills.push({vendor:'',amount:appItemsTotal(),invoice_date:'',payment_date:''}); appNewBillsRender(); }
+}
 function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
 function appApplicantsForDept(d){ return d==='工程管理部' ? supervisors.map(s=>s.name) : approvers.filter(a=>a.dept===d).map(a=>a.name); }
 function appDeptChange(){ const d=document.getElementById('ar-dept').value; const sel=document.getElementById('ar-applicant'); if(!sel) return; sel.innerHTML='<option value="">請選擇</option>'+appApplicantsForDept(d).map(n=>`<option>${appEsc(n)}</option>`).join(''); }
@@ -4145,10 +4174,14 @@ function appUpdateTotal(){
 function appDraftFromForm(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
   const total=appItemsTotal();
+  const bill=g('ar-cost')==='需向客戶請款';
+  const bills= bill ? appNewBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   return {
     serial_no:g('ar-serial'), apply_dept:g('ar-dept'), apply_date:g('ar-date'),
     site_name:(g('ar-site')||'').trim(), applicant:(g('ar-applicant')||'').trim(),
     reason_category:(g('ar-reason')==='其他' ? ((g('ar-reason-other')||'').trim()||'其他') : g('ar-reason')), responsibility:g('ar-resp'), cost_owner:g('ar-cost'),
+    client_bills: bills, client_amount: bill?bills.reduce((s,b)=>s+b.amount,0):0,
+    invoice_date: (bill&&bills.length===1)?bills[0].invoice_date:null, payment_date: (bill&&bills.length===1)?bills[0].payment_date:null,
     reason_text:(g('ar-note')||'').trim(), total_amount:total, amount_tier:appTier(total),
     items: appItems.filter(it=>it.name).map(it=>({name:it.name,qty:Number(it.qty)||0,unit:it.unit||'',price:Number(it.price)||0,amount:(Number(it.qty)||0)*(Number(it.price)||0)})),
     sign_chain: appChain(total).map(role=>({role,approver:null,action:null,comment:'',signed_at:null})),
