@@ -1800,7 +1800,7 @@ function shiftDispMonth(delta) {
   renderDispatchReport();
 }
 
-function renderDispatchReport() {
+function renderDispatchReport(preserveScroll) {
   const body = document.getElementById('disp-inline');
   if (!body) return;
   if (!dispMonth) {
@@ -1851,10 +1851,29 @@ function renderDispatchReport() {
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
 
+  // 編輯格子後（preserveScroll）保留原橫向捲動位置；否則預設捲到「今天」那一欄
+  const prevScroll = document.getElementById('disp-scroll')?.scrollLeft || 0;
   body.innerHTML = controls +
     `<div style="font-weight:800;font-size:16px;text-align:center;margin:6px 0">${y}年${mo}月份工程人員日行程表</div>
-     <div style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>
+     <div id="disp-scroll" style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>
      <div style="font-size:12px;color:var(--muted);margin-top:6px">點任一格子即可登記／修改；綠色＝支援（非本人負責案場）。</div>`;
+  const ns = document.getElementById('disp-scroll');
+  if (ns) {
+    if (preserveScroll) {
+      ns.scrollLeft = prevScroll;
+    } else {
+      // 顯示當月時把「今天」那欄靠在凍結姓名欄的右側；非當月則靠最左
+      const now = new Date();
+      if (now.getFullYear() === y && now.getMonth() + 1 === mo) {
+        const ths = ns.querySelectorAll('thead th');
+        const cell = ths[now.getDate()]; // ths[0] 為姓名欄，第 d 天為 index d
+        const nameW = ths[0] ? ths[0].offsetWidth : 0;
+        ns.scrollLeft = cell ? Math.max(0, cell.offsetLeft - nameW) : 0;
+      } else {
+        ns.scrollLeft = 0;
+      }
+    }
+  }
 }
 
 // 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
@@ -1909,7 +1928,7 @@ async function dispAdd(name, ds, val) {
     if (error) { alert('儲存失敗：' + error.message + '\n（請確認已建立 supervisor_log 資料表並含 place 欄位）'); return; }
     await reloadSupLogs();
   }
-  renderDispatchReport();
+  renderDispatchReport(true);
 }
 
 async function dispDelete(id) {
@@ -1917,7 +1936,7 @@ async function dispDelete(id) {
   const { error } = await sb.from('supervisor_log').delete().eq('id', id);
   if (error) { alert('刪除失敗：' + error.message); return; }
   await reloadSupLogs();
-  renderDispatchReport();
+  renderDispatchReport(true);
 }
 
 // rgb(r,g,b) → "RRGGBB"
