@@ -4093,7 +4093,9 @@ function appGenSerial(){
   return yy+String(max+1).padStart(3,'0');
 }
 function appFormHTML(){
-  const siteOpts=sites.filter(s=>s.status!=='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
+  const activeOpts=sites.filter(s=>s.status!=='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
+  const doneOpts=sites.filter(s=>s.status==='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
+  const siteOpts=activeOpts + (doneOpts ? `<optgroup label="已完工">${doneOpts}</optgroup>` : '');
   const deptList=[...new Set([...approvers.map(a=>a.dept).filter(Boolean), '工程管理部'])].sort();
   const deptOpts=deptList.map(d=>`<option>${appEsc(d)}</option>`).join('');
   const firstDept=deptList[0]||'';
