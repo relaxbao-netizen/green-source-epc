@@ -4092,7 +4092,7 @@ function appFormHTML(){
   return `<div class="card" style="padding:18px 20px">
    <div class="form-grid">
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
-    <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" readonly></div>
+    <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" maxlength="5" inputmode="numeric" pattern="\\d{5}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,5)"></div>
     <div class="form-field"><label>申請日期</label><input type="date" id="ar-date" value="${localDate(new Date())}"></div>
     <div class="form-field"><label>工程名稱 *</label><select id="ar-site"><option value="">請選擇</option>${siteOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
@@ -4147,6 +4147,7 @@ function appDraftFromForm(){
 async function submitAppRequest(){
   const err=document.getElementById('ar-error');
   const d=appDraftFromForm();
+  if(!/^\d{5}$/.test(d.serial_no)){ err.textContent='流水號格式需為 YY＋三碼（共 5 位數字），例如 '+appGenSerial(); err.style.display='block'; return; }
   if(!d.site_name){ err.textContent='請選擇／輸入工程名稱'; err.style.display='block'; return; }
   if(!d.applicant){ err.textContent='請填寫申請人'; err.style.display='block'; return; }
   if(!d.items.length){ err.textContent='請至少新增一筆追加明細'; err.style.display='block'; return; }
