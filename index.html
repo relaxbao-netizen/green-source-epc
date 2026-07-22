@@ -1187,7 +1187,7 @@ async function loadManpower() {
   if (error) console.warn('manpower_stats 讀取失敗（資料表可能尚未建立）', error.message);
 }
 // 案場 label 與 ezteamwork 專案名不一致時的別名對照（與施工日誌分頁同一份）
-const MANPOWER_SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'], '台積電AP7': ['台積AP7'], '板橋果菜市場': ['新北果菜市場'] };
+const MANPOWER_SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'], '台積電AP7': ['台積AP7'], '板橋果菜市場': ['新北果菜市場'], '中科友達': ['中科管一期'], '臺科大華夏': ['華夏校區'] };
 function manpowerRowsForSite(s) {
   if (!s) return [];
   return manpowerRows.filter(r => {
@@ -1224,7 +1224,7 @@ function drawDailyLog() {
   const dispIds = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm).map(r => r.site_id));
   const dispSites = (typeof sites !== 'undefined' ? sites : []).filter(s => dispIds.has(s.id));
   // 案場 label 與 ezteamwork 專案名不一致時的別名對照（AP7 日誌名寫「台積AP7」少了「電」）
-  const SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'], '台積電AP7': ['台積AP7'], '板橋果菜市場': ['新北果菜市場'] };
+  const SITE_ALIASES = { '盛餘屏南': ['屏南廠'], '創奕學甲': ['學甲'], '台積電AP7': ['台積AP7'], '板橋果菜市場': ['新北果菜市場'], '中科友達': ['中科管一期'], '臺科大華夏': ['華夏校區'] };
   const matchSite = project => dispSites.find(s =>
     (s.label && project.includes(s.label)) ||
     (s.name && project.includes(s.name)) ||
