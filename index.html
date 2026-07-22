@@ -540,7 +540,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     </svg>
     綠源EPC戰情室
   </button>
-  <button class="nav-btn active" data-page="home"    onclick="showPage('home',this)">🏠 首頁總覽</button>
+  <button class="nav-btn active" data-page="home"    onclick="location.reload()">🏠 首頁總覽</button>
   <button class="nav-btn"        data-page="progress" onclick="showPage('progress',this)">📊 工程進度</button>
   <button class="nav-btn"        data-page="hr"       onclick="showPage('hr',this)">👷 人力資源</button>
   <button class="nav-btn"        data-page="dailylog" onclick="showPage('dailylog',this)">📋 施工日誌</button>
@@ -1888,7 +1888,9 @@ function openCellEditor(name, ds) {
 
 function renderCellEditor() {
   const { name, ds } = _editCell;
-  const recs = supLogs.filter(r => r.supervisor === name && r.log_date === ds);
+  // 依 id 排序，與表格一致：先登記的排前面（輸入順序）
+  const recs = supLogs.filter(r => r.supervisor === name && r.log_date === ds)
+    .slice().sort((a, b) => (a.id || 0) - (b.id || 0));
   const chips = recs.length ? recs.map(r =>
     `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#dcfce7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#16a34a">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
   ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div>';
@@ -2559,7 +2561,8 @@ function closeModalDirect() {
 const statusDotColor = { pending:'#64748b', normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
 
 function renderKPIs() {
-  const active = sites.filter(s => s.status !== 'done');
+  // 執行中＝排除已完工與待開工
+  const active = sites.filter(s => s.status !== 'done' && s.status !== 'pending');
   document.getElementById('kpi-active').textContent = active.length;
   document.getElementById('kpi-normal').textContent = sites.filter(s => s.status === 'normal').length;
   document.getElementById('kpi-warn').textContent   = sites.filter(s => s.status === 'warn').length;
@@ -2772,7 +2775,7 @@ function openKpiList(type) {
     'pv-cap':     '光電設置容量',
     'storage-cap':'儲能設置容量',
   };
-  const active = sites.filter(s => s.status !== 'done');
+  const active = sites.filter(s => s.status !== 'done' && s.status !== 'pending'); // 與 KPI 卡一致：排除已完工與待開工
   const filtered = type === 'active'   ? active
     : type === 'pv-cap'                ? sites.filter(s => (s.type.includes('太陽能') || s.type === 'PV') && s.mw > 0)
     : type === 'storage-cap'           ? sites.filter(s => s.type.includes('儲能') && (s.mwh > 0 || s.skw > 0))
