@@ -3592,7 +3592,14 @@ function renderEquip() {
   const cont = document.getElementById('equip-container');
   if (!cont) return;
   cont.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button></div>` + EQUIP_GROUPS.map(g => {
-    const idxs = g.idxs.filter(i => !EQUIP_REMOVED.has(i) && !equipRemovedRuntime.has(i));
+    // 維持原登記順序；「同款」（忽略括號註記後名稱相同，如空拍機（全新）/（墜機找回））自動插到同款最後一項後面
+    const baseName = n => String(n).replace(/（[^）]*）|\([^)]*\)/g, '').trim();
+    const idxs = [];
+    g.idxs.filter(i => !EQUIP_REMOVED.has(i) && !equipRemovedRuntime.has(i)).forEach(i => {
+      let pos = -1;
+      for (let k = idxs.length - 1; k >= 0; k--) { if (baseName(EQUIPMENT[idxs[k]]) === baseName(EQUIPMENT[i])) { pos = k; break; } }
+      if (pos >= 0) idxs.splice(pos + 1, 0, i); else idxs.push(i);
+    });
     const out = idxs.filter(i => equipOpenRecord(i)).length;
     let seq = 0;
     const rows = idxs.map(i => {
