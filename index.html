@@ -4134,8 +4134,8 @@ function appFormHTML(){
     <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" readonly></div>
     <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option>公司自行吸收</option><option>需向客戶請款</option></select></div>
    </div>
-   <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appNewAddBill()">＋ 廠商</button></div><div id="ar-bills"></div></div>
-   <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span><button class="btn-secondary" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="addAppItem()">＋ 新增明細</button></div>
+   <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
+   <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
    <div style="overflow-x:auto"><table class="prog-table" style="min-width:600px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
    <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
@@ -4156,7 +4156,9 @@ function renderAppItems(){
     <td><input type="number" value="${it.price}" oninput="appItems[${i}].price=this.value;appUpdateTotal()" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td style="text-align:right" class="ar-amt">${appMoney((Number(it.qty)||0)*(Number(it.price)||0))}</td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
-  </tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);font-size:13px;padding:8px">尚無明細，請點「＋ 新增明細」</td></tr>';
+  </tr>`).join('') : '';
+  // 最後一列固定為可點擊的「＋ 新增明細」（取代原右上按鈕）
+  tb.innerHTML += `<tr><td colspan="7" onclick="addAppItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${appItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`;
 }
 function addAppItem(){ appItems.push({name:'',qty:1,unit:'式',price:0}); renderAppItems(); appUpdateTotal(); }
 // 新增申請表單的「請款對象明細」（費用歸屬＝需向客戶請款時顯示）
@@ -4177,7 +4179,9 @@ function appNewBillsRender(){
       ${fld('開票時間',`<input type="date" value="${b.invoice_date||''}" oninput="appNewBills[${i}].invoice_date=this.value" style="${ist}">`)}
       ${fld('收款時間',`<input type="date" value="${b.payment_date||''}" oninput="appNewBills[${i}].payment_date=this.value" style="${ist}">`)}
     </div>
-  </div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px">尚無請款對象</div>';
+  </div>`).join('') : '';
+  // 最後固定一列可點擊的「＋ 廠商」（取代原右上按鈕）
+  el.innerHTML += `<div onclick="appNewAddBill()" style="border:1px dashed var(--border);border-radius:8px;padding:8px;margin-bottom:6px;text-align:center;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer">＋ 新增廠商${appNewBills.length ? '' : '（尚無請款對象，點此新增）'}</div>`;
   appNewBillsSum2();
 }
 function appNewAddBill(){ appNewBills.push({vendor:'',amount:0,invoice_date:'',payment_date:''}); appNewBillsRender(); }
@@ -4428,8 +4432,8 @@ function appEditReq(id){
     <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(r.total_amount)||0}"></div>
     <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option ${bill?'selected':''}>需向客戶請款</option><option ${!bill?'selected':''}>公司自行吸收</option></select></div>
    </div>
-   <div id="e-bill-sec"><div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="e-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appEditAddBill()">＋ 廠商</button></div><div id="e-bills"></div></div>
-   <div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">追加明細</span><button class="btn-secondary" style="margin-left:auto;padding:4px 10px;font-size:12px" onclick="appEditAddItem()">＋ 明細</button></div>
+   <div id="e-bill-sec"><div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="e-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="e-bills"></div></div>
+   <div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
    <div id="e-items"></div>
    <div class="form-field" style="margin-top:10px"><label>原因說明</label><textarea id="e-reason" style="width:100%;box-sizing:border-box;height:70px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px">${appEsc(r.reason_text)}</textarea></div>
    <div id="e-err" style="color:var(--danger);font-size:12px;display:none;margin:6px 0"></div>
@@ -4455,7 +4459,9 @@ function appEditBillsRender(){
       ${fld('開票時間',`<input type="date" value="${b.invoice_date||''}" oninput="editBills[${i}].invoice_date=this.value" style="${ist}">`)}
       ${fld('收款時間',`<input type="date" value="${b.payment_date||''}" oninput="editBills[${i}].payment_date=this.value" style="${ist}">`)}
     </div>
-  </div>`).join('') : '<div style="color:var(--muted);font-size:12px;padding:6px">尚無請款對象</div>';
+  </div>`).join('') : '';
+  // 最後固定一列可點擊的「＋ 廠商」（取代原右上按鈕）
+  el.innerHTML += `<div onclick="appEditAddBill()" style="border:1px dashed var(--border);border-radius:8px;padding:8px;margin-bottom:6px;text-align:center;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer">＋ 新增廠商${editBills.length ? '' : '（尚無請款對象，點此新增）'}</div>`;
   appEditBillsSum2();
 }
 function appEditBillsSum2(){ const el=document.getElementById('e-bill-sum'); if(el) el.textContent='合計 NT$ '+appMoney(appEditBillsSum()); }
@@ -4469,7 +4475,8 @@ function appEditRenderItems(){
       <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
       <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
       <td><button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button></td>
-    </tr>`).join(''):'<tr><td colspan="5" style="color:var(--muted);font-size:12px;padding:6px">尚無明細</td></tr>')+'</tbody></table>';
+    </tr>`).join(''):'')+
+    `<tr><td colspan="5" onclick="appEditAddItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${editItems.length ? '' : '（尚無明細，點此新增）'}</td></tr></tbody></table>`;
 }
 function appEditAddItem(){ editItems.push({name:'',qty:'',unit:'',amount:0}); appEditRenderItems(); }
 function appEditCostToggle(){ const bill=document.getElementById('e-cost').value==='需向客戶請款'; const sec=document.getElementById('e-bill-sec'); if(sec) sec.style.display=bill?'':'none'; }
