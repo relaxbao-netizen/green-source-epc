@@ -445,6 +445,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .sched-grid thead th.nm { background: #f1f5f9; }
 .sched-grid td.disp-cell { cursor: pointer; }
 .sched-grid td.disp-cell:hover { background: #eff6ff; }
+/* 施工日誌逐日表：凍結 # 與案場名稱欄（比照日行程表） */
+.daily-grid th:nth-child(1), .daily-grid td:nth-child(1) { position: sticky; left: 0; width: 34px; min-width: 34px; background: #fff; z-index: 2; }
+.daily-grid th:nth-child(2), .daily-grid td:nth-child(2) { position: sticky; left: 34px; background: #fff; z-index: 2; }
+.daily-grid thead th:nth-child(1), .daily-grid thead th:nth-child(2) { z-index: 3; }
 .disp-cell .disp-add { color: #cbd5e1; font-weight: 700; }
 .disp-cell:hover .disp-add { color: #60a5fa; }
 
@@ -1204,6 +1208,9 @@ async function renderDailyLog() {
 function drawDailyLog() {
   const cont = document.getElementById('dailylog-container');
   if (!cont) return;
+  // 重畫前記住逐日表的捲動位置：同月份重畫（點格子切換記號）時保留，不跳回最左
+  const prevScrolls = [...cont.querySelectorAll('.daily-scroll')].map(d => d.scrollLeft);
+  const sameView = (drawDailyLog._prevYm === dailyLogYm) && prevScrolls.length > 0;
   const yms = [...new Set(dailyLogRows.map(r => r.ym))].sort().reverse();
   if (!dailyLogYm || !yms.includes(dailyLogYm)) {
     const n = new Date();
@@ -1306,9 +1313,25 @@ function drawDailyLog() {
       return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
     }).join('');
     html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(form)}</div>
-      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
+      <div class="card" style="margin-bottom:16px"><div class="daily-scroll" style="overflow-x:auto"><table class="prog-table daily-grid" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   });
   cont.innerHTML = html;
+  // 捲動：同月份重畫還原原位；顯示當月則把「今天」欄靠在凍結欄右側；其他月份靠最左
+  drawDailyLog._prevYm = dailyLogYm;
+  const now = new Date();
+  const curYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  [...cont.querySelectorAll('.daily-scroll')].forEach((sc, si) => {
+    // 第2欄釘選位置對齊第1欄「實際」寬度（寫死 34px 會與實寬 38px 差 4px，捲到最左會跳一下）
+    const w1 = sc.querySelector('thead th:nth-child(1)').offsetWidth;
+    sc.querySelectorAll('th:nth-child(2), td:nth-child(2)').forEach(c => { c.style.left = w1 + 'px'; });
+    if (sameView && prevScrolls[si] != null) { sc.scrollLeft = prevScrolls[si]; return; }
+    if (dailyLogYm === curYm) {
+      const ths = sc.querySelectorAll('thead th');
+      const cell = ths[now.getDate() + 1]; // ths[0]=#、ths[1]=案場名稱，第 d 天為 index d+1
+      const frozenW = (ths[0] ? ths[0].offsetWidth : 0) + (ths[1] ? ths[1].offsetWidth : 0);
+      sc.scrollLeft = cell ? Math.max(0, cell.offsetLeft - frozenW) : 0;
+    } else { sc.scrollLeft = 0; }
+  });
 }
 // 點缺繳數字 → 顯示是哪幾天缺交
 function appShowMissDays(name, form) {
