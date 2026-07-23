@@ -3592,12 +3592,19 @@ function renderEquip() {
   const cont = document.getElementById('equip-container');
   if (!cont) return;
   cont.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button></div>` + EQUIP_GROUPS.map(g => {
-    // 維持原登記順序；「同款」（忽略括號註記後名稱相同，如空拍機（全新）/（墜機找回））自動插到同款最後一項後面
-    const baseName = n => String(n).replace(/（[^）]*）|\([^)]*\)/g, '').trim();
+    // 維持原登記順序；「同款」自動插到同款最後一項後面。
+    // 同款判定：去掉括號註記、開頭尺寸（2分/8線/50米）、頭尾英文型號（FULLER/TLC2000/600V）後名稱相同，
+    // 例：2分/3分/4分電子扭力板手為一家、空拍機（全新）/（墜機找回）為一家。
+    const familyKey = n => String(n)
+      .replace(/（[^）]*）|\([^)]*\)/g, '')
+      .replace(/^[0-9０-９]+[分線米吋]*\s*/, '')
+      .replace(/^[A-Za-z0-9][A-Za-z0-9.\-#/]*\s+/, '')
+      .replace(/\s*[A-Za-z0-9][A-Za-z0-9.\-#/ ]*$/, '')
+      .trim() || String(n);
     const idxs = [];
     g.idxs.filter(i => !EQUIP_REMOVED.has(i) && !equipRemovedRuntime.has(i)).forEach(i => {
       let pos = -1;
-      for (let k = idxs.length - 1; k >= 0; k--) { if (baseName(EQUIPMENT[idxs[k]]) === baseName(EQUIPMENT[i])) { pos = k; break; } }
+      for (let k = idxs.length - 1; k >= 0; k--) { if (familyKey(EQUIPMENT[idxs[k]]) === familyKey(EQUIPMENT[i])) { pos = k; break; } }
       if (pos >= 0) idxs.splice(pos + 1, 0, i); else idxs.push(i);
     });
     const out = idxs.filter(i => equipOpenRecord(i)).length;
@@ -3669,9 +3676,14 @@ async function saveEquipAdd() {
   const broken = document.getElementById('ea-broken').checked;
   if (!name) { err.textContent = '請填寫器具名稱'; err.style.display = 'block'; return; }
   if (!sb) { err.textContent = '未連線資料庫，無法儲存'; err.style.display = 'block'; return; }
+  // 已遷移模式（資料列帶 idx）下，新增必須給下一個 idx，否則 loadEquipList 會濾掉不顯示
+  const ins = { name, grp, broken };
+  if (!_equipEditId && equipExtra.some(r => r.idx != null)) {
+    ins.idx = equipExtra.reduce((m, r) => (r.idx != null && r.idx + 1 > m) ? r.idx + 1 : m, 0);
+  }
   const q = _equipEditId
     ? sb.from('equipment').update({ name, grp, broken }).eq('id', _equipEditId)
-    : sb.from('equipment').insert({ name, grp, broken });
+    : sb.from('equipment').insert(ins);
   const { error } = await q;
   if (error) { err.textContent = '儲存失敗：' + error.message; err.style.display = 'block'; return; }
   document.getElementById('equip-add-overlay').classList.remove('open');
