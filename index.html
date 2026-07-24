@@ -3009,6 +3009,8 @@ function computeStatus(s) {
 }
 
 function rerenderAll() {
+  // 進度統一：有 WBS 者以明細加權＋無條件捨去重算，全站（清單/表格/地圖/環形/狀態）一致
+  sites.forEach(s => { s.pct = s.wbs ? wbsOverallPct(s.wbs, s.type, s.wbs_items) : Math.floor(Number(s.pct) || 0); });
   sites.forEach(s => { s.status = computeStatus(s); });
   renderKPIs();
   renderHome();
@@ -3317,9 +3319,14 @@ function resetWbsItems() {
 
 // 由 WBS 各項完成率加權計算整體進度
 function wbsOverallPct(wbsMap, type, items) {
+  // 依 WBS 明細加權（有子項用子項、否則用類別）後無條件捨去 → 全站唯一進度算法
   const cats = computeWBSFromData(wbsMap, type, items);
-  const totalW = cats.reduce((s, c) => s + c.weight, 0);
-  return totalW ? Math.round(cats.reduce((s, c) => s + c.catPct * c.weight, 0) / totalW) : 0;
+  let num = 0, den = 0;
+  cats.forEach(cat => {
+    if (cat.subs.length) cat.subs.forEach(sub => { num += (sub.pct || 0) * (sub.weight || 0); den += (sub.weight || 0); });
+    else { num += (cat.catPct || 0) * (cat.weight || 0); den += (cat.weight || 0); }
+  });
+  return den ? Math.floor(num / den) : 0;
 }
 
 // 依案場類型鎖定不適用的容量欄位（反灰且清空）
