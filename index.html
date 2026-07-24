@@ -3790,6 +3790,8 @@ function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
 function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
+let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
+function appTotalValue(){ const e=document.getElementById('ar-total'); return e?Math.round(Number(String(e.value).replace(/[^\d.]/g,''))||0):0; }
 // 申請單顯示狀態：直接採用資料庫實際儲存的狀態，不再依案場完工自動覆寫
 function appStatusKey(r){
   if(r.status==='pending') return 'pending';
@@ -3829,7 +3831,7 @@ function renderApproval(){
   if(!el) return;
   if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
   if(appSection==='dash') el.innerHTML = appDashboardHTML();
-  else if(appSection==='new'){ el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
+  else if(appSection==='new'){ arTotalManual=false; el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
   else if(appSection==='sign') el.innerHTML = appSignListHTML();
   else if(appSection==='query'){ el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); runAppQuery(); }
   else if(appSection==='people') el.innerHTML = appPeopleHTML();
@@ -4154,7 +4156,7 @@ function appFormHTML(){
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
-    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" readonly></div>
+    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
     <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option>公司自行吸收</option><option>需向客戶請款</option></select></div>
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
@@ -4212,18 +4214,18 @@ function appNewCostToggle(){
   const bill=(document.getElementById('ar-cost')||{}).value==='需向客戶請款';
   const sec=document.getElementById('ar-bill-sec'); if(sec) sec.style.display=bill?'':'none';
   // 首次切到需向客戶請款且尚無廠商時，帶入一筆金額＝追加款總額
-  if(bill && !appNewBills.length){ appNewBills.push({vendor:'',amount:appItemsTotal(),invoice_date:'',payment_date:''}); appNewBillsRender(); }
+  if(bill && !appNewBills.length){ appNewBills.push({vendor:'',amount:appTotalValue(),invoice_date:'',payment_date:''}); appNewBillsRender(); }
 }
 function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
 function appApplicantsForDept(d){ return d==='工程管理部' ? supervisors.map(s=>s.name) : approvers.filter(a=>a.dept===d).map(a=>a.name); }
 function appDeptChange(){ const d=document.getElementById('ar-dept').value; const sel=document.getElementById('ar-applicant'); if(!sel) return; sel.innerHTML='<option value="">請選擇</option>'+appApplicantsForDept(d).map(n=>`<option>${appEsc(n)}</option>`).join(''); }
 function appUpdateTotal(){
-  const el=document.getElementById('ar-total'); if(el) el.value = appMoney(appItemsTotal());
+  const el=document.getElementById('ar-total'); if(el && !arTotalManual) el.value = appMoney(appItemsTotal());
   document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
 }
 function appDraftFromForm(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
-  const total=appItemsTotal();
+  const total=appTotalValue(); // 以欄位（可手動）的總額為準
   const bill=g('ar-cost')==='需向客戶請款';
   const bills= bill ? appNewBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   return {
@@ -4245,6 +4247,8 @@ async function submitAppRequest(){
   if(!d.site_name){ err.textContent='請選擇／輸入工程名稱'; err.style.display='block'; return; }
   if(!d.applicant){ err.textContent='請填寫申請人'; err.style.display='block'; return; }
   if(!d.items.length){ err.textContent='請至少新增一筆追加明細'; err.style.display='block'; return; }
+  const itemsSum=d.items.reduce((s,it)=>s+(Number(it.amount)||0),0);
+  if(itemsSum!==d.total_amount){ err.textContent=`追加明細加總（NT$ ${appMoney(itemsSum)}）與追加款總額（NT$ ${appMoney(d.total_amount)}）不符，請修正`; err.style.display='block'; return; }
   err.style.display='none';
   const {error}=await sb.from('app_request').insert(d);
   if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
