@@ -568,7 +568,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></div>
     </div>
     <div class="kpi-card green clickable" onclick="openKpiList('normal')">
-      <div class="kpi-label">正常施工案場</div>
+      <div class="kpi-label">符合工期案場</div>
       <div class="kpi-value" id="kpi-normal">—</div>
       <div class="kpi-sub">案</div>
       <div class="kpi-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
@@ -605,7 +605,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div class="map-card">
       <div class="map-card-title">📍 案場地圖</div>
       <div class="map-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>正常施工</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>符合工期</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>即將落後</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>進度落後</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>已完工</div>
@@ -2793,7 +2793,7 @@ function siteCapStr(s) {
 function openKpiList(type) {
   const titleMap = {
     active:       '執行中案場',
-    normal:       '正常施工案場',
+    normal:       '符合工期案場',
     warn:         '即將落後案場',
     danger:       '進度落後案場',
     'pv-cap':     '光電設置容量',
