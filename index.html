@@ -155,6 +155,11 @@ nav > * { flex-shrink: 0; }
 }
 .sv-mark:hover .sv-name { opacity: 1; }
 .sv-line { position: absolute; width: 2px; background: rgba(255,255,255,.95); transform-origin: top center; z-index: 5; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.45); }
+/* 今日休假浮標框（貼地圖卡片左下角，無座標者集中顯示） */
+.sv-leave-box { position: absolute; left: 32px; bottom: 32px; max-width: calc(100% - 64px); max-height: 42%; overflow-y: auto; z-index: 15; background: rgba(255,255,255,.95); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.sv-leave-box .lv-list { display: flex; flex-direction: column; gap: 4px; }
+.sv-leave-box .lv-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text); cursor: pointer; }
+.sv-leave-box .lv-av { width: 18px; height: 18px; border-radius: 50%; background-size: cover; background-position: center; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
 
 /* POPUP */
 .pin-popup {
@@ -603,7 +608,13 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="main-grid">
     <!-- MAP -->
     <div class="map-card">
-      <div class="map-card-title">📍 案場地圖</div>
+      <div class="map-card-title" style="display:flex;align-items:center">📍 案場地圖
+        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-weight:400">
+          <button class="btn-secondary" style="padding:3px 8px;font-size:12px" onclick="shiftMapDay(-1)" title="前一天">‹</button>
+          <span id="map-day-label" onclick="shiftMapDay(0)" title="點此回到今天" style="font-size:12px;color:var(--muted);cursor:pointer;min-width:78px;text-align:center"></span>
+          <button class="btn-secondary" style="padding:3px 8px;font-size:12px" onclick="shiftMapDay(1)" title="後一天">›</button>
+        </span>
+      </div>
       <div class="map-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>符合工期</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>即將落後</div>
@@ -657,8 +668,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== HR ===== -->
 <div id="page-hr" class="page">
-  <div class="section-title" style="display:flex;align-items:center">工程人員日行程表
-    <button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">📊 匯出 Excel</button>
+  <div class="section-title" style="display:flex;align-items:center;gap:8px">工程人員日行程表
+    <button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openPlacesModal()">常用地點</button>
+    <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">📊 匯出 Excel</button>
   </div>
   <div class="card"><div id="disp-inline"></div></div>
 
@@ -748,6 +760,25 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="ea-broken">標記為故障（不可借出）</label>
       <div id="ea-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
       <div style="display:flex;justify-content:flex-end"><button class="btn-primary" onclick="saveEquipAdd()">確認</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 常用地點管理 Modal ===== -->
+<div class="modal-overlay" id="places-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="max-width:460px" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">📌 常用地點</div>
+      <button class="modal-close" onclick="document.getElementById('places-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">非案場但常去的地點（如客戶端、倉庫）。輸入地址會自動定位，之後派工選此地點就會顯示在地圖上。</div>
+      <div class="form-field" style="margin-bottom:8px"><label>地點名稱 *</label><input type="text" id="pl-name" placeholder="例：台積電竹科倉庫"></div>
+      <div class="form-field" style="margin-bottom:8px"><label>地址 *</label><input type="text" id="pl-addr" placeholder="例：新竹市東區力行路8號"></div>
+      <div id="pl-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="btn-primary" id="pl-save" onclick="savePlace()">＋ 新增地點</button></div>
+      <div class="wbs-title" style="font-size:13px">已建立地點</div>
+      <div id="pl-list" style="margin-top:6px"></div>
     </div>
   </div>
 </div>
@@ -1011,20 +1042,42 @@ function dispPlaceHitsSite(place, site) {
 function dispRecsForSite(site) {
   return supLogs.filter(r => r.site_id === site.id || dispPlaceHitsSite(r.place, site));
 }
+// 某主任某日去了幾個「案場」（含 place 唯一對應到案場者）→ 人天平均分攤給這些案場（一天去2個案場＝各0.5）
+function siteDispCountForDay(name, date) {
+  const set = new Set();
+  supLogs.filter(r => r.supervisor === name && r.log_date === date).forEach(r => {
+    if (r.site_id != null) set.add(r.site_id);
+    else { const s = sites.find(x => dispPlaceHitsSite(r.place, x)); if (s) set.add(s.id); }
+  });
+  return set.size || 1;
+}
+function dispWeight(r) { return 1 / siteDispCountForDay(r.supervisor, r.log_date); } // 該筆派工的人天權重
+// 該主任該日除了 exceptId 之外還去的其他案場名稱（供分攤註記顯示）
+function dispOtherSitesOnDay(name, date, exceptId) {
+  const set = new Map();
+  supLogs.filter(r => r.supervisor === name && r.log_date === date).forEach(r => {
+    let sid = r.site_id, s = sid != null ? siteById(sid) : sites.find(x => dispPlaceHitsSite(r.place, x));
+    if (s && s.id !== exceptId) set.set(s.id, s.label || s.name);
+  });
+  return [...set.values()];
+}
 // 點派工人天 → 顯示該主任在此案場的派工日期，依月份分組
 function appShowDispDays(siteId, supervisor) {
   const s = siteById(siteId);
   if (!s) return;
   const wk = ['日', '一', '二', '三', '四', '五', '六'];
-  const days = dispRecsForSite(s).filter(r => r.supervisor === supervisor)
-    .map(r => r.log_date).filter(Boolean).sort();
+  const recs = dispRecsForSite(s).filter(r => r.supervisor === supervisor && r.log_date)
+    .sort((a, b) => a.log_date.localeCompare(b.log_date));
   const byMonth = {};
-  days.forEach(d => { (byMonth[d.slice(0, 7)] = byMonth[d.slice(0, 7)] || []).push(d); });
-  const items = Object.keys(byMonth).sort().reverse().map(m =>
-    `<div style="font-weight:700;margin:10px 0 2px">${m}（${byMonth[m].length} 人天）</div>`
-    + byMonth[m].map(d => `${d}（週${wk[new Date(d + 'T00:00:00').getDay()]}）`).join('<br>')
-  ).join('');
-  appShowResultModal(`${s.name}　${supervisor}　派工 ${days.length} 人天`,
+  recs.forEach(r => { const m = r.log_date.slice(0, 7); (byMonth[m] = byMonth[m] || []).push(r); });
+  const total = recs.reduce((a, r) => a + dispWeight(r), 0);
+  const items = Object.keys(byMonth).sort().reverse().map(m => {
+    const mw = byMonth[m].reduce((a, r) => a + dispWeight(r), 0);
+    return `<div style="font-weight:700;margin:10px 0 2px">${m}（${+mw.toFixed(1)} 人天）</div>`
+      + byMonth[m].map(r => `${r.log_date}（週${wk[new Date(r.log_date + 'T00:00:00').getDay()]}）`
+        + (dispWeight(r) < 1 ? ` <span style="color:var(--warn)">×${+dispWeight(r).toFixed(2)}（另去 ${dispOtherSitesOnDay(r.supervisor, r.log_date, s.id).join('、')}）</span>` : '')).join('<br>');
+  }).join('');
+  appShowResultModal(`${s.name}　${supervisor}　派工 ${+total.toFixed(1)} 人天`,
     `<div style="padding:4px 2px;font-size:14px;line-height:1.9">${items || '—'}</div>`);
 }
 
@@ -1610,11 +1663,26 @@ async function reloadSupLogs() {
 // 非案場的可選項目
 const SPECIAL_PLACES = ['公司', '南部辦公室', '北上', '南下', '週休', '休假', '國定假日', '颱風假'];
 
-// 辦公室地點（地址與座標，備用；目前未用於地圖顯示）
+// 辦公室地點（地址與座標）
 const OFFICE_LOCS = {
   '公司':       { addr: '新北市汐止區大同路一段177號5樓', lng: 121.6444778, lat: 25.0618627 },
   '南部辦公室': { addr: '高雄市大寮區過溪里華三街65號',   lng: 120.4134288, lat: 22.5802090 },
 };
+
+// 使用者自訂常用地點（非案場，有地址/座標 → 地圖上以圖釘顯示，派工可選）
+let customPlaces = []; // { id, name, addr, lng, lat }
+async function loadCustomPlaces() {
+  if (!sb) return;
+  const { data, error } = await sb.from('custom_places').select('*').order('id');
+  customPlaces = (!error && data) ? data : [];
+  if (error) console.warn('custom_places 讀取失敗（資料表可能尚未建立）', error.message);
+}
+// 某地點名稱 → 座標（先辦公室，再自訂地點）；查不到回 null（→ 會落到左下角「不在案場」框）
+function placeLoc(place) {
+  if (OFFICE_LOCS[place]) return OFFICE_LOCS[place];
+  const cp = customPlaces.find(p => p.name === place && p.lng != null && p.lat != null);
+  return cp ? { addr: cp.addr, lng: +cp.lng, lat: +cp.lat } : null;
+}
 
 // 派工下拉的分組選項：案場（進行中）→ 其他 → 已完工案場
 function dispatchOptGroups() {
@@ -1622,7 +1690,9 @@ function dispatchOptGroups() {
   const active = sites.filter(s => s.status !== 'done').map(opt).join('');
   const done = sites.filter(s => s.status === 'done').map(opt).join('');
   const spec = SPECIAL_PLACES.map(p => `<option value="p:${p}">${p}</option>`).join('');
+  const custom = customPlaces.map(p => `<option value="p:${appEsc(p.name)}">${appEsc(p.name)}</option>`).join('');
   return `<optgroup label="案場">${active}</optgroup>`
+    + (custom ? `<optgroup label="常用地點">${custom}</optgroup>` : '')
     + `<optgroup label="其他">${spec}<option value="__other__">其他（自行輸入）</option></optgroup>`
     + (done ? `<optgroup label="已完工案場">${done}</optgroup>` : '');
 }
@@ -2021,12 +2091,12 @@ function printDispatch(srcId) {
   supLogs.forEach(r => {
     if (r.site_id == null) return;
     const [ry, rm] = r.log_date.split('-').map(Number);
-    if (ry === yy && rm === moo) counts[r.site_id] = (counts[r.site_id] || 0) + 1;
+    if (ry === yy && rm === moo) counts[r.site_id] = (counts[r.site_id] || 0) + dispWeight(r); // 一天去多案場則分攤
   });
   const sumList = Object.entries(counts)
-    .map(([sid, n]) => ({ name: (siteById(+sid) || {}).name || ('#' + sid), n }))
+    .map(([sid, n]) => ({ name: (siteById(+sid) || {}).name || ('#' + sid), n: +n.toFixed(1) }))
     .sort((a, b) => b.n - a.n);
-  const totalMd = sumList.reduce((s, x) => s + x.n, 0);
+  const totalMd = +sumList.reduce((s, x) => s + x.n, 0).toFixed(1);
   const pushSummary = (cells, opts = {}) => {
     const arow = [], srow = [];
     for (let c = 0; c < ncol; c++) {
@@ -2183,11 +2253,12 @@ function openModal(id) {
     ${(() => {
       const recs = dispRecsForSite(s);
       const by = {};
-      recs.forEach(r => { by[r.supervisor] = (by[r.supervisor] || 0) + 1; });
-      const tot = recs.length || 1;
+      recs.forEach(r => { by[r.supervisor] = (by[r.supervisor] || 0) + dispWeight(r); }); // 一天去多案場則分攤
+      const total = recs.reduce((a, r) => a + dispWeight(r), 0);
+      const tot = total || 1;
       const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
-        .map(([n, c]) => `<tr><td>${n}</td><td onclick="appShowDispDays(${s.id},'${String(n).replace(/'/g, "\\'")}')" title="點看派工日期（依月份）" style="text-align:right;font-weight:600;cursor:pointer">${c}</td><td style="text-align:right;color:var(--muted)">${(c / tot * 100).toFixed(1)}%</td></tr>`).join('');
-      return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${recs.length} 人天）</div>
+        .map(([n, c]) => `<tr><td>${n}</td><td onclick="appShowDispDays(${s.id},'${String(n).replace(/'/g, "\\'")}')" title="點看派工日期（依月份）" style="text-align:right;font-weight:600;cursor:pointer">${+c.toFixed(1)}</td><td style="text-align:right;color:var(--muted)">${(c / tot * 100).toFixed(1)}%</td></tr>`).join('');
+      return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${+total.toFixed(1)} 人天）</div>
         <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th><th style="text-align:right">佔比</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
     })()}
@@ -2615,6 +2686,15 @@ function renderKPIs() {
 // ===================== TAIWAN MAP (D3 v7 + GeoJSON + SVG) =====================
 // 案場經緯度與地圖短標籤存在各 site 的 lng / lat / label 欄位
 let _topoCache = null; // 縣市圖資只下載一次，重繪時不再閃爍
+let mapViewDate = null; // 地圖顯示的日期：null＝今天；否則 'YYYY-MM-DD'
+function shiftMapDay(delta) {
+  if (delta === 0) { mapViewDate = null; renderTaiwanMap(); return; } // 點日期＝回到今天
+  const base = mapViewDate || localDate(new Date());
+  const [y, m, d] = base.split('-').map(Number);
+  const ns = localDate(new Date(y, m - 1, d + delta));
+  mapViewDate = (ns === localDate(new Date())) ? null : ns;
+  renderTaiwanMap();
+}
 async function renderTaiwanMap() {
   const W = 260, H = 510;
   if (!_topoCache) _topoCache = await d3.json('https://cdn.jsdelivr.net/npm/taiwan-atlas/counties-10t.json');
@@ -2645,7 +2725,7 @@ async function renderTaiwanMap() {
   // 依投影座標產生圖釘，狀態顏色直接取自 sites 資料
   const wrap = document.getElementById('mapInner');
   const popup = document.getElementById('pin-popup');
-  wrap.querySelectorAll('.map-pin, .sv-mark, .sv-line').forEach(el => el.remove());
+  wrap.querySelectorAll('.map-pin, .sv-mark, .sv-line, .sv-leave-box').forEach(el => el.remove());
   sites.forEach(s => {
     if (!s.lng || !s.lat) return;
     const [x, y] = projection([s.lng, s.lat]);
@@ -2658,15 +2738,24 @@ async function renderTaiwanMap() {
     wrap.insertBefore(pin, popup);
   });
 
-  // 工地主任今日位置：依當日行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
+  // 工地主任位置：依所選日期的行程把頭貼放到島外、用固定 56px 白線指向案場／辦公室
   const LINE = 60;                              // 白線統一長度（px）
-  const today = localDate(new Date());
-  const isPM = new Date().getHours() >= 12;     // 下午顯示第二個地點
+  const realToday = localDate(new Date());
+  const today = mapViewDate || realToday;       // 可用前/後一天按鈕切換要看的日期
+  const isPM = (today === realToday) && new Date().getHours() >= 12; // 只有看「今天」才依時鐘切上午/下午
+  // 更新日期標籤（今天不加註、其他日期顯示星期並提示可點回今天）
+  const _lbl = document.getElementById('map-day-label');
+  if (_lbl) {
+    const [_y, _m, _d] = today.split('-').map(Number);
+    const _wk = ['日','一','二','三','四','五','六'][new Date(_y, _m - 1, _d).getDay()];
+    _lbl.textContent = (today === realToday ? '今天 ' : '') + `${_m}/${_d}（${_wk}）`;
+    _lbl.style.color = (today === realToday) ? 'var(--muted)' : 'var(--accent)';
+  }
   const byLoc = {};
   supervisors.forEach(sv => {
     // 當天的地點記錄（依登記順序：第一個＝上午、第二個＝下午）
     const recs = supLogs
-      .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || OFFICE_LOCS[r.place]))
+      .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || placeLoc(r.place)))
       .sort((a, b) => (a.id || 0) - (b.id || 0));
     if (!recs.length) return;
     const rec = isPM ? (recs[1] || recs[0]) : recs[0];   // 下午用第二個，沒有則沿用第一個
@@ -2676,12 +2765,18 @@ async function renderTaiwanMap() {
       if (!s || !s.lng || !s.lat) return;
       loc = { key: 's' + s.id, lng: s.lng, lat: s.lat, label: s.label || s.name, siteId: s.id, office: false };
     } else {
-      const o = OFFICE_LOCS[rec.place];
+      const o = placeLoc(rec.place);
       loc = { key: 'o:' + rec.place, lng: o.lng, lat: o.lat, label: rec.place, siteId: null, office: true };
     }
     (byLoc[loc.key] = byLoc[loc.key] || { loc, list: [] }).list.push(sv);
   });
-  const placedPts = []; // 已放置頭貼的螢幕座標，供跨案場避免重疊
+  const placedPts = [];   // 已放置頭貼的螢幕座標，供跨案場避免重疊
+  const placedLines = [];  // 已放置白線的螢幕線段，供避免白線交叉（像連連看）
+  // 兩線段是否相交
+  const segCross = (a, b, c, d) => {
+    const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x);
+    return ((ccw(c, d, a) > 0) !== (ccw(c, d, b) > 0)) && ((ccw(a, b, c) > 0) !== (ccw(a, b, d) > 0));
+  };
   Object.values(byLoc).forEach(({ loc, list }) => {
     const [sx, sy] = projection([loc.lng, loc.lat]);
     // 辦公室沒有案場圖釘，補一個小點當白線目標
@@ -2693,8 +2788,8 @@ async function renderTaiwanMap() {
       dot.innerHTML = '<div class="dot office"><div class="pin-label">' + loc.label + '</div></div>';
       wrap.insertBefore(dot, popup);
     }
-    // 頭貼往最近海岸推：北端→上、南端→下，其餘往較近的東/西岸（台灣南北狹長，橫向最快入海）
-    const baseAng = sy < 0.16 * H ? -Math.PI / 2 : sy > 0.84 * H ? Math.PI / 2 : (sx < W / 2 ? Math.PI : 0);
+    // 白線一律水平：頭貼放案場的左或右（西側→左、東側→右，實際左右由下方評分挑不壓陸/不交叉者）
+    const baseAng = sx < W / 2 ? Math.PI : 0;
     const GAP = 30;                                        // 同地點多人橫向間距（px）
 
     // 計算某方向/距離下，各頭貼相對案場的 px 位移
@@ -2736,24 +2831,31 @@ async function renderTaiwanMap() {
         for (const t of [0.25, 0.45, 0.65, 0.85, 1]) if (isLand(ux * depth * t, uy * depth * t)) n++;
         return n;
       };
-      const angs = [baseAng];
-      for (let d = Math.PI / 12; d <= Math.PI; d += Math.PI / 12) { angs.push(baseAng + d, baseAng - d); }
-      const depth = LINE;                       // 白線固定 60px，只轉角度避讓
+      const angs = [0, Math.PI]; // 只考慮水平：右、左
+      const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124]; // 自動長度：由短到長，取剛好離陸者
       let bestScore = Infinity;
       for (const ang of angs) {
-        const o = offsetsFor(ang, depth);
-        const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
-        // 與其他已放置頭貼重疊的數量
-        const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 32)).length;
-        // 分數：頭貼壓陸為重、重疊次之、白線穿陸再次、偏離最近海岸方向最後
-        const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
-        const score = avatarLand * 100000 + overlap * 40000 + lineLand(ang, depth) * 1000 + dA * 10;
-        if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
+        for (const depth of DEPTHS) {
+          const o = offsetsFor(ang, depth);
+          const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
+          // 與其他已放置頭貼重疊的數量
+          const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 32)).length;
+          // 本候選白線與已放置白線交叉的數量（避免像連連看）
+          const lineA = { x: baseX, y: baseY }, lineB = { x: baseX + o.ancX, y: baseY + o.ancY };
+          const cross = placedLines.filter(L => segCross(lineA, lineB, L.a, L.b)).length;
+          // 分數：頭貼壓陸最重、白線交叉、頭貼重疊、其次線越短越好（剛好離陸即可）、再看側別與白線穿陸
+          const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
+          const score = avatarLand * 100000 + cross * 50000 + overlap * 40000 + depth * 100 + dA * 20 + lineLand(ang, depth) * 20;
+          if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
+        }
       }
     }
     if (!chosen) { const o = offsetsFor(baseAng, LINE); chosen = { ang: baseAng, depth: LINE, ...o }; }
-    // 記錄本組頭貼座標，供後續案場避讓
-    if (canSense) chosen.arr.forEach(p => placedPts.push({ x: baseX + p.mlx, y: baseY + p.mly }));
+    // 記錄本組頭貼座標與白線線段，供後續案場避讓
+    if (canSense) {
+      chosen.arr.forEach(p => placedPts.push({ x: baseX + p.mlx, y: baseY + p.mly }));
+      placedLines.push({ a: { x: baseX, y: baseY }, b: { x: baseX + chosen.ancX, y: baseY + chosen.ancY } });
+    }
 
     // 同一地點只畫一條白線：從案場圖釘指向頭貼群
     const line = document.createElement('div');
@@ -2779,6 +2881,30 @@ async function renderTaiwanMap() {
       wrap.insertBefore(m, popup);
     });
   });
+
+  // 今日不在案場者（無地理座標）：休假／颱風假／北上／南下／自行輸入地點，集中貼在地圖卡片左下角。
+  // 排除：公司、南部辦公室（地圖已有辦公室點）、週休、國定假日（全體性）。
+  const card = wrap.closest('.map-card') || wrap;
+  card.querySelectorAll('.sv-leave-box').forEach(el => el.remove());
+  const BOX_SKIP = new Set(['公司', '南部辦公室', '週休', '國定假日']);
+  const placeColor = p => p === '休假' ? '#dc2626' : (p === '颱風假' ? '#3b82f6' : ((p === '北上' || p === '南下') ? '#f07820' : '#64748b'));
+  const seen = new Set();
+  const items = [];
+  supLogs.filter(r => r.log_date === today && r.site_id == null && r.place && !BOX_SKIP.has(r.place) && !placeLoc(r.place))
+    .forEach(r => { const k = r.supervisor + '|' + r.place; if (!seen.has(k)) { seen.add(k); items.push({ name: r.supervisor, place: r.place }); } });
+  if (items.length) {
+    const box = document.createElement('div');
+    box.className = 'sv-leave-box';
+    const chips = items.map(({ name, place }) => {
+      const sv = supervisors.find(v => v.name === name);
+      const av = sv && sv.avatar
+        ? `<span class="lv-av" style="background-image:url(${sv.avatar})"></span>`
+        : `<span class="lv-av" style="background:${(sv && sv.color) || '#94a3b8'}">${name.slice(0, 1)}</span>`;
+      return `<span class="lv-chip" onclick="showAvatarCard('${name.replace(/'/g, "\\'")}',event)">${av}${name}<b style="color:${placeColor(place)};font-weight:600">（${place}）</b></span>`;
+    }).join('');
+    box.innerHTML = `<div class="lv-list">${chips}</div>`;
+    card.appendChild(box);
+  }
 }
 
 function siteCapStr(s) {
@@ -3098,6 +3224,60 @@ async function geocodeAddr(addr, city) {
     if ((city || '').includes(k) || (addr || '').includes(k)) return cityCoords[k];
   }
   return null;
+}
+
+// ---- 常用地點管理 ----
+function openPlacesModal() {
+  if (!sb) { alert('需連接雲端才能管理地點'); return; }
+  document.getElementById('pl-name').value = '';
+  document.getElementById('pl-addr').value = '';
+  document.getElementById('pl-error').style.display = 'none';
+  renderPlacesList();
+  document.getElementById('places-overlay').classList.add('open');
+}
+function renderPlacesList() {
+  const el = document.getElementById('pl-list'); if (!el) return;
+  el.innerHTML = customPlaces.length ? customPlaces.map(p => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${appEsc(p.name)}${(p.lng == null || p.lat == null) ? ' <span style="color:var(--danger);font-weight:400;font-size:11px">（未定位，地圖不顯示）</span>' : ''}</div>
+        <div style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${appEsc(p.addr) || '—'}</div>
+      </div>
+      <button class="btn-edit s-danger" style="flex-shrink:0" onclick="delPlace(${p.id})">刪除</button>
+    </div>`).join('') : '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無地點</div>';
+}
+async function savePlace() {
+  const err = document.getElementById('pl-error');
+  const name = document.getElementById('pl-name').value.trim();
+  const addr = document.getElementById('pl-addr').value.trim();
+  err.style.display = 'none';
+  if (!name) { err.textContent = '請填寫地點名稱'; err.style.display = 'block'; return; }
+  if (!addr) { err.textContent = '請填寫地址'; err.style.display = 'block'; return; }
+  if (customPlaces.some(p => p.name === name) || OFFICE_LOCS[name] || SPECIAL_PLACES.includes(name)) {
+    err.textContent = '此名稱已存在，請換一個'; err.style.display = 'block'; return;
+  }
+  const btn = document.getElementById('pl-save');
+  btn.disabled = true; btn.textContent = '定位中…';
+  let coords = null;
+  try { coords = await geocodeAddr(addr, ''); } catch (e) { /* 退回 null */ }
+  const row = { name, addr, lng: coords ? coords[0] : null, lat: coords ? coords[1] : null };
+  const { error } = await sb.from('custom_places').insert(row);
+  btn.disabled = false; btn.textContent = '＋ 新增地點';
+  if (error) { err.textContent = '儲存失敗：' + error.message + '（請確認已建立 custom_places 資料表）'; err.style.display = 'block'; return; }
+  await loadCustomPlaces();
+  document.getElementById('pl-name').value = '';
+  document.getElementById('pl-addr').value = '';
+  if (!coords) { err.textContent = '已新增，但地址查不到座標、地圖暫不顯示（可改地址重建）'; err.style.display = 'block'; }
+  renderPlacesList();
+  renderTaiwanMap();
+}
+async function delPlace(id) {
+  if (!confirm('確定刪除此地點？')) return;
+  const { error } = await sb.from('custom_places').delete().eq('id', id);
+  if (error) { alert('刪除失敗：' + error.message); return; }
+  await loadCustomPlaces();
+  renderPlacesList();
+  renderTaiwanMap();
 }
 
 // ---- 工地主任表單 ----
@@ -4423,7 +4603,7 @@ function appViewReq(id){
   }).join('');
   const items=r.items.map((it,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(it.amount)}</td></tr>`).join('');
   const statusText=appStatusText(r);
-  document.getElementById('app-sign-title').textContent=r.serial_no+'　'+r.site_name;
+  document.getElementById('app-sign-title').textContent=r.serial_no+'　'+siteFullName(r.site_name);
   document.getElementById('app-sign-status-actions').innerHTML=`<div style="position:relative">
     <button style="padding:3px 9px;font-size:11px;border:none;border-radius:6px;cursor:pointer;background:${STATUS_COLORS[appStatusKey(r)]};color:#fff" onclick="event.stopPropagation();appToggleStatusMenu(${r.id})">${statusText}</button>
     <div id="app-status-menu" style="display:none;position:absolute;right:0;top:26px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:10;min-width:90px;overflow:hidden">
@@ -4554,6 +4734,17 @@ function appQueryHTML(){
    <div id="q-result" style="margin-top:12px"></div>
   </div>`;
 }
+// 由申請單工程名找出對應案場（完整名或短標籤皆可對應）；找不到回 null
+function siteByAnyName(name){
+  if(!name) return null;
+  let s = sites.find(x => x.name === name) || sites.find(x => x.label === name);
+  if(!s){ const c = sites.filter(x => (x.name && (x.name.includes(name) || name.includes(x.name))) || (x.label && (x.label.includes(name) || name.includes(x.label)))); if(c.length === 1) s = c[0]; }
+  return s || null;
+}
+// 對應回地圖短標籤；找不到對應案場則原樣顯示
+function siteShortName(name){ const s = siteByAnyName(name); return s ? (s.label || s.name) : name; }
+// 對應回完整工程名；找不到對應案場則原樣顯示
+function siteFullName(name){ const s = siteByAnyName(name); return s ? (s.name || s.label) : name; }
 function appResultTableHTML(rows, compact){
   const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>',archived:'<span style="color:#64748b">已建單</span>'}[appStatusKey(r)]);
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
@@ -4561,10 +4752,10 @@ function appResultTableHTML(rows, compact){
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
     return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(r.site_name)}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
   return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>對客戶請款</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td>
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td>
     <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintForm(${r.id})">申請單</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
@@ -4773,6 +4964,7 @@ async function initApp() {
     loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  loadCustomPlaces().then(() => renderTaiwanMap()); // 自訂常用地點（地圖圖釘用；失敗不影響其他功能）
   loadManpower(); // 載入施工日誌工別人數（案場明細用；失敗不影響其他功能）
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
   Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
