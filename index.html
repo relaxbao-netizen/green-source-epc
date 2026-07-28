@@ -1186,11 +1186,21 @@ function wbsStatusBadge(pct) {
   return '<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">未開始</span>';
 }
 
-function ringChart(pct, color) {
+function ringChart(pct, color, exp) {
   const r = 52, cx = 65, circ = +(2 * Math.PI * r).toFixed(1);
   const offset = +(circ * (1 - pct / 100)).toFixed(1);
+  let defs = '', gap = '';
+  if (exp != null && exp > pct) {  // 落後缺口：灰斜紋弧段（實際→預期）
+    const gapLen = +((exp - pct) / 100 * circ).toFixed(1);
+    const startAngle = (-90 + pct / 100 * 360).toFixed(1);
+    defs = `<defs><pattern id="ringHatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="6" height="6" fill="#cbd5e1"/><rect width="3" height="6" fill="#94a3b8"/></pattern></defs>`;
+    gap = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="url(#ringHatch)" stroke-width="10"
+      stroke-dasharray="${gapLen} ${circ}" transform="rotate(${startAngle} ${cx} ${cx})"/>`;
+  }
   return `<svg width="130" height="130" viewBox="0 0 130 130">
+    ${defs}
     <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="10"/>
+    ${gap}
     <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${color}" stroke-width="10"
       stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
       transform="rotate(-90 ${cx} ${cx})" stroke-linecap="round"/>
@@ -1478,8 +1488,9 @@ function renderHome() {
         <span class="progress-name">${s.name}</span>
         <span class="progress-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+      <div class="progress-bar" style="display:flex;overflow:hidden">
+        <div class="progress-fill ${fillClass(s.status)}" style="width:${s.pct}%;border-radius:0"></div>
+        ${progressGapHTML(s)}
       </div>
     </div>`).join('');
 
@@ -1511,6 +1522,29 @@ function filterProgress(region, btn) {
   renderProgressTable(region);
 }
 
+// 落後缺口（灰斜紋）：實際→預期之間的區段；只在「即將落後／落後」等已落後案場顯示（正常＝準時不標、完工不標）
+// 供進度表與首頁進度清單共用；接在實際填色段之後（父層需 display:flex;overflow:hidden，填色段 border-radius:0）
+function progressGapHTML(s) {
+  const exp = expectedPct(s);
+  const done = s.status === 'done' || s.pct >= 100;
+  const lag = exp != null ? Math.round(exp - s.pct) : 0;
+  if (!(exp != null && lag > 0 && !done && s.status !== 'normal')) return '';
+  const gapW = Math.min(exp, 100) - s.pct;
+  return `<div title="預期 ${Math.round(exp)}%（落後 ${lag}%）" style="width:${gapW}%;background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#cbd5e1 3px,#cbd5e1 6px)"></div>`;
+}
+// 進度表的進度格：實際填色段 + 落後缺口灰斜紋 + 剩餘留白
+function progressCellHTML(s) {
+  const pct = s.pct;
+  return `<div style="display:flex;align-items:center;gap:8px">
+    <div class="table-bar-wrap">
+      <div class="table-bar" style="display:flex;overflow:hidden">
+        <div class="${fillClass(s.status)}" style="width:${pct}%;border-radius:0"></div>
+        ${progressGapHTML(s)}
+      </div>
+    </div>
+    <span style="font-size:12px;font-weight:700;color:${progressColor(pct,s.status)}">${pct}%</span>
+  </div>`;
+}
 function renderProgressTable(filter) {
   // 排序：進度高→低，再依開工日期、預計完工日期（早→晚，空白排後）
   const dateCmp = (x, y) => {
@@ -1519,8 +1553,9 @@ function renderProgressTable(filter) {
     if (!y) return -1;
     return x.localeCompare(y);
   };
+  const isDone = s => s.status === 'done' || s.pct >= 100;
   const filtered = (filter === 'all' ? sites : sites.filter(s => s.region === filter)).slice().sort((a,b) =>
-    (b.pct - a.pct) || dateCmp(a.start, b.start) || dateCmp(a.end, b.end));
+    (isDone(a) - isDone(b)) || (b.pct - a.pct) || dateCmp(a.start, b.start) || dateCmp(a.end, b.end)); // 完工沉底
   const regionName = { north:'北部', center:'中部', south:'南部', east:'東部' };
   const html = `
   <table class="prog-table">
@@ -1547,16 +1582,7 @@ function renderProgressTable(filter) {
         <td>${pmText(s)}</td>
         <td>${s.mw ? s.mw + ' kWp' : '—'}</td>
         <td>${(s.skw || s.mwh) ? (s.skw||0)+'kW / '+(s.mwh||0)+'kWh' : '—'}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="table-bar-wrap">
-              <div class="table-bar">
-                <div class="table-bar-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
-              </div>
-            </div>
-            <span style="font-size:12px;font-weight:700;color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
-          </div>
-        </td>
+        <td>${progressCellHTML(s)}</td>
         <td><span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span></td>
       </tr>`).join('')}
     </tbody>
@@ -2144,6 +2170,11 @@ function printDispatch(srcId) {
 }
 
 // ===================== ADVANCED =====================
+// 容量格式化：≥1000 轉成 M（kW→MW、kWh→MWh、kWp→MWp），與首頁 KPI 卡規則一致
+function fmtCap(val, unit) {
+  const v = +val || 0;
+  return v >= 1000 ? +(v / 1000).toFixed(2) + ' M' + unit.slice(1) : +v.toFixed(2) + ' ' + unit;
+}
 function renderAdvanced() {
   // Region cards
   const regions = [
@@ -2156,7 +2187,7 @@ function renderAdvanced() {
     const rs = sites.filter(s => s.region === r.key);
     const kw  = +rs.reduce((sum, s) => sum + (s.mw || 0) + (s.skw || 0), 0).toFixed(2);  // 光電 + 儲能功率
     const kwh = +rs.reduce((sum, s) => sum + (s.mwh || 0), 0).toFixed(2);
-    const capLine = '<div style="font-size:26px;font-weight:800;line-height:1.2">' + kw + ' kW / ' + kwh + ' kWh</div>';
+    const capLine = '<div style="font-size:26px;font-weight:800;line-height:1.2">' + fmtCap(kw, 'kW') + ' / ' + fmtCap(kwh, 'kWh') + '</div>';
     return '<div class="region-kpi-card" style="background:' + r.color + '" onclick="openRegionModal(\'' + r.key + '\',\'' + r.label + '\')">'
       + '<div class="rkpi-region">' + r.label + '</div>' + capLine + '</div>';
   }).join('');
@@ -2174,7 +2205,7 @@ function renderAdvanced() {
   document.getElementById('owner-grid').innerHTML = owners.map(o => {
     const kw  = +o.kw.toFixed(2);
     const kwh = +o.kwh.toFixed(2);
-    const capStr = (kw && kwh) ? kw + ' kW / ' + kwh + ' kWh' : kw ? kw + ' kW' : kwh ? kwh + ' kWh' : '—';
+    const capStr = (kw && kwh) ? fmtCap(kw, 'kW') + ' / ' + fmtCap(kwh, 'kWh') : kw ? fmtCap(kw, 'kW') : kwh ? fmtCap(kwh, 'kWh') : '—';
     return '<div class="owner-card" onclick="openOwnerModal(\'' + o.name + '\')">'
       + '<div class="owner-name">' + o.name + '</div>'
       + '<div><span class="owner-mw" style="color:#0ea5e9">' + capStr + '</span></div>'
@@ -2239,9 +2270,18 @@ function openModal(id) {
         <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${s.end || ''}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border-radius:10px;padding:16px">
-        ${ringChart(s.pct, pctColor)}
+        ${(() => {
+          const exp = expectedPct(s);
+          const done = s.status === 'done' || s.pct >= 100;
+          const lag = exp != null ? Math.round(exp - s.pct) : 0;
+          const behind = exp != null && lag > 0 && !done && s.status !== 'normal';
+          const sub = behind
+            ? `<div style="font-size:12px;color:#64748b;margin-top:4px">預期 ${Math.round(exp)}% ・ <span style="font-weight:600">落後 ${lag}%</span></div>`
+            : '';
+          return `${ringChart(s.pct, pctColor, behind ? exp : null)}
         <div class="big-pct" style="color:${pctColor};margin-top:2px">${s.pct}%</div>
-        <div class="big-pct-label">整體施工進度</div>
+        ${sub}`;
+        })()}
       </div>
     </div>
     <div id="modal-weather"></div>
@@ -3000,7 +3040,7 @@ function openOwnerModal(owner) {
   const sorted = [...filtered].sort(byProgress);
   const totalKw  = +filtered.reduce((s,x) => s + (x.mw  || 0), 0).toFixed(2);
   const totalKwh = +filtered.reduce((s,x) => s + (x.mwh || 0), 0).toFixed(2);
-  document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${totalKw} kWp / ${totalKwh} kWh）`;
+  document.getElementById('kpi-list-title').textContent = `${owner} ${sorted.length}案（${fmtCap(totalKw, 'kWp')} / ${fmtCap(totalKwh, 'kWh')}）`;
   document.getElementById('kpi-list-body').innerHTML = sorted.map(s => `
     <div class="kpi-list-item" onclick="closeKpiListDirect();openModal(${s.id})">
       <div class="kli-top">
