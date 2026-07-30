@@ -4435,9 +4435,8 @@ function appFormHTML(){
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
      <button class="btn-primary" onclick="submitAppRequest()">送出申請</button>
-     <button class="btn-secondary" onclick="appPreviewForm()">📄 預覽申請單</button>
    </div>
-   <div style="font-size:12px;color:var(--muted);margin-top:8px">※ 送出後依金額自動套用簽核關卡：10萬以下至業務／10萬~100萬加協理、總經理／100萬以上再加董事長。</div>
+   <div style="font-size:12px;color:var(--muted);margin-top:8px">※ 送出後自動下載申請單 Excel，並依金額自動套用簽核關卡：10萬以下至業務／10萬~100萬加協理、總經理／100萬以上再加董事長。</div>
   </div>`;
 }
 function renderAppItems(){
@@ -4521,9 +4520,10 @@ async function submitAppRequest(){
   err.style.display='none';
   const {error}=await sb.from('app_request').insert(d);
   if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
+  try { await appGenApplyExcel(d); } catch(e) { console.warn('產生申請單 Excel 失敗', e); } // 送出後自動下載 Excel
   appItems=[];
   await loadApprovalData();
-  alert('申請已送出，流水號 '+d.serial_no);
+  alert('申請已送出，流水號 '+d.serial_no+'（申請單 Excel 已下載）');
   showAppSection('sign');
 }
 
@@ -4553,15 +4553,10 @@ function appFormInner(r){
    <tbody>${rows}<tr><td colspan="4" style="text-align:right"><b>總計</b></td><td style="text-align:right"><b>${appMoney(r.total_amount)}</b></td></tr></tbody></table>
   <h2>原因說明</h2><div class="box">${appEsc(r.reason_text).replace(/\n/g,'<br>')}</div>`;
 }
-function appPreviewForm(){ appOpenPrint('工程／物料申請單', appFormInner(appDraftFromForm())); }
 function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
-// 依申請資料產出「工程物料申請單」Excel
-// 做法：直接改範本 xlsx 內部 sharedStrings.xml 的變數字串（styles/框線/字型/版面完全保留）；
-// 上下兩聯（工程部留底聯／財務部留底聯）文字相同＝共用同一字串，改一次兩邊同步。
-async function appGenApplyExcel(id){
-  const r = (typeof id==='object') ? id : appRequests.find(x=>x.id===id);
-  if(!r) return;
-  if(!window.JSZip || !window.APPLY_TPL_B64){ alert('Excel 元件尚未載入，請稍候再試'); return; }
+// 依申請資料產出「工程物料申請單」Excel 位元組（styles/框線/字型/版面完全保留）
+// 做法：直接改範本 xlsx 內部 sharedStrings.xml 的變數字串；上下兩聯文字相同＝共用同一字串，改一次兩邊同步。
+async function appBuildApplyXlsx(r){
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const B=on=> on?'■':'□';
   // 申請單位（四固定選項）
@@ -4622,9 +4617,18 @@ async function appGenApplyExcel(id){
     for(let k=1;k<slots.length && k<=5;k++){ if(slots[k]){ setCell(rA[k-1],slots[k]); setCell(rB[k-1],slots[k]); } }
     zip.file('xl/worksheets/sheet1.xml', sheet);
   }
-  const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const bytes = await zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
   const first=(items[0]&&items[0].name)||siteShortName(r.site_name)||'申請單';
   const fname=`${r.serial_no||'申請單'}_${(r.apply_date||'').replace(/-/g,'')} - ${first} $${appMoney(r.total_amount)}.xlsx`;
+  return { bytes, fname };
+}
+// 產生並下載 Excel 申請單
+async function appGenApplyExcel(id){
+  const r = (typeof id==='object') ? id : appRequests.find(x=>x.id===id);
+  if(!r) return;
+  if(!window.JSZip || !window.APPLY_TPL_B64){ alert('Excel 元件尚未載入，請稍候再試'); return; }
+  const {bytes,fname} = await appBuildApplyXlsx(r);
+  const blob=new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
@@ -4907,10 +4911,10 @@ function appResultTableHTML(rows, compact){
   rows=[...rows].sort((a,b)=>String(b.serial_no||'').localeCompare(String(a.serial_no||''),undefined,{numeric:true}));
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
-    return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+    return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
     <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
-  return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">共 ${rows.length} 筆</div><div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>對客戶請款</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>對客戶請款</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
     <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td>
     <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintForm(${r.id})">申請單</button></td></tr>`).join('')}</tbody></table></div>`;
 }
