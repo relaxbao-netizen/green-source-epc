@@ -976,6 +976,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>window.APPLY_TPL_B64="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";</script>
 <script>
 // ===================== DATA =====================
 let currentUser = null;   // 可編輯旗標：連上 Supabase 後為 true（不需登入）
@@ -4024,12 +4026,11 @@ let arTotalManual = false; // 使用者是否手動改過追加款總額（改�
 function appTotalValue(){ const e=document.getElementById('ar-total'); return e?Math.round(Number(String(e.value).replace(/[^\d.]/g,''))||0):0; }
 // 申請單顯示狀態：直接採用資料庫實際儲存的狀態，不再依案場完工自動覆寫
 function appStatusKey(r){
-  if(r.status==='pending') return 'pending';
+  if(r.status==='approved') return 'approved';
   if(r.status==='rejected') return 'rejected';
-  if(r.status==='archived') return 'archived';
-  return 'approved';
+  return 'pending';  // 'pending' 與舊資料的 'archived' 一律視為跑單中（已取消已建單狀態）
 }
-function appStatusText(r){ return {pending:'跑單中',approved:'已核准',rejected:'遭退回',archived:'已建單'}[appStatusKey(r)]; }
+function appStatusText(r){ return {pending:'跑單中',approved:'已核准',rejected:'遭退回'}[appStatusKey(r)]; }
 
 async function loadApprovalData(){
   if(!sb) return;
@@ -4069,7 +4070,7 @@ function renderApproval(){
 
 // ---------- Dashboard ----------
 function appBarChart(obj, color, clickFn, limit){
-  const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0, limit||8);
+  const entries = Object.entries(obj).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0, limit||8); // 金額 0 不顯示
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
   const max = Math.max(1, ...entries.map(e=>e[1]));
   return entries.map(([k,v])=>{
@@ -4080,8 +4081,23 @@ function appBarChart(obj, color, clickFn, limit){
   </div>`;
   }).join('');
 }
-const STATUS_LABELS={pending:'跑單中',approved:'已核准',rejected:'遭退回',archived:'已建單'};
-const STATUS_COLORS={pending:'#d97706',approved:'#16a34a',rejected:'#dc2626',archived:'#64748b'};
+// 各案場「追加金額 vs 需向客戶請款」分組長條比較（同尺度，藍＝追加、綠＝請款）
+function appCompareChart(obj){
+  const entries=Object.entries(obj).filter(([,v])=>v.add>0||v.bill>0).sort((a,b)=>Math.max(b[1].add,b[1].bill)-Math.max(a[1].add,a[1].bill));
+  if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
+  const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill)));
+  const bar=(val,color)=>`<div style="flex:1;background:#eef2f7;border-radius:5px;height:11px;overflow:hidden"><div style="height:100%;width:${val/max*100}%;background:${color}"></div></div>`;
+  return entries.map(([k,v])=>{
+    const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
+    return `<div ${clk} style="cursor:pointer;margin:9px 0">
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:600;color:#dc2626;width:36px">請款</span>${bar(v.bill,'#dc2626')}<b style="font-size:13px;width:84px;text-align:right;color:#dc2626">${appMoney(v.bill)}</b></div>
+    </div>`;
+  }).join('');
+}
+const STATUS_LABELS={pending:'跑單中',approved:'已核准',rejected:'遭退回'};
+const STATUS_COLORS={pending:'#d97706',approved:'#16a34a',rejected:'#dc2626'};
 function appQueryFilterPass(r, exclude){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
   if(exclude!=='year'){ const yv=g('q-year'); if(yv){ const ry=(r.apply_date||r.created_at||'').slice(0,4) || ('20'+String(r.serial_no||'').slice(0,2)); if(ry!==yv) return false; } }
@@ -4140,7 +4156,7 @@ function appQueryRefreshOptions(){
   {
     const rows=appRequests.filter(r=>appQueryFilterPass(r,'status'));
     const keys=new Set(rows.map(r=>appStatusKey(r)).filter(Boolean));
-    const order=['archived','pending','approved','rejected'].filter(k=>keys.has(k));
+    const order=['pending','approved','rejected'].filter(k=>keys.has(k));
     const sel=document.getElementById('q-status'); const prev=g('q-status');
     sel.innerHTML='<option value="">全部</option>'+order.map(k=>`<option value="${k}">${STATUS_LABELS[k]}</option>`).join('');
     sel.value=order.includes(prev)?prev:'';
@@ -4157,7 +4173,28 @@ function appQueryOnChange(){
 }
 function appGoQuerySite(name){
   const rows=appRequests.filter(r=>r.site_name===name);
-  appShowResultModal(`${name}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  appShowResultModal(`${name}（${rows.length}筆）`, appBillableTableHTML(rows));
+}
+// 點入案場 → 看該案場需向客戶請款的明細與累計金額
+function appGoQuerySiteBillable(name){
+  const rows=appRequests.filter(r=>r.site_name===name && r.status!=='rejected' && appIsBillable(r));
+  const total=rows.reduce((s,r)=>s+(Number(r.client_amount)||Number(r.total_amount)||0),0);
+  appShowResultModal(`${siteShortName(name)}　需向客戶請款 NT$ ${appMoney(total)}（${rows.length}筆）`, appBillableTableHTML(rows));
+}
+// 請款明細專用表：無工程名稱欄，金額後加「需向客戶請款」紅字欄
+function appBillableTableHTML(rows){
+  if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
+  const sorted=[...rows].sort((a,b)=>String(b.serial_no||'').localeCompare(String(a.serial_no||''),undefined,{numeric:true}));
+  const badge=r=>`<span style="color:${STATUS_COLORS[appStatusKey(r)]}">${appStatusText(r)}</span>`;
+  const valid=sorted.filter(r=>r.status!=='rejected');
+  const addTot=valid.reduce((a,r)=>a+Number(r.total_amount||0),0);
+  const billTot=valid.reduce((a,r)=>a+(appIsBillable(r)?(Number(r.client_amount)||Number(r.total_amount)||0):0),0);
+  return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:16%;white-space:normal">流水號</th><th style="width:18%;white-space:normal">日期</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:18%;white-space:normal">需向客戶請款</th><th style="width:14%;white-space:normal">狀態</th></tr></thead><tbody>${sorted.map(r=>{
+    const cb=appIsBillable(r) ? (Number(r.client_amount)||Number(r.total_amount)||0) : 0; // 非請款單顯示 —
+    const cbCell=cb>0 ? `<span style="color:#dc2626;font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
+    return `<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
+  }).join('')}</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="3" style="text-align:right">合計</td><td style="text-align:right">${appMoney(addTot)}</td><td style="text-align:right;color:#dc2626">${appMoney(billTot)}</td><td></td></tr></tfoot></table>`;
 }
 function appReqMatchSite(r, s){
   const rn=(r.site_name||'').trim(); if(!rn||!s) return false;
@@ -4170,7 +4207,7 @@ function appReqMatchSite(r, s){
 function appGoQuerySiteForSite(siteId){
   const s=siteById(siteId); if(!s) return;
   const rows=appRequests.filter(r=>appReqMatchSite(r,s));
-  appShowResultModal(`${s.name}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  appShowResultModal(`${s.label||s.name}（${rows.length}筆）`, appBillableTableHTML(rows));
 }
 function appGoQueryMonthKey(k){
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
@@ -4221,10 +4258,10 @@ function appGoQueryMonth(){
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
   appShowResultModal(`${k}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
-// 已核准件數卡片：只列該月已核准（含已建單）
+// 已核准件數卡片：只列該月已核准
 function appGoQueryMonthApproved(){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===k && (r.status==='approved'||r.status==='archived'));
+  const rows=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===k && r.status==='approved');
   appShowResultModal(`${k}　已核准（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
 // 追加金額卡片：列該月計入金額的單（排除遭退回）
@@ -4251,17 +4288,9 @@ function appMonthCardRefresh(){
   const a=document.getElementById('app-month-amt'); if(a) a.textContent='NT$ '+appMoney(amt);
   const su=document.getElementById('app-month-sub'); if(su) su.textContent=ym;
   // 已核准件數
-  const approved=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
+  const approved=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && r.status==='approved').length;
   const ap=document.getElementById('app-month-approved'); if(ap) ap.textContent=approved;
   const aps=document.getElementById('app-month-approved-sub'); if(aps) aps.textContent=ym;
-  // 需向客戶請款 vs 公司自行吸收
-  let bil=0, abs=0;
-  appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const v=Number(r.total_amount||0); if(appIsBillable(r)) bil+=(Number(r.client_amount)||v); else abs+=v; });
-  const bt=document.getElementById('app-billsplit-title'); if(bt) bt.textContent='需向客戶請款 vs 公司自行吸收（'+ym+'）';
-  const bb=document.getElementById('app-billsplit-body'); if(bb) bb.innerHTML=appBillSplit(bil,abs,ym);
-  // 該月各案場追加金額排行
-  const st=document.getElementById('app-monthsite-title'); if(st) st.textContent='各案場追加金額排行（'+ym+'）';
-  const sb2=document.getElementById('app-monthsite-body'); if(sb2) sb2.innerHTML=appBarChart(appMonthBySite(ym),'#3b82f6','appGoQueryMonthSite',99);
 }
 function appExportMonth(){
   if(typeof XLSX==='undefined'){ alert('匯出元件未載入，請稍後再試'); return; }
@@ -4317,16 +4346,16 @@ function appDashboardHTML(){
   const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
   const monthReqs = appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym);
   const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+Number(r.total_amount||0),0);
-  const pending = appRequests.filter(r=>r.status==='pending').length;
-  const archivedCount = appRequests.filter(r=>appStatusKey(r)==='archived').length;
-  const approved = appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && (r.status==='approved'||r.status==='archived')).length;
-  const bySite={}, byResp={}, byMonth={}; let billable=0, absorb=0;
+  const pending = appRequests.filter(r=>appStatusKey(r)==='pending').length;
+  const approved = appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && r.status==='approved').length;
+  const bySite={}, byResp={}, byMonth={}, bySiteBillable={}; let billable=0, absorb=0;
   appRequests.forEach(r=>{
     if(r.status==='rejected') return; // 退回／取消不計入金額統計
     const amt=Number(r.total_amount||0);
     bySite[r.site_name||'未指定']=(bySite[r.site_name||'未指定']||0)+amt;
     byResp[r.apply_dept||'未指定']=(byResp[r.apply_dept||'未指定']||0)+amt;
     const mk=(r.apply_date||r.created_at||'').slice(0,7); if(mk) byMonth[mk]=(byMonth[mk]||0)+amt;
+    if(appIsBillable(r)){ const bs=siteByAnyName(r.site_name); if(!(bs && bs.status==='done')){ const cb=Number(r.client_amount)||amt; bySiteBillable[r.site_name||'未指定']=(bySiteBillable[r.site_name||'未指定']||0)+cb; } } // 各案場累計需向客戶請款（完工案場不列）
     if(mk===ym){ if(appIsBillable(r)) billable+=(Number(r.client_amount)||amt); else absorb+=amt; }
   });
   // 未完工案場一律列出（無追加金額者顯示 0）；已有對應記錄則不重複
@@ -4337,11 +4366,22 @@ function appDashboardHTML(){
   });
   // 只保留「在案場清單且未完工」的案場（排除已完工與非清單）
   Object.keys(bySite).forEach(k=>{ const s=sites.find(s=> s.name===k||s.label===k||(s.name&&s.name.includes(k))||(s.label&&k.includes(s.label)) ); if(!s || s.status==='done') delete bySite[k]; });
+  // 各案場「追加金額 vs 需向客戶請款」比較：依案場合併不同 site_name 字串、排除完工
+  const cmp={};
+  appRequests.forEach(r=>{
+    if(r.status==='rejected') return;
+    const s=siteByAnyName(r.site_name);
+    if(s && s.status==='done') return;
+    const key = s ? (s.label||s.name) : (r.site_name||'未指定');
+    const amt=Number(r.total_amount||0);
+    const bill=appIsBillable(r) ? (Number(r.client_amount)||amt) : 0;
+    if(!cmp[key]) cmp[key]={add:0,bill:0,id: s?s.id:null};
+    cmp[key].add+=amt; cmp[key].bill+=bill;
+  });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><input type="month" id="app-export-month" value="${ym}" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px"></div>
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-     ${card('已建單件數', archivedCount, '件', '#3b82f6', `appGoQueryStatus('archived')`)}
      ${card('跑單中件數', pending, '件', '#d97706', "appGoQueryPending()")}
      <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
      <div class="card" style="padding:14px 16px;border-left:4px solid #7c3aed">
@@ -4349,11 +4389,10 @@ function appDashboardHTML(){
        <button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:12px;width:100%" onclick="appExportMonth()">📥 匯出追加明細</button>
      </div>
    </div>
-   <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:14px;margin-top:16px">
-     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額排行</div>${appBarChart(bySite,'#3b82f6','appGoQuerySite',99)}</div>
+   <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;margin-top:16px">
+     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款</div>
+       ${appCompareChart(cmp)}</div>
      <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
-     <div class="card" style="padding:14px 16px"><div class="card-title" id="app-billsplit-title">需向客戶請款 vs 公司自行吸收（${ym}）</div><div id="app-billsplit-body">${appBillSplit(billable,absorb,ym)}</div>
-       <div class="card-title" id="app-monthsite-title" style="margin-top:14px">各案場追加金額排行（${ym}）</div><div id="app-monthsite-body">${appBarChart(appMonthBySite(ym),'#3b82f6','appGoQueryMonthSite',99)}</div></div>
    </div>`;
 }
 
@@ -4516,6 +4555,79 @@ function appFormInner(r){
 }
 function appPreviewForm(){ appOpenPrint('工程／物料申請單', appFormInner(appDraftFromForm())); }
 function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
+// 依申請資料產出「工程物料申請單」Excel
+// 做法：直接改範本 xlsx 內部 sharedStrings.xml 的變數字串（styles/框線/字型/版面完全保留）；
+// 上下兩聯（工程部留底聯／財務部留底聯）文字相同＝共用同一字串，改一次兩邊同步。
+async function appGenApplyExcel(id){
+  const r = (typeof id==='object') ? id : appRequests.find(x=>x.id===id);
+  if(!r) return;
+  if(!window.JSZip || !window.APPLY_TPL_B64){ alert('Excel 元件尚未載入，請稍候再試'); return; }
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const B=on=> on?'■':'□';
+  // 申請單位（四固定選項）
+  const dept=r.apply_dept||'';
+  const dm = /設計/.test(dept)?'工程設計部' : /品保|維運/.test(dept)?'品保/維運' : /業務/.test(dept)?'業務部' : '工程部';
+  const deptLine = `${B(dm==='工程部')}工程部  ${B(dm==='品保/維運')}品保/維運  ${B(dm==='業務部')}業務部  ${B(dm==='工程設計部')}工程設計部`;
+  // 申請日期
+  const d=(r.apply_date||'').split('-');
+  const dateLine = `申請日期：　${d[0]||''}　年　${d[1]||''}　月　${d[2]||''}　日`;
+  // 申請原因（四固定選項；「其他/自填」歸其他）
+  const ro=['客戶追加/變更','原工項未發包','設計未包含','其他'];
+  const rcNorm=(r.reason_category||'').replace('／','/');
+  let ridx=ro.indexOf(rcNorm); if(ridx<0 && rcNorm) ridx=3;
+  const reasonLine = ro.map((o,i)=>B(i===ridx)+o).join('  ');
+  // 追加明細：一項一列（範本明細區有 6 列），超過 6 項時第 6 列合併其餘
+  const items=Array.isArray(r.items)?r.items:[];
+  const fmtIt=it=> it.name+((it.qty!==''&&it.qty!=null)?` ${it.qty}${it.unit||''}`:'');
+  const itemsF=items.filter(it=>it.name).map(fmtIt);
+  const slots=itemsF.length<=6 ? itemsF : itemsF.slice(0,5).concat([itemsF.slice(5).join('；')]);
+  // 業務對客戶有無追加
+  const bill=appIsBillable(r);
+  const billLine = `業務對客戶有無追加  ${B(bill)}有  ${B(!bill)}無     追加金額 NTD：${bill?appMoney(r.client_amount||r.total_amount):''}　　　　業務：`;
+  const applicant=(r.applicant||'').split(' ')[0];
+  // sharedStrings 索引 → 新字串（索引取自範本；兩聯共用）
+  const repl={
+    18:`流水編號：${r.serial_no||''}`,
+    12:deptLine,
+    17:dateLine,
+    19:`工程名稱：${siteShortName(r.site_name)}`,
+    15:`追加款總額：${appMoney(r.total_amount)} 未稅`,
+    14:reasonLine,
+    16:slots[0]||'',
+    13:`責任單位：${r.responsibility||''}`,
+    20:r.reason_text||'',
+    10:billLine,
+  };
+  const APPLICANT_SI=21; // 申請人簽核列：保留原字串，只換「申請人：」後的姓名
+
+  const zip = await JSZip.loadAsync(window.APPLY_TPL_B64, {base64:true});
+  let sst = await zip.file('xl/sharedStrings.xml').async('string');
+  let i=-1;
+  sst = sst.replace(/<si>[\s\S]*?<\/si>/g, m=>{
+    i++;
+    if(repl[i]!=null) return `<si><t xml:space="preserve">${esc(repl[i])}</t></si>`;
+    if(i===APPLICANT_SI){
+      const cur=(m.match(/<t[^>]*>([\s\S]*?)<\/t>/g)||[]).map(t=>t.replace(/<[^>]+>/g,'')).join('');
+      const nv=cur.replace(/申請人：.*$/,'申請人：'+applicant);
+      return `<si><t xml:space="preserve">${esc(nv)}</t></si>`;
+    }
+    return m;
+  });
+  zip.file('xl/sharedStrings.xml', sst);
+  // 第 2~6 項填入明細區其餘列（兩聯：B8~B12 / B31~B35）
+  if(slots.length>1){
+    let sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
+    const setCell=(addr,text)=>{ sheet=sheet.replace(new RegExp('<c r="'+addr+'"([^>]*?)/>'), (m,at)=>`<c r="${addr}"${at.replace(/\s+t="[^"]*"/,'')} t="inlineStr"><is><t xml:space="preserve">${esc(text)}</t></is></c>`); };
+    const rA=['B8','B9','B10','B11','B12'], rB=['B31','B32','B33','B34','B35'];
+    for(let k=1;k<slots.length && k<=5;k++){ if(slots[k]){ setCell(rA[k-1],slots[k]); setCell(rB[k-1],slots[k]); } }
+    zip.file('xl/worksheets/sheet1.xml', sheet);
+  }
+  const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const first=(items[0]&&items[0].name)||siteShortName(r.site_name)||'申請單';
+  const fname=`${r.serial_no||'申請單'}_${(r.apply_date||'').replace(/-/g,'')} - ${first} $${appMoney(r.total_amount)}.xlsx`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
 // 依名字在 approvers / supervisors 兩張表找 email
 function emailOfPerson(name){
   if(!name) return '';
@@ -4560,7 +4672,7 @@ function appMailSend(id){
 
 // ---------- 待簽核 / 簽核 ----------
 function appSignListHTML(){
-  const pend=appRequests.filter(r=>r.status==='pending').slice().sort((a,b)=>(b.serial_no||'').localeCompare(a.serial_no||''));
+  const pend=appRequests.filter(r=>appStatusKey(r)==='pending').slice().sort((a,b)=>(b.serial_no||'').localeCompare(a.serial_no||''));
   if(!pend.length) return '<div class="card" style="padding:20px;color:var(--muted)">目前沒有待簽核的申請。</div>';
   return '<div class="card" style="padding:4px 0">'+pend.map(r=>{
     const step=r.sign_chain[r.cur_step]; const role=step?step.role:'—';
@@ -4626,8 +4738,8 @@ async function appChangeStatus(id, status){
   if(!status) return;
   const patch={status};
   const cur=appRequests.find(x=>x.id===id);
-  // 首次進入「已核准／已建單」時記下核准日期（已有則保留原日期）
-  if((status==='approved'||status==='archived') && cur && !cur.approved_date){
+  // 首次進入「已核准」時記下核准日期（已有則保留原日期）
+  if(status==='approved' && cur && !cur.approved_date){
     patch.approved_date=new Date().toISOString().slice(0,10);
   }
   const {error}=await sb.from('app_request').update(patch).eq('id',id);
@@ -4654,7 +4766,7 @@ function appViewReq(id){
     </div>
   </div>`;
   document.getElementById('app-sign-body').innerHTML=`
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}・${appEsc(r.apply_date)||''}・狀態：${statusText}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_date)||''}</div>
     <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>・${appIsBillable(r)?'需向客戶請款':'公司自行吸收'}${Number(r.client_amount)>0?'（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'對'+appEsc((Array.isArray(r.client_bills)&&r.client_bills[0]&&r.client_bills[0].vendor)||'客戶')+' NT$ '+appMoney(r.client_amount))+'）':''}</div>
     ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
     ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
@@ -4662,6 +4774,7 @@ function appViewReq(id){
     <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       <button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
       <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
@@ -4789,7 +4902,7 @@ function siteShortName(name){ const s = siteByAnyName(name); return s ? (s.label
 // 對應回完整工程名；找不到對應案場則原樣顯示
 function siteFullName(name){ const s = siteByAnyName(name); return s ? (s.name || s.label) : name; }
 function appResultTableHTML(rows, compact){
-  const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>',archived:'<span style="color:#64748b">已建單</span>'}[appStatusKey(r)]);
+  const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>'}[appStatusKey(r)]);
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
   rows=[...rows].sort((a,b)=>String(b.serial_no||'').localeCompare(String(a.serial_no||''),undefined,{numeric:true}));
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
@@ -4821,7 +4934,7 @@ function runAppQuery(){
   el.innerHTML=appResultTableHTML(rows);
 }
 function appGoQueryPending(){
-  const n=appRequests.filter(r=>r.status==='pending').length;
+  const n=appRequests.filter(r=>appStatusKey(r)==='pending').length;
   appShowResultModal(`跑單中（${n}筆）`, appSignListHTML());
 }
 function appShowResultModal(title, bodyHTML){
@@ -4954,7 +5067,7 @@ function appParseHistory(text){
         cost_owner: cost, client_amount: billable?ca:0,
         invoice_date: billable ? (appParseDate(g(r,'invoice'))||null) : null, payment_date: billable ? (appParseDate(g(r,'payment'))||null) : null,
         client_bills: (billable&&ca>0) ? [{vendor:'', amount:ca, invoice_date:appParseDate(g(r,'invoice'))||null, payment_date:appParseDate(g(r,'payment'))||null}] : [],
-        status: g(r,'status')==='X'?'rejected':'archived', apply_dept: appDeptOfPerson(appl),
+        status: g(r,'status')==='X'?'rejected':'pending', apply_dept: appDeptOfPerson(appl),
         items: g(r,'detail')?[Object.assign({name:g(r,'detail'),price:0,amount:0}, q)]:[], sign_chain:[], cur_step:0 };
     } else if(cur){
       const name=g(r,'detail'); if(name){ const q=appParseQty(g(r,'qty')); cur.items.push(Object.assign({name:name,price:0,amount:0}, q)); }
