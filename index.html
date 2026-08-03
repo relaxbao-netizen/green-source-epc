@@ -2797,13 +2797,18 @@ async function renderTaiwanMap() {
     _lbl.style.color = (today === realToday) ? 'var(--muted)' : 'var(--accent)';
   }
   const byLoc = {};
+  // 每位主任「當前時段」的派工記錄：依登記順序第一筆＝上午、第二筆＝下午；
+  // 保留無座標者（休假／北上等）一起排序，下午才能正確落到第二筆（見 curRec）
+  const curRec = {};
   supervisors.forEach(sv => {
-    // 當天的地點記錄（依登記順序：第一個＝上午、第二個＝下午）
-    const recs = supLogs
-      .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || placeLoc(r.place)))
+    const all = supLogs
+      .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || r.place))
       .sort((a, b) => (a.id || 0) - (b.id || 0));
-    if (!recs.length) return;
-    const rec = isPM ? (recs[1] || recs[0]) : recs[0];   // 下午用第二個，沒有則沿用第一個
+    if (all.length) curRec[sv.name] = isPM ? (all[1] || all[0]) : all[0];
+  });
+  supervisors.forEach(sv => {
+    const rec = curRec[sv.name];
+    if (!rec) return;
     let loc;
     if (rec.site_id != null) {
       const s = siteById(rec.site_id);
@@ -2811,6 +2816,7 @@ async function renderTaiwanMap() {
       loc = { key: 's' + s.id, lng: s.lng, lat: s.lat, label: s.label || s.name, siteId: s.id, office: false };
     } else {
       const o = placeLoc(rec.place);
+      if (!o) return;                        // 無座標（休假等）→ 不放地圖，改列左下休假框
       loc = { key: 'o:' + rec.place, lng: o.lng, lat: o.lat, label: rec.place, siteId: null, office: true };
     }
     (byLoc[loc.key] = byLoc[loc.key] || { loc, list: [] }).list.push(sv);
@@ -2935,8 +2941,15 @@ async function renderTaiwanMap() {
   const placeColor = p => p === '休假' ? '#dc2626' : (p === '颱風假' ? '#3b82f6' : ((p === '北上' || p === '南下') ? '#f07820' : '#64748b'));
   const seen = new Set();
   const items = [];
-  supLogs.filter(r => r.log_date === today && r.site_id == null && r.place && !BOX_SKIP.has(r.place) && !placeLoc(r.place))
-    .forEach(r => { const k = r.supervisor + '|' + r.place; if (!seen.has(k)) { seen.add(k); items.push({ name: r.supervisor, place: r.place }); } });
+  // 依「當前時段」記錄決定是否列入休假框（上午看第一筆、下午看第二筆），與地圖同步
+  supervisors.forEach(sv => {
+    const rec = curRec[sv.name];
+    if (!rec || rec.site_id != null) return;
+    const place = rec.place;
+    if (!place || BOX_SKIP.has(place) || placeLoc(place)) return;
+    const k = sv.name + '|' + place; if (seen.has(k)) return; seen.add(k);
+    items.push({ name: sv.name, place });
+  });
   if (items.length) {
     const box = document.createElement('div');
     box.className = 'sv-leave-box';
