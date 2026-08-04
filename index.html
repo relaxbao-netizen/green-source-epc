@@ -1285,7 +1285,8 @@ function drawDailyLog() {
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
-  const saveBtn = dailyLogDirty.size ? `<button onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600">💾 儲存變更（${dailyLogDirty.size}）</button>` : '';
+  // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
+  const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600;visibility:${dailyLogDirty.size ? 'visible' : 'hidden'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
   let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
@@ -1375,7 +1376,7 @@ function drawDailyLog() {
         const v = effMark(r, d);
         const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
         const bg = off ? 'background:#f1f5f9;' : '';
-        return `<td onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
+        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}" onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
@@ -1438,6 +1439,7 @@ function appCycleDailyMark(id, day) {
   if (next === '') delete ov[String(day)]; else ov[String(day)] = next;
   r.overrides = ov;
   dailyLogDirty.add(id + '|' + day); // 記「變更的格子」，非整列
+  _updateDailyCell(id, day, next);   // 只就地更新該格，不整表重繪（避免頁面跳動）
   // 只有「施工日誌」改成「-」時，工具箱會議記錄同案場同日自動也變「-」（單向，反向不連動）
   if (next === '-' && r.form === '施工日誌') {
     const sib = dailyLogRows.find(x => x.ym === r.ym && x.project === r.project && x.form !== r.form);
@@ -1446,9 +1448,19 @@ function appCycleDailyMark(id, day) {
       so[String(day)] = '-';
       sib.overrides = so;
       dailyLogDirty.add(sib.id + '|' + day);
+      _updateDailyCell(sib.id, day, '-');
     }
   }
-  drawDailyLog();
+  const btn = document.getElementById('daily-save-btn');
+  if (btn) { btn.textContent = `💾 儲存變更（${dailyLogDirty.size}）`; btn.style.visibility = dailyLogDirty.size ? 'visible' : 'hidden'; }
+}
+// 就地更新單一格的顯示符號與顏色（override 有值就顯示它，否則顯示該格的自動值 data-auto）
+function _updateDailyCell(id, day, overrideVal) {
+  const td = document.querySelector(`td[data-id="${id}"][data-d="${day}"]`);
+  if (!td) return;
+  const v = overrideVal !== '' ? overrideVal : (td.dataset.auto || '');
+  td.textContent = v;
+  td.style.color = v === 'x' ? '#dc2626' : (v === '○' ? '#16a34a' : (v === '-' ? '#64748b' : ''));
 }
 // 儲存手動變更：寫入 overrides 並鎖定該列（locked），自動刷新不再覆蓋
 async function appSaveDailyOverrides() {
