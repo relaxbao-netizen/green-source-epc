@@ -1287,7 +1287,9 @@ function drawDailyLog() {
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
   const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600;visibility:${dailyLogDirty.size ? 'visible' : 'hidden'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
-  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
+  // 一鍵下載施工日誌：透過本機註冊的 gsworklog: 協定啟動桌面下載器（需先在該電腦執行「註冊網頁按鈕.bat」）
+  const dlBtn = `<button onclick="location.href='gsworklog:open'" title="啟動本機的施工日誌下載器（需先在此電腦執行『註冊網頁按鈕.bat』）" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#0ea5e9;color:#fff;font-weight:600;margin-left:auto">🏗 一鍵下載施工日誌</button>`;
+  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}${dlBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
     html += '<div class="card" style="padding:20px;color:var(--muted)">尚無資料。請在本機執行「執行.bat」，跑完會自動上傳到這裡。</div>';
