@@ -89,7 +89,7 @@ nav > * { flex-shrink: 0; }
 .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
 /* MAIN GRID */
-.main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+.main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
 .side-grid { display: flex; flex-direction: column; gap: 16px; }
 
 /* CARD */
@@ -98,16 +98,17 @@ nav > * { flex-shrink: 0; }
 
 /* TAIWAN MAP */
 .map-card {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 12px; padding: 20px; position: relative; min-height: 520px;
+  background: #bfdbfe; border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; position: relative; overflow: visible;
+  align-self: start;   /* 不隨右欄撐高，避免地圖下方多出一大塊白色 */
 }
 .map-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
-.taiwan-svg-wrap { background: #bfdbfe; border-radius: 10px; }
-#mapInner { position: relative; width: 100%; max-width: 380px; margin: 0 auto; }
+.taiwan-svg-wrap { background: #bfdbfe; margin: 0 -20px; }  /* 藍色左右滿版：抵銷 map-card 的 20px 內距、延伸到卡片邊緣 */
+#mapInner { position: relative; width: 100%; max-width: 260px; margin: 0 auto; }
 #mapInner svg { width: 100%; display: block; }
 
 .map-pin {
@@ -142,12 +143,13 @@ nav > * { flex-shrink: 0; }
 /* 工地主任今日位置頭貼（放島外，白線指向案場） */
 .sv-mark {
   position: absolute; transform: translate(-50%, -50%);
-  width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff;
   box-shadow: 0 1px 5px rgba(0,0,0,.45); background-size: cover; background-position: center;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; z-index: 6;
+  font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; z-index: 6;
+  transition: transform .18s;
 }
-.sv-mark:hover { z-index: 20; }
+.sv-mark:hover { z-index: 20; transform: translate(-50%, -50%) scale(2); }
 .sv-mark .sv-name {
   position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
   font-size: 10px; white-space: nowrap; background: rgba(15,23,42,.82); color: #fff;
@@ -201,9 +203,9 @@ nav > * { flex-shrink: 0; }
 }
 #avatar-overlay.open { display: flex; }
 #avatar-card {
-  background: #fff; border-radius: 20px; padding: 32px 36px;
+  background: #fff; border-radius: 22px; padding: 40px 48px;
   box-shadow: 0 20px 60px rgba(0,0,0,.18);
-  text-align: center; min-width: 200px;
+  text-align: center; min-width: 260px;
   animation: modalIn .22s ease;
   position: relative;
 }
@@ -215,9 +217,9 @@ nav > * { flex-shrink: 0; }
 }
 .ac-close:hover { background: #e2e8f0; }
 .ac-avatar {
-  width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
+  width: 104px; height: 104px; border-radius: 50%; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; font-weight: 800; margin: 0 auto 14px;
+  font-size: 40px; font-weight: 800; margin: 0 auto 16px;
 }
 /* 主任大頭貼圖片：填滿圓形框 */
 .av-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
@@ -527,9 +529,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .equip-table th, .equip-table td { padding: 8px 6px; font-size: 12px; }
   /* 手機地圖高度降低，先看到下方內容 */
   #mapInner svg { height: 56vh; }
-  /* 地圖邊緣的頭貼名牌不撐寬頁面（避免整頁可左右滑動） */
+  /* 地圖邊緣的頭貼名牌不撐寬頁面（避免整頁可左右滑動）；
+     卡片本身放行讓頭貼可戳出框，靠 html overflow-x:hidden 擋住整頁橫向捲動 */
   html { overflow-x: hidden; }
-  .map-card { overflow: hidden; }
+  .map-card { overflow: visible; }
 
   /* 表單欄位：手機改單欄，避免下拉選單/輸入框過窄 */
   .form-grid { grid-template-columns: 1fr; gap: 10px; }
@@ -611,13 +614,6 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="main-grid">
     <!-- MAP -->
     <div class="map-card">
-      <div class="map-card-title" style="display:flex;align-items:center">📍 案場地圖
-        <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-weight:400">
-          <button class="btn-secondary" style="padding:3px 8px;font-size:12px" onclick="shiftMapDay(-1)" title="前一天">‹</button>
-          <span id="map-day-label" onclick="shiftMapDay(0)" title="點此回到今天" style="font-size:12px;color:var(--muted);cursor:pointer;min-width:78px;text-align:center"></span>
-          <button class="btn-secondary" style="padding:3px 8px;font-size:12px" onclick="shiftMapDay(1)" title="後一天">›</button>
-        </span>
-      </div>
       <div class="map-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>符合工期</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>即將落後</div>
@@ -2840,6 +2836,10 @@ async function renderTaiwanMap() {
     const ccw = (p, q, r) => (r.y - p.y) * (q.x - p.x) - (q.y - p.y) * (r.x - p.x);
     return ((ccw(c, d, a) > 0) !== (ccw(c, d, b) > 0)) && ((ccw(a, b, c) > 0) !== (ccw(a, b, d) > 0));
   };
+  // 陸地偵測共用：用 SVG 幾何 isPointInFill（不受捲動/可見性限制，off-screen 也正確），只算一次
+  const _svgEl = document.getElementById('taiwan-map');
+  const _landPaths = _svgEl ? [..._svgEl.querySelectorAll('path.cn')] : [];
+  const _landInv = (_svgEl && _svgEl.getScreenCTM && _svgEl.getScreenCTM()) ? _svgEl.getScreenCTM().inverse() : null;
   Object.values(byLoc).forEach(({ loc, list }) => {
     const [sx, sy] = projection([loc.lng, loc.lat]);
     // 辦公室沒有案場圖釘，補一個小點當白線目標
@@ -2853,7 +2853,7 @@ async function renderTaiwanMap() {
     }
     // 白線一律水平：頭貼放案場的左或右（西側→左、東側→右，實際左右由下方評分挑不壓陸/不交叉者）
     const baseAng = sx < W / 2 ? Math.PI : 0;
-    const GAP = 30;                                        // 同地點多人橫向間距（px）
+    const GAP = 34;                                        // 同地點多人橫向間距（px）
 
     // 計算某方向/距離下，各頭貼相對案場的 px 位移
     const offsetsFor = (ang, depth) => {
@@ -2872,13 +2872,15 @@ async function renderTaiwanMap() {
     const canSense = wr.width > 0;
     const baseX = wr.left + sx / W * wr.width, baseY = wr.top + sy / H * wr.height;
     const isLand = (dx, dy) => {
-      const u = document.elementFromPoint(baseX + dx, baseY + dy);
-      return !!(u && u.tagName === 'path' && u.classList.contains('cn'));
+      if (!_landInv || !_landPaths.length) return false;
+      const p = new DOMPoint(baseX + dx, baseY + dy).matrixTransform(_landInv); // 畫面座標→SVG 使用者座標
+      for (const path of _landPaths) { if (path.isPointInFill(p)) return true; }
+      return false;
     };
     // 頭貼整個圓（含邊框）是否碰到本島：測中心 + 圓周 8 點（半徑約 16px）
     const markOnLand = (dx, dy) => {
       if (isLand(dx, dy)) return true;
-      const R = 16;
+      const R = 20;
       for (let a = 0; a < 8; a++) {
         const t = a * Math.PI / 4;
         if (isLand(dx + R * Math.cos(t), dy + R * Math.sin(t))) return true;
@@ -2895,7 +2897,7 @@ async function renderTaiwanMap() {
         return n;
       };
       const angs = [0, Math.PI]; // 只考慮水平：右、左
-      const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124]; // 自動長度：由短到長，取剛好離陸者
+      const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 136, 148, 160, 176, 192]; // 自動長度：由短到長，取剛好離陸者（內陸位置需更長才推得到海）
       let bestScore = Infinity;
       for (const ang of angs) {
         for (const depth of DEPTHS) {
@@ -5150,6 +5152,17 @@ async function initApp() {
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
   loadCustomPlaces().then(() => renderTaiwanMap()); // 自訂常用地點（地圖圖釘用；失敗不影響其他功能）
+  // 地圖容器尺寸底定/視窗縮放時重繪，讓頭貼避讓依「最終尺寸」重算（修正初次載入時位置差一點壓到陸地）
+  try {
+    const _mi = document.getElementById('mapInner');
+    if (_mi && window.ResizeObserver) {
+      let _t, _lastW = 0;
+      new ResizeObserver(() => {
+        const w = _mi.clientWidth;
+        if (w && Math.abs(w - _lastW) >= 1) { _lastW = w; clearTimeout(_t); _t = setTimeout(() => { try { renderTaiwanMap(); } catch (e) {} }, 150); }
+      }).observe(_mi);
+    }
+  } catch (e) {}
   loadManpower(); // 載入施工日誌工別人數（案場明細用；失敗不影響其他功能）
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
   Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
