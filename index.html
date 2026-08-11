@@ -48,7 +48,7 @@ nav > * { flex-shrink: 0; }
 .nav-btn {
   background: none; border: none; color: rgba(255,255,255,.82);
   padding: 8px 14px; border-radius: 6px 6px 0 0; cursor: pointer;
-  font-size: 13px; font-weight: 700; font-family: var(--font); transition: all .2s;
+  font-size: 13.2px; font-weight: 700; font-family: var(--font); transition: all .2s;
   white-space: nowrap; border-bottom: 2px solid transparent;
 }
 .nav-btn:hover { background: rgba(255,255,255,.16); color: #fff; }
@@ -109,7 +109,7 @@ nav > * { flex-shrink: 0; }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
 .taiwan-svg-wrap { background: #bfdbfe; margin: 0 -20px; }  /* 藍色左右滿版：抵銷 map-card 的 20px 內距、延伸到卡片邊緣 */
-#mapInner { position: relative; width: 100%; max-width: 260px; margin: 0 auto; }
+#mapInner { position: relative; width: 100%; max-width: 280px; margin: 0 auto; }
 #mapInner svg { width: 100%; display: block; }
 
 .map-pin {
@@ -144,7 +144,7 @@ nav > * { flex-shrink: 0; }
 /* 工地主任今日位置頭貼（放島外，白線指向案場） */
 .sv-mark {
   position: absolute; transform: translate(-50%, -50%);
-  width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff;
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
   box-shadow: 0 1px 5px rgba(0,0,0,.45); background-size: cover; background-position: center;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; font-weight: 700; color: #fff; cursor: pointer; z-index: 6;
@@ -158,11 +158,11 @@ nav > * { flex-shrink: 0; }
 }
 .sv-mark:hover .sv-name { opacity: 1; }
 .sv-line { position: absolute; width: 2px; background: rgba(255,255,255,.95); transform-origin: top center; z-index: 5; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.45); }
-/* 今日休假浮標框（貼地圖卡片左下角，無座標者集中顯示） */
-.sv-leave-box { position: absolute; left: 32px; bottom: 32px; max-width: calc(100% - 64px); max-height: 42%; overflow-y: auto; z-index: 15; background: rgba(255,255,255,.95); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+/* 今日休假／上課等（無座標者）：排在地圖下方，當天有才顯示、不覆蓋地圖 */
+.sv-leave-box { width: fit-content; max-width: calc(100% - 24px); margin: 12px 12px 2px; background: rgba(255,255,255,.95); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.10); }
 .sv-leave-box .lv-list { display: flex; flex-direction: column; gap: 4px; }
-.sv-leave-box .lv-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text); cursor: pointer; }
-.sv-leave-box .lv-av { width: 18px; height: 18px; border-radius: 50%; background-size: cover; background-position: center; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.sv-leave-box .lv-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.sv-leave-box .lv-av { width: 24px; height: 24px; border-radius: 50%; background-size: cover; background-position: center; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
 
 /* POPUP */
 .pin-popup {
@@ -181,6 +181,14 @@ nav > * { flex-shrink: 0; }
   border: none; background: var(--accent); color: #fff;
   font-weight: 600; cursor: pointer; font-size: 12px; font-family: var(--font);
 }
+
+/* PROGRESS GAUGES (汽車儀表板式) */
+#home-progress-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px 6px; }
+.gauge-item { cursor: pointer; text-align: center; padding: 6px 4px 8px; border-radius: 10px; transition: background .15s; }
+.gauge-item:hover { background: #f1f5f9; }
+.gauge-svg { width: 100%; max-width: 160px; height: auto; display: block; margin: 0 auto; }
+.gauge-name { font-size: 12.5px; color: var(--muted); margin-top: 1px; line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* PROGRESS ITEMS (side panel) */
 .progress-item { margin-bottom: 12px; }
@@ -635,7 +643,6 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div class="side-grid">
       <!-- Progress rank -->
       <div class="card">
-        <div class="card-title">📊 案場進度排行</div>
         <div id="home-progress-list"></div>
       </div>
     </div>
@@ -1184,11 +1191,10 @@ function ringChart(pct, color, exp) {
   const r = 52, cx = 65, circ = +(2 * Math.PI * r).toFixed(1);
   const offset = +(circ * (1 - pct / 100)).toFixed(1);
   let defs = '', gap = '';
-  if (exp != null && exp > pct) {  // 落後缺口：灰斜紋弧段（實際→預期）
+  if (exp != null && exp > pct) {  // 落後缺口：實心灰弧段（實際→預期），與首頁儀表一致
     const gapLen = +((exp - pct) / 100 * circ).toFixed(1);
     const startAngle = (-90 + pct / 100 * 360).toFixed(1);
-    defs = `<defs><pattern id="ringHatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="6" height="6" fill="#cbd5e1"/><rect width="3" height="6" fill="#94a3b8"/></pattern></defs>`;
-    gap = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="url(#ringHatch)" stroke-width="10"
+    gap = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="#94a3b8" stroke-width="10"
       stroke-dasharray="${gapLen} ${circ}" transform="rotate(${startAngle} ${cx} ${cx})"/>`;
   }
   return `<svg width="130" height="130" viewBox="0 0 130 130">
@@ -1275,7 +1281,7 @@ function drawDailyLog() {
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
-  const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#16a34a;color:#fff;font-weight:600;visibility:${dailyLogDirty.size ? 'visible' : 'hidden'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
+  const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;visibility:${dailyLogDirty.size ? 'visible' : 'hidden'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
   let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
@@ -1484,21 +1490,83 @@ function showPage(id, btn) {
 }
 
 // ===================== HOME =====================
+// 汽車儀表板式半圓指針錶：外圈灰軌 + 依狀態上色的值弧 + 指針 + 預期進度刻度
+const GAUGE = { cx: 60, cy: 54, r: 50, sw: 11 };
+function gaugePt(val, rad) {
+  const { cx, cy } = GAUGE;
+  const t = Math.PI * (1 - Math.max(0, Math.min(100, val)) / 100);
+  return [cx + rad * Math.cos(t), cy - rad * Math.sin(t)];
+}
+// 給定百分比 → 值弧路徑與指針端點（動畫每格重算用）
+function gaugeParts(p) {
+  const { cx, cy, r } = GAUGE;
+  const [vx, vy] = gaugePt(p, r);
+  const [nx, ny] = gaugePt(p, r - 8);
+  // 0%（起點=終點）搭配 round 線帽會畫出一個小圓點，故留空不畫
+  const valD = p <= 0.1 ? '' : `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${vx.toFixed(2)} ${vy.toFixed(2)}`;
+  return { valD, nx, ny };
+}
+// 刷新頁面時的開機掃針動畫：各儀表由 0% 掃到目標值（指針+弧+數字一起跑）
+function animateGauges() {
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('#home-progress-list .gauge-svg').forEach(svg => {
+    const target = +svg.dataset.pct || 0;
+    const valP = svg.querySelector('.g-val'), needle = svg.querySelector('.g-needle'), num = svg.querySelector('.g-num');
+    if (!valP || !needle || !num) return;
+    const apply = p => {
+      const { valD, nx, ny } = gaugeParts(p);
+      valP.setAttribute('d', valD);
+      needle.setAttribute('x2', nx.toFixed(2)); needle.setAttribute('y2', ny.toFixed(2));
+      num.textContent = Math.round(p) + '%';
+    };
+    if (reduce) { apply(target); return; }               // 尊重系統「減少動態」設定
+    const dur = 900, t0 = performance.now();
+    const ease = t => 1 - Math.pow(1 - t, 3);            // easeOutCubic
+    apply(0);
+    const frame = now => {
+      const t = Math.min(1, (now - t0) / dur);
+      apply(target * ease(t));
+      if (t < 1) requestAnimationFrame(frame); else apply(target);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+function progressGauge(s) {
+  const pct = Math.max(0, Math.min(100, s.pct || 0));
+  const color = progressColor(s.pct, s.status);
+  const { cx, cy, r, sw } = GAUGE;
+  const pt = gaugePt;
+  const { valD: val, nx, ny } = gaugeParts(pct);   // 值弧路徑（0% 為空）與指針端點
+  const track = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+  // 落後缺口（灰色）：與原進度條規則一致——僅落後（非符合工期、未完工）時，顯示「實際→預期」之間的灰段
+  let gap = '';
+  const exp = (typeof expectedPct === 'function') ? expectedPct(s) : null;
+  const done = s.status === 'done' || s.pct >= 100;
+  const lag = exp != null ? Math.round(exp - s.pct) : 0;
+  if (exp != null && lag > 0 && !done && s.status !== 'normal') {
+    const [gsx, gsy] = pt(pct, r);
+    const [gex, gey] = pt(Math.min(exp, 100), r);
+    gap = `<path d="M ${gsx.toFixed(2)} ${gsy.toFixed(2)} A ${r} ${r} 0 0 1 ${gex.toFixed(2)} ${gey.toFixed(2)}" fill="none" stroke="#94a3b8" stroke-width="${sw}" stroke-linecap="round"><title>預期 ${Math.round(exp)}%（落後 ${lag}%）</title></path>`;
+  }
+  return `<svg viewBox="0 -7 120 101" class="gauge-svg" data-pct="${pct}">
+    <path d="${track}" fill="none" stroke="#e5e7eb" stroke-width="${sw}" stroke-linecap="round"/>
+    ${gap}
+    <path class="g-val" d="${val}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
+    <line class="g-needle" x1="${cx}" y1="${cy}" x2="${nx.toFixed(2)}" y2="${ny.toFixed(2)}" stroke="#334155" stroke-width="2.8" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="4.8" fill="#334155"/>
+    <text class="g-num" x="${cx}" y="86" text-anchor="middle" font-size="18" font-weight="800" fill="${color}">${s.pct}%</text>
+  </svg>`;
+}
 function renderHome() {
   // Progress list (top 10 by pct, 排除已完工)
   const sorted = sites.filter(s => s.status !== 'done').sort((a,b) => b.pct - a.pct).slice(0, 10);
   const el = document.getElementById('home-progress-list');
   el.innerHTML = sorted.map(s => `
-    <div class="progress-item" onclick="openModal(${s.id})" style="cursor:pointer">
-      <div class="progress-header">
-        <span class="progress-name">${s.name}</span>
-        <span class="progress-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
-      </div>
-      <div class="progress-bar" style="display:flex;overflow:hidden">
-        <div class="progress-fill ${fillClass(s.status)}" style="width:${s.pct}%;border-radius:0"></div>
-        ${progressGapHTML(s)}
-      </div>
+    <div class="gauge-item" onclick="openModal(${s.id})" title="${(s.name || '').replace(/"/g,'&quot;')}">
+      ${progressGauge(s)}
+      <div class="gauge-name">${s.label || s.name}</div>
     </div>`).join('');
+  animateGauges();   // 刷新頁面時掃針動畫（由 0% 掃到各案場實際進度）
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
@@ -1536,7 +1604,7 @@ function progressGapHTML(s) {
   const lag = exp != null ? Math.round(exp - s.pct) : 0;
   if (!(exp != null && lag > 0 && !done && s.status !== 'normal')) return '';
   const gapW = Math.min(exp, 100) - s.pct;
-  return `<div title="預期 ${Math.round(exp)}%（落後 ${lag}%）" style="width:${gapW}%;background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#cbd5e1 3px,#cbd5e1 6px)"></div>`;
+  return `<div title="預期 ${Math.round(exp)}%（落後 ${lag}%）" style="width:${gapW}%;background:#94a3b8"></div>`;
 }
 // 進度表的進度格：實際填色段 + 落後缺口灰斜紋 + 剩餘留白
 function progressCellHTML(s) {
