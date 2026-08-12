@@ -190,6 +190,25 @@ nav > * { flex-shrink: 0; }
 .gauge-name { font-size: 12.5px; color: var(--muted); margin-top: 1px; line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
+/* 證照回訓提醒 */
+.cert-alert-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--border); }
+.cert-alert-row:last-child { border-bottom: none; }
+.cert-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.cert-av { width: 24px; height: 24px; border-radius: 50%; background-size: cover; background-position: center; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.cert-alert-row:hover { background: #f8fafc; }
+.cert-alert-name { font-weight: 600; font-size: 13px; }
+.cert-alert-cert { font-size: 12px; color: var(--muted); }
+.cert-alert-days { margin-left: auto; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.cert-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cert-table th, .cert-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: center; }
+.cert-table td { height: 55px; vertical-align: middle; }   /* 每列等高（含膠囊也不變高） */
+.cert-table th { font-size: 12px; color: var(--text); background: var(--surface2, #f8fafc); font-weight: 700; }
+.cert-table tbody tr:hover { background: #f8fafc; }
+.cert-pill { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #fff; border-radius: 10px; padding: 1px 9px; white-space: nowrap; }
+.cert-cell.editable { cursor: pointer; position: relative; }
+.cert-cell.editable:hover { background: #eef4ff; box-shadow: inset 0 0 0 2px #bfdbfe; }
+.cert-cell.editable:hover::after { content: '✏️'; position: absolute; top: 3px; right: 5px; font-size: 10px; opacity: .7; }
+
 /* PROGRESS ITEMS (side panel) */
 .progress-item { margin-bottom: 12px; }
 .progress-item:last-child { margin-bottom: 0; }
@@ -645,6 +664,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="card">
         <div id="home-progress-list"></div>
       </div>
+      <!-- 證照回訓提醒 -->
+      <div class="card">
+        <div class="card-title">證照回訓提醒</div>
+        <div id="home-cert-list"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -681,6 +705,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     </div>
     <div id="hr-list"></div>
   </div>
+  <div class="section-title" style="margin-top:20px">證照到期 / 回訓提醒</div>
+  <div class="card"><div id="cert-table"></div></div>
+
   <div class="section-title" style="margin-top:20px">主任案場分配詳情</div>
   <div class="hr-grid" id="hr-detail-grid"></div>
 </div>
@@ -827,6 +854,26 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <div id="avatar-overlay" onclick="closeAvatarCard(event)">
   <div id="avatar-card" onclick="event.stopPropagation()">
     <button class="ac-close" onclick="closeAvatarCard()">✕</button>
+  </div>
+</div>
+
+<!-- ===== 編輯證照到期日 ===== -->
+<div id="cert-edit-overlay" class="modal-overlay" onclick="if(event.target===this)closeCertEdit()">
+  <div class="modal-box" style="width:360px;max-width:92vw" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">編輯到期日</div>
+      <button class="modal-close" onclick="closeCertEdit()">✕</button>
+    </div>
+    <div style="padding:18px 20px">
+      <div id="cert-edit-title" style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px"></div>
+      <label style="font-size:12px;color:var(--muted)">下次到期日</label>
+      <input type="date" id="cert-edit-input" style="width:100%;box-sizing:border-box;padding:9px 10px;margin-top:5px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font)">
+      <button class="btn-primary" style="width:100%;margin-top:18px" onclick="certEditSave()">💾 儲存下次到期日（回訓完成）</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-secondary" style="flex:1;color:#2563eb;border-color:#93c5fd" onclick="certEditReg()">📝 已報名上課</button>
+        <button class="btn-secondary" style="flex:1" onclick="certEditNA()">無此證照</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1026,6 +1073,174 @@ let supervisors = [
   { name:'林則瑜 Jack', color:'#14b8a6', sites:[12],   phone:'0923-813-779' },
   { name:'吳修原 貢丸', color:'#84cc16', sites:[15],   phone:'0929-835-583' },
 ];
+
+// ===== 工地主任證照到期 / 回訓提醒 =====
+// 資料來源：工程部證照到期日.xlsx（民國年格式，x = 無此證照）。到期即需回訓。
+const CERT_SOON_DAYS = 30;                     // 到期前幾天內算「快到期」
+const CERT_META = [
+  { key: 'a', label: '職安衛業務主管', full: '營造業職業安全衛生業務主管', cycle: '2年' },
+  { key: 'b', label: '一般安衛教育',   full: '一般安全衛生教育訓練（6小時）', cycle: '3年' },
+  { key: 'c', label: '屋頂作業主管',   full: '屋頂作業主管', cycle: '3年' },
+];
+const CERT_UPDATED = '115.08.03';              // Excel 上的資料更新日（民國）
+const certData = {
+  '林根玄': { a:'112.10.17', b:'117.11.12', c:'x' },
+  '吳鎮寶': { a:'115.06.13', b:'118.04.29', c:'118.04.29' },
+  '林則瑜': { a:'115.09.18', b:'114.09.10', c:'115.04.22' },
+  '蕭名湶': { a:'115.08.08', b:'116.08.21', c:'116.11.03' },
+  '陳其民': { a:'117.05.24', b:'118.05.04', c:'118.04.27' },
+  '蕭宏明': { a:'117.04.16', b:'118.05.04', c:'116.08.03' },
+  '吳修原': { a:'x',         b:'117.11.30', c:'116.01.25' },
+  '許俊雄': { a:'117.03.17', b:'118.05.04', c:'118.01.25' },
+  '許白龍': { a:'116.12.22', b:'118.07.29', c:'115.10.20' },
+};
+const CERT_COLORS = { expired:'#dc2626', soon:'#d97706', ok:'#16a34a', na:'#94a3b8', enrolled:'#2563eb' };
+// 民國日期字串（如 115.08.03）→ Date；'x'/空 → null
+function rocToDate(s) {
+  if (!s || typeof s !== 'string') return null;
+  const m = s.trim().match(/^(\d{2,3})\.(\d{1,2})\.(\d{1,2})$/);
+  return m ? new Date(+m[1] + 1911, +m[2] - 1, +m[3]) : null;
+}
+// 今天與目標日的年月日差（跨月自動借位）：{ y, m, d, past }
+function dateDiffYMD(target) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const past = target < today;
+  const a = past ? target : today, b = past ? today : target;
+  let y = b.getFullYear() - a.getFullYear();
+  let m = b.getMonth() - a.getMonth();
+  let d = b.getDate() - a.getDate();
+  if (d < 0) { m--; d += new Date(b.getFullYear(), b.getMonth(), 0).getDate(); }
+  if (m < 0) { y--; m += 12; }
+  return { y, m, d, past };
+}
+// 年月日差 → 文字（省略為 0 的單位；不足一天顯示「0 天」）
+function ymdText(target) {
+  const { y, m, d } = dateDiffYMD(target);
+  const parts = [];
+  if (y) parts.push(`${y} 年`);
+  if (m) parts.push(`${m} 月`);
+  if (d || !parts.length) parts.push(`${d} 天`);
+  return parts.join(' ');
+}
+// 解析證照欄位值：'x'=無、'reg'/'reg:日期'=已報名上課、其餘=民國到期日
+function certParse(v) {
+  if (!v || v === 'x') return { na: true };
+  if (typeof v === 'string' && v.indexOf('reg') === 0) return { reg: true, date: rocToDate(v.slice(3).replace(/^:/, '')) };
+  return { date: rocToDate(v) };
+}
+// 證照狀態：{ has, level:'expired'|'soon'|'ok'|'na'|'enrolled', days, ymd(西元), durText(年月日) }
+function certStatus(v) {
+  const pr = certParse(v);
+  if (pr.na) return { has: false, level: 'na' };
+  const p = n => String(n).padStart(2, '0');
+  const ymd = pr.date ? `${pr.date.getFullYear()}/${p(pr.date.getMonth() + 1)}/${p(pr.date.getDate())}` : '';
+  if (pr.reg) return { has: true, level: 'enrolled', ymd, durText: pr.date ? ymdText(pr.date) : '' };
+  const d = pr.date;
+  if (!d) return { has: false, level: 'na' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  const level = days < 0 ? 'expired' : days <= CERT_SOON_DAYS ? 'soon' : 'ok';
+  return { has: true, level, days, ymd, durText: ymdText(d) };
+}
+const certSvByName = name => supervisors.find(s => (s.name || '').includes(name));
+// 證照名單用的小頭貼（結合系統工地主任）：有頭貼用頭貼、否則取首字；ring=外圈狀態色
+function certAvatar(sv, name, ring) {
+  const initial = (((sv && sv.name) || name || '?').trim()[0]) || '?';
+  const bg = sv && sv.avatar ? `background-image:url(${sv.avatar})` : `background:${(sv && sv.color) || '#94a3b8'}`;
+  const ringCss = ring ? `;box-shadow:0 0 0 2px ${ring}` : '';
+  return `<span class="cert-av" style="${bg}${ringCss}">${sv && sv.avatar ? '' : initial}</span>`;
+}
+// 需回訓/快到期的證照清單（依剩餘天數由少到多），供首頁提醒卡與 badge 共用
+function certAlerts() {
+  const items = [];
+  Object.keys(certData).forEach(name => CERT_META.forEach(m => {
+    const st = certStatus(certData[name][m.key]);
+    if (st.has && (st.level === 'expired' || st.level === 'soon')) items.push({ name, cert: m.full, st });
+  }));
+  return items.sort((a, b) => a.st.days - b.st.days);
+}
+
+// ---- 證照到期可編輯：localStorage 立即保存 + 選擇性同步 Supabase(cert_expiry) ----
+const CERT_LS_KEY = 'gs_cert_overrides';
+function applyCertLS() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CERT_LS_KEY) || '{}');
+    Object.keys(o).forEach(name => { certData[name] = Object.assign(certData[name] || {}, o[name]); });
+  } catch (e) {}
+}
+function writeCertLS(name) {
+  try {
+    const o = JSON.parse(localStorage.getItem(CERT_LS_KEY) || '{}');
+    o[name] = certData[name];
+    localStorage.setItem(CERT_LS_KEY, JSON.stringify(o));
+  } catch (e) {}
+}
+// 從 Supabase 讀共用證照資料（表 cert_expiry；表不存在則沿用內建/本機）
+async function loadCertExpiry() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('cert_expiry').select('*');
+    if (error || !data) return;
+    data.forEach(r => { certData[r.name] = { a: r.a, b: r.b, c: r.c }; });
+  } catch (e) {}
+}
+// 西元 Date → 民國字串（yyy.mm.dd）
+function dateToRoc(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear() - 1911}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+// 儲存某人某證照的下次到期日（roc 字串或 'x'＝無此證照）
+async function certSaveDate(name, key, roc) {
+  certData[name] = certData[name] || { a: 'x', b: 'x', c: 'x' };
+  certData[name][key] = roc;
+  writeCertLS(name);
+  if (sb) {
+    try {
+      const rec = { name, ...certData[name], updated: dateToRoc(new Date()) };
+      const { error } = await sb.from('cert_expiry').upsert(rec, { onConflict: 'name' });
+      if (error) console.warn('證照雲端儲存失敗（cert_expiry 表可能未建立），已存本機', error.message);
+    } catch (e) {}
+  }
+  renderCertTable();
+  renderCertReminder();
+}
+applyCertLS();   // 載入時先套用本機已編輯的到期日
+
+// ---- 編輯到期日彈窗 ----
+let certEditRef = null;
+function certEditCell(name, key) {
+  if (!currentUser) return;
+  certEditRef = { name, key };
+  const meta = CERT_META.find(m => m.key === key);
+  document.getElementById('cert-edit-title').textContent = `${(certSvByName(name) || {}).name || name} · ${meta.full}`;
+  const inp = document.getElementById('cert-edit-input');
+  const cur = certParse(certData[name] && certData[name][key]).date;
+  if (cur) { const p = n => String(n).padStart(2, '0'); inp.value = `${cur.getFullYear()}-${p(cur.getMonth() + 1)}-${p(cur.getDate())}`; }
+  else inp.value = '';
+  document.getElementById('cert-edit-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 50);
+}
+function closeCertEdit() { document.getElementById('cert-edit-overlay').classList.remove('open'); certEditRef = null; }
+async function certEditSave() {
+  if (!certEditRef) return;
+  const v = document.getElementById('cert-edit-input').value;
+  if (!v) { alert('請選擇下次到期日，或按「設為無此證照」'); return; }
+  await certSaveDate(certEditRef.name, certEditRef.key, dateToRoc(new Date(v + 'T00:00:00')));
+  closeCertEdit();
+}
+async function certEditNA() {
+  if (!certEditRef) return;
+  await certSaveDate(certEditRef.name, certEditRef.key, 'x');
+  closeCertEdit();
+}
+// 已報名上課：保留原到期日（若有）作附註，狀態轉藍、不再列入回訓提醒
+async function certEditReg() {
+  if (!certEditRef) return;
+  const v = document.getElementById('cert-edit-input').value;
+  const roc = v ? dateToRoc(new Date(v + 'T00:00:00')) : '';
+  await certSaveDate(certEditRef.name, certEditRef.key, roc ? 'reg:' + roc : 'reg');
+  closeCertEdit();
+}
 
 // 工地主任每日派工／支援記錄：{ id, log_date, supervisor, site_id }
 let supLogs = [];
@@ -1497,36 +1712,46 @@ function gaugePt(val, rad) {
   const t = Math.PI * (1 - Math.max(0, Math.min(100, val)) / 100);
   return [cx + rad * Math.cos(t), cy - rad * Math.sin(t)];
 }
+// 弧線路徑（from%→to%）；區段太短則留空（避免 round 線帽畫出小圓點）
+function gaugeArc(from, to) {
+  if (to - from <= 0.1) return '';
+  const { r } = GAUGE;
+  const [ax, ay] = gaugePt(from, r);
+  const [bx, by] = gaugePt(to, r);
+  return `M ${ax.toFixed(2)} ${ay.toFixed(2)} A ${r} ${r} 0 0 1 ${bx.toFixed(2)} ${by.toFixed(2)}`;
+}
 // 給定百分比 → 值弧路徑與指針端點（動畫每格重算用）
 function gaugeParts(p) {
-  const { cx, cy, r } = GAUGE;
-  const [vx, vy] = gaugePt(p, r);
+  const { r } = GAUGE;
   const [nx, ny] = gaugePt(p, r - 8);
-  // 0%（起點=終點）搭配 round 線帽會畫出一個小圓點，故留空不畫
-  const valD = p <= 0.1 ? '' : `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${vx.toFixed(2)} ${vy.toFixed(2)}`;
-  return { valD, nx, ny };
+  return { valD: gaugeArc(0, p), nx, ny };
 }
 // 刷新頁面時的開機掃針動畫：各儀表由 0% 掃到目標值（指針+弧+數字一起跑）
 function animateGauges() {
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.querySelectorAll('#home-progress-list .gauge-svg').forEach(svg => {
     const target = +svg.dataset.pct || 0;
-    const valP = svg.querySelector('.g-val'), needle = svg.querySelector('.g-needle'), num = svg.querySelector('.g-num');
+    const exp = svg.dataset.exp ? +svg.dataset.exp : null;   // 落後缺口的預期值
+    const valP = svg.querySelector('.g-val'), needle = svg.querySelector('.g-needle'),
+          num = svg.querySelector('.g-num'), gapP = svg.querySelector('.g-gap');
     if (!valP || !needle || !num) return;
-    const apply = p => {
-      const { valD, nx, ny } = gaugeParts(p);
+    // f=0→1：彩色弧掃到 target*f、灰色缺口接續掃到 exp*f（兩者一起動）
+    const applyF = f => {
+      const v = target * f;
+      const { valD, nx, ny } = gaugeParts(v);
       valP.setAttribute('d', valD);
       needle.setAttribute('x2', nx.toFixed(2)); needle.setAttribute('y2', ny.toFixed(2));
-      num.textContent = Math.round(p) + '%';
+      num.textContent = Math.round(v) + '%';
+      if (gapP && exp != null) gapP.setAttribute('d', gaugeArc(v, exp * f));
     };
-    if (reduce) { apply(target); return; }               // 尊重系統「減少動態」設定
+    if (reduce) { applyF(1); return; }                   // 尊重系統「減少動態」設定
     const dur = 900, t0 = performance.now();
     const ease = t => 1 - Math.pow(1 - t, 3);            // easeOutCubic
-    apply(0);
+    applyF(0);
     const frame = now => {
       const t = Math.min(1, (now - t0) / dur);
-      apply(target * ease(t));
-      if (t < 1) requestAnimationFrame(frame); else apply(target);
+      applyF(ease(t));
+      if (t < 1) requestAnimationFrame(frame); else applyF(1);
     };
     requestAnimationFrame(frame);
   });
@@ -1539,16 +1764,16 @@ function progressGauge(s) {
   const { valD: val, nx, ny } = gaugeParts(pct);   // 值弧路徑（0% 為空）與指針端點
   const track = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
   // 落後缺口（灰色）：與原進度條規則一致——僅落後（非符合工期、未完工）時，顯示「實際→預期」之間的灰段
-  let gap = '';
+  let gap = '', expAttr = '';
   const exp = (typeof expectedPct === 'function') ? expectedPct(s) : null;
   const done = s.status === 'done' || s.pct >= 100;
   const lag = exp != null ? Math.round(exp - s.pct) : 0;
   if (exp != null && lag > 0 && !done && s.status !== 'normal') {
-    const [gsx, gsy] = pt(pct, r);
-    const [gex, gey] = pt(Math.min(exp, 100), r);
-    gap = `<path d="M ${gsx.toFixed(2)} ${gsy.toFixed(2)} A ${r} ${r} 0 0 1 ${gex.toFixed(2)} ${gey.toFixed(2)}" fill="none" stroke="#94a3b8" stroke-width="${sw}" stroke-linecap="round"><title>預期 ${Math.round(exp)}%（落後 ${lag}%）</title></path>`;
+    const expC = Math.min(exp, 100);
+    expAttr = ` data-exp="${expC}"`;
+    gap = `<path class="g-gap" d="${gaugeArc(pct, expC)}" fill="none" stroke="#94a3b8" stroke-width="${sw}" stroke-linecap="round"><title>預期 ${Math.round(exp)}%（落後 ${lag}%）</title></path>`;
   }
-  return `<svg viewBox="0 -7 120 101" class="gauge-svg" data-pct="${pct}">
+  return `<svg viewBox="0 -7 120 101" class="gauge-svg" data-pct="${pct}"${expAttr}>
     <path d="${track}" fill="none" stroke="#e5e7eb" stroke-width="${sw}" stroke-linecap="round"/>
     ${gap}
     <path class="g-val" d="${val}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
@@ -1556,6 +1781,57 @@ function progressGauge(s) {
     <circle cx="${cx}" cy="${cy}" r="4.8" fill="#334155"/>
     <text class="g-num" x="${cx}" y="86" text-anchor="middle" font-size="18" font-weight="800" fill="${color}">${s.pct}%</text>
   </svg>`;
+}
+// 首頁證照回訓提醒卡：只列出已逾期或 30 天內到期者
+function renderCertReminder() {
+  const el = document.getElementById('home-cert-list');
+  if (!el) return;
+  const items = certAlerts();
+  if (!items.length) {
+    el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前沒有即將到期或逾期的證照</div>`;
+    return;
+  }
+  el.innerHTML = items.map(({ name, cert, st }) => {
+    const txt = st.level === 'expired' ? `已逾期 ${st.durText}` : `剩 ${st.durText}`;
+    const sv = certSvByName(name);
+    const click = sv ? ` onclick="showAvatarCard('${sv.name.replace(/'/g, "\\'")}',event)" style="cursor:pointer"` : '';
+    return `<div class="cert-alert-row"${click}>
+      <span class="cert-dot" style="background:${CERT_COLORS[st.level]}"></span>
+      <span class="cert-alert-name">${sv ? sv.name : name}</span>
+      <span class="cert-alert-cert">${cert}</span>
+      <span class="cert-alert-days" style="color:${CERT_COLORS[st.level]}">${txt}</span>
+    </div>`;
+  }).join('');
+}
+// 人力資源頁完整證照到期表
+function renderCertTable() {
+  const el = document.getElementById('cert-table');
+  if (!el) return;
+  const rows = Object.keys(certData).map(name => {
+    const sv = certSvByName(name);
+    const cells = CERT_META.map(m => {
+      const st = certStatus(certData[name][m.key]);
+      let inner;
+      if (!st.has) inner = `<span style="color:#cbd5e1">—</span>`;
+      else if (st.level === 'ok') inner = `<div style="font-weight:600">${st.ymd}</div>`;   // 有效只顯示日期
+      else if (st.level === 'enrolled') {   // 已報名上課：藍色，原到期日以刪除線淡顯
+        inner = `${st.ymd ? `<div style="font-weight:600;color:#94a3b8;text-decoration:line-through">${st.ymd}</div>` : ''}<div class="cert-pill" style="background:${CERT_COLORS.enrolled}">已報名上課</div>`;
+      } else {
+        const txt = st.level === 'expired' ? `已逾期 ${st.durText}` : `剩 ${st.durText}`;   // 逾期/快到期才顯示膠囊
+        inner = `<div style="font-weight:600;color:${CERT_COLORS[st.level]}">${st.ymd}</div><div class="cert-pill" style="background:${CERT_COLORS[st.level]}">${txt}</div>`;
+      }
+      const edit = currentUser ? ` onclick="certEditCell('${name.replace(/'/g, "\\'")}','${m.key}')" title="點擊編輯到期日"` : '';
+      return `<td class="cert-cell${currentUser ? ' editable' : ''}" style="text-align:center;white-space:nowrap"${edit}>${inner}</td>`;
+    }).join('');
+    const dispName = sv ? sv.name : `${name} <span style="color:#94a3b8;font-weight:400;font-size:11px">(未在冊)</span>`;
+    const click = sv ? ` onclick="showAvatarCard('${sv.name.replace(/'/g, "\\'")}',event)" style="cursor:pointer"` : '';
+    return `<tr><td style="text-align:left;white-space:nowrap;font-weight:600">
+      <span${click}>${dispName}</span>
+    </td>${cells}</tr>`;
+  }).join('');
+  el.innerHTML = `<div class="scroll-x"><table class="cert-table">
+    <thead><tr><th style="text-align:left">工地主任</th>${CERT_META.map(m => `<th>${m.full}<br><span style="font-weight:400;color:#94a3b8;font-size:11px">${m.cycle}</span></th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
 }
 function renderHome() {
   // Progress list (top 10 by pct, 排除已完工)
@@ -1567,6 +1843,7 @@ function renderHome() {
       <div class="gauge-name">${s.label || s.name}</div>
     </div>`).join('');
   animateGauges();   // 刷新頁面時掃針動畫（由 0% 掃到各案場實際進度）
+  renderCertReminder();   // 首頁證照回訓提醒卡
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
@@ -1666,6 +1943,7 @@ function renderProgressTable(filter) {
 
 // ===================== HR =====================
 function renderHR() {
+  renderCertTable();   // 證照到期 / 回訓提醒表
   const maxLoad = 3;
   const overloaded = supervisors.filter(s => s.role !== '工程部主管' && activeSitesOf(s).length > maxLoad);
 
@@ -5212,6 +5490,7 @@ async function initApp() {
     loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  loadCertExpiry().then(() => { renderCertTable(); renderCertReminder(); }); // 證照到期共用資料（表未建立則沿用內建/本機）
   loadCustomPlaces().then(() => renderTaiwanMap()); // 自訂常用地點（地圖圖釘用；失敗不影響其他功能）
   // 地圖容器尺寸底定/視窗縮放時重繪，讓頭貼避讓依「最終尺寸」重算（修正初次載入時位置差一點壓到陸地）
   try {
