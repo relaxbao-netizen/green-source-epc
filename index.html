@@ -570,6 +570,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .tab-row { flex-wrap: wrap; gap: 4px; }
   .tab-btn { white-space: nowrap; flex-shrink: 0; padding: 6px 9px; }
   #btn-add-site-progress { padding: 0 6px; font-size: 12px; height: 28px; flex-shrink: 0; }
+
+  /* 首頁進度儀表：手機一排 3 個（5 個在手機太擠、名稱難讀） */
+  #home-progress-list { grid-template-columns: repeat(3, 1fr); gap: 10px 4px; }
+  /* 證照回訓提醒卡：字級縮小、名稱不撐爆 */
+  .cert-alert-name { font-size: 12px; }
+  .cert-alert-cert { font-size: 11px; min-width: 0; flex: 1; }
+  .cert-alert-days { font-size: 11px; }
+  /* 證照表格：內距收窄，配合橫向觸控捲動 */
+  .cert-table th, .cert-table td { padding: 8px; }
 }
 </style>
 </head>
