@@ -120,6 +120,7 @@ nav > * { flex-shrink: 0; }
   align-self: start;   /* 不隨右欄撐高，避免地圖下方多出一大塊白色 */
 }
 .map-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.map-day-nav { position: absolute; top: 14px; right: 16px; z-index: 20; display: inline-flex; align-items: center; gap: 4px; background: transparent; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -674,6 +675,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="main-grid">
     <!-- MAP -->
     <div class="map-card">
+      <!-- 右上角：切換查看前一天／後一天的主任派工位置 -->
+      <div class="map-day-nav">
+        <button style="background:transparent;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:0 6px;line-height:1" onclick="shiftMapDay(-1)" title="前一天">‹</button>
+        <button id="map-next-day" style="background:transparent;border:none;cursor:pointer;font-size:18px;color:var(--muted);padding:0 6px;line-height:1" onclick="shiftMapDay(1)" title="後一天">›</button>
+      </div>
       <div class="map-legend">
         <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>符合工期</div>
         <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>即將落後</div>
@@ -3198,10 +3204,12 @@ let _topoCache = null; // 縣市圖資只下載一次，重繪時不再閃爍
 let mapViewDate = null; // 地圖顯示的日期：null＝今天；否則 'YYYY-MM-DD'
 function shiftMapDay(delta) {
   if (delta === 0) { mapViewDate = null; renderTaiwanMap(); return; } // 點日期＝回到今天
-  const base = mapViewDate || localDate(new Date());
+  const today = localDate(new Date());
+  const base = mapViewDate || today;
   const [y, m, d] = base.split('-').map(Number);
   const ns = localDate(new Date(y, m - 1, d + delta));
-  mapViewDate = (ns === localDate(new Date())) ? null : ns;
+  if (ns > today) return;                        // 不能看未來（超過今天）
+  mapViewDate = (ns === today) ? null : ns;
   renderTaiwanMap();
 }
 async function renderTaiwanMap() {
@@ -3259,6 +3267,14 @@ async function renderTaiwanMap() {
     const _wk = ['日','一','二','三','四','五','六'][new Date(_y, _m - 1, _d).getDay()];
     _lbl.textContent = (today === realToday ? '今天 ' : '') + `${_m}/${_d}（${_wk}）`;
     _lbl.style.color = (today === realToday) ? 'var(--muted)' : 'var(--accent)';
+  }
+  // 已到今天就不能再往後（看未來）：把「後一天」按鈕變灰、停用
+  const _next = document.getElementById('map-next-day');
+  if (_next) {
+    const atToday = (today === realToday);
+    _next.disabled = atToday;
+    _next.style.opacity = atToday ? '.3' : '1';
+    _next.style.cursor = atToday ? 'default' : 'pointer';
   }
   const byLoc = {};
   // 每位主任「當前時段」的派工記錄：依登記順序第一筆＝上午、第二筆＝下午；
