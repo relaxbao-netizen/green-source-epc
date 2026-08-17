@@ -2115,8 +2115,9 @@ function renderHR() {
       <div class="hd-site-row" onclick="openModal(${s.id})" style="cursor:pointer">
         <span class="hd-site-name">${s.name}</span>
         <div class="hd-bar-wrap">
-          <div class="hd-bar">
-            <div class="hd-fill ${fillClass(s.status)}" style="width:${s.pct}%"></div>
+          <div class="hd-bar" style="display:flex;overflow:hidden">
+            <div class="hd-fill ${fillClass(s.status)}" style="width:${s.pct}%;border-radius:0"></div>
+            ${progressGapHTML(s)}
           </div>
         </div>
         <span class="hd-pct" style="color:${progressColor(s.pct,s.status)}">${s.pct}%</span>
