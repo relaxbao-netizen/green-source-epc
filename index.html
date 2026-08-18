@@ -1930,6 +1930,7 @@ function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
+  window.scrollTo(0, 0);   // 切換分頁一律回到頁面最頂部
   if (btn) btn.classList.add('active');
   else {
     const b = document.querySelector(`[data-page="${id}"]`);
