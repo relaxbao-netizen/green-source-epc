@@ -1350,7 +1350,14 @@ const INS_META = [
   { key: 'a', label: '安裝工程綜合險' },
   { key: 'b', label: '雇主意外責任險' },
 ];
-let insData = {};                       // { <siteId>: { a:'YYYY-MM-DD'|'x'|'', b:... } }
+let insData = {                         // { <siteId>: { a:安裝工程綜合險, b:雇主意外責任險（YYYY-MM-DD|'x'|''） } }
+  5:  { a: '2026-10-31', b: '2026-10-31' },   // 兆豐銀行
+  12: { a: '2026-01-22', b: '2026-01-22' },   // 台積電AP6B
+  14: { a: '2026-10-31', b: '2026-10-31' },   // 法蘭摩沙
+  15: { a: '2027-01-31', b: '2027-01-31' },   // 台積電AP5B
+  18: { a: '2027-03-05', b: '2027-03-05' },   // 台積電AP7
+  20: { a: '2027-09-30', b: '2027-09-30' },   // 景碩
+};
 const INS_LS_KEY = 'gs_ins_overrides';
 function applyInsLS() {
   try { const o = JSON.parse(localStorage.getItem(INS_LS_KEY) || '{}'); Object.keys(o).forEach(id => { insData[id] = Object.assign(insData[id] || {}, o[id]); }); } catch (e) {}
