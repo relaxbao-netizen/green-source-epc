@@ -2566,8 +2566,7 @@ function renderDispatchReport(preserveScroll) {
   const controls = `<div style="display:flex;gap:8px;align-items:flex-end;justify-content:center;margin-bottom:10px">
     <button class="btn-secondary" onclick="shiftDispMonth(-1)" title="上月">‹ 上月</button>
     <button class="btn-secondary" onclick="shiftDispMonth(1)" title="下月">下月 ›</button>
-    <div class="form-field"><label>月份</label><input type="month" id="disp-month" value="${dispMonth}" onchange="applyDispatchMonth()"></div>
-    <button class="btn-primary" onclick="applyDispatchMonth()">查詢</button></div>`;
+    <div class="form-field"><input type="month" id="disp-month" value="${dispMonth}" onchange="applyDispatchMonth()"></div></div>`;
 
   // 索引：主任 → 日 → [記錄]
   const idx = {};
