@@ -92,11 +92,9 @@ nav > * { flex-shrink: 0; }
 /* MAIN GRID */
 .main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
 .side-grid { display: flex; flex-direction: column; gap: 16px; }
-.side-bottom-row { display: flex; gap: 16px; align-items: flex-start; }
-.side-bottom-row > .card { min-width: 0; }
-.side-bottom-row > .course-entry { flex: 2; }   /* 課程園地（畫面 1/3）*/
-.side-bottom-row > .doc-entry { flex: 1; }       /* 工程規範書（畫面 1/6）*/
-.side-bottom-row > .home-cert-card { flex: 1; }  /* 證照卡靠右（畫面 1/6）*/
+/* 課程園地(1/3)｜工程規範書(1/6)｜最右欄(1/6)。用 grid 精準 2:1:1，minmax(0,…) 防內容撐寬 */
+.side-bottom-row { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap: 16px; align-items: start; }
+.side-right-col { min-width: 0; display: flex; flex-direction: column; gap: 16px; }   /* 最右欄：證照卡＋保險卡上下疊 */
 .course-entry, .doc-entry { cursor: pointer; transition: box-shadow .15s, transform .15s; text-decoration: none; color: inherit; }
 .course-entry:hover, .doc-entry:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: translateY(-2px); }
 .course-cover, .doc-cover { width: 100%; border-radius: 8px; display: block; margin-top: 4px; border: 1px solid var(--border); }
@@ -222,7 +220,7 @@ nav > * { flex-shrink: 0; }
 .cert-alert-days { font-size: 12px; font-weight: 700; white-space: nowrap; }
 .cert-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cert-table th, .cert-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: center; }
-.cert-table td { height: 55px; vertical-align: middle; }   /* 每列等高（含膠囊也不變高） */
+.cert-table th, .cert-table td { height: 55px; vertical-align: middle; }   /* 表頭與每列等高（含膠囊也不變高） */
 .cert-table th { font-size: 12px; color: var(--text); background: var(--surface2, #f8fafc); font-weight: 700; }
 .cert-table tbody tr:hover { background: #f8fafc; }
 .cert-pill { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #fff; border-radius: 10px; padding: 1px 9px; white-space: nowrap; }
@@ -538,7 +536,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 @media(max-width:960px) {
   .kpi-row { grid-template-columns: repeat(3,1fr); }
   .main-grid { grid-template-columns: 1fr; }
-  .side-bottom-row { flex-direction: column; }   /* 單欄時課程園地與證照卡改上下堆疊、各滿寬 */
+  .side-bottom-row { grid-template-columns: 1fr; }   /* 單欄時全部上下堆疊、各滿寬 */
   .side-spacer { display: none; }                 /* 單欄時不需要中間空白 */
   .hr-grid { grid-template-columns: 1fr; }
   .region-kpi-row { grid-template-columns: repeat(2,1fr); }
@@ -715,9 +713,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
           <div class="card-title">工程規範書</div>
           <img class="doc-cover" src="courses/spec-cover.jpg" alt="太陽光電發電系統工程規範書">
         </a>
-        <div class="card home-cert-card">
-          <div class="card-title">證照回訓提醒</div>
-          <div id="home-cert-list"></div>
+        <div class="side-right-col">
+          <div class="card home-cert-card">
+            <div class="card-title">證照回訓提醒</div>
+            <div id="home-cert-list"></div>
+          </div>
+          <div class="card home-ins-card">
+            <div class="card-title">保險到期提醒</div>
+            <div id="home-ins-list"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -808,6 +812,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="section-title">業主專案統計</div>
   <div class="owner-grid" id="owner-grid"></div>
 
+  <div class="section-title" id="ins-hr-title" style="margin-top:20px;scroll-margin-top:70px">案場保險到期 / 續約提醒</div>
+  <div class="card"><div id="ins-table"></div></div>
 </div>
 
 <!-- ===== 器具借用 ===== -->
@@ -936,6 +942,23 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <button class="btn-secondary" style="flex:1;color:#2563eb;border-color:#93c5fd" onclick="certEditReg()">📝 已報名上課</button>
         <button class="btn-secondary" style="flex:1" onclick="certEditNA()">無此證照</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 編輯保險到期日 ===== -->
+<div id="ins-edit-overlay" class="modal-overlay" onclick="if(event.target===this)closeInsEdit()">
+  <div class="modal-box" style="width:360px;max-width:92vw" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">編輯保險到期日</div>
+      <button class="modal-close" onclick="closeInsEdit()">✕</button>
+    </div>
+    <div style="padding:18px 20px">
+      <div id="ins-edit-title" style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px"></div>
+      <label style="font-size:12px;color:var(--muted)">保險到期日</label>
+      <input type="date" id="ins-edit-input" style="width:100%;box-sizing:border-box;padding:9px 10px;margin-top:5px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font)">
+      <button class="btn-primary" style="width:100%;margin-top:18px" onclick="insEditSave()">💾 儲存到期日</button>
+      <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="insEditNA()">無此保險</button>
     </div>
   </div>
 </div>
@@ -1319,6 +1342,135 @@ async function certEditReg() {
   await certSaveDate(certEditRef.name, certEditRef.key, roc ? 'reg:' + roc : 'reg');
   closeCertEdit();
 }
+
+// ===================== 案場保險到期 / 續約提醒 =====================
+// 兩種保險，依 site id 存到期日（西元 YYYY-MM-DD；'x'=無此保險）。可編輯，localStorage 立即存＋選擇性同步 Supabase(site_insurance)。
+const INS_SOON_DAYS = 30;
+const INS_META = [
+  { key: 'a', label: '安裝工程綜合險' },
+  { key: 'b', label: '雇主意外責任險' },
+];
+let insData = {};                       // { <siteId>: { a:'YYYY-MM-DD'|'x'|'', b:... } }
+const INS_LS_KEY = 'gs_ins_overrides';
+function applyInsLS() {
+  try { const o = JSON.parse(localStorage.getItem(INS_LS_KEY) || '{}'); Object.keys(o).forEach(id => { insData[id] = Object.assign(insData[id] || {}, o[id]); }); } catch (e) {}
+}
+function writeInsLS(id) {
+  try { const o = JSON.parse(localStorage.getItem(INS_LS_KEY) || '{}'); o[id] = insData[id]; localStorage.setItem(INS_LS_KEY, JSON.stringify(o)); } catch (e) {}
+}
+async function loadInsurance() {
+  if (!sb) return;
+  try { const { data, error } = await sb.from('site_insurance').select('*'); if (error || !data) return; data.forEach(r => { insData[r.site_id] = { a: r.a, b: r.b }; }); } catch (e) {}
+}
+function insParse(v) {
+  if (!v || v === 'x') return { na: true };
+  const d = new Date(v + 'T00:00:00');
+  return isNaN(d) ? { na: true } : { date: d };
+}
+function insStatus(v) {
+  const pr = insParse(v);
+  if (pr.na) return { has: false, level: 'na' };
+  const p = n => String(n).padStart(2, '0');
+  const d = pr.date, today = new Date(); today.setHours(0, 0, 0, 0);
+  const days = Math.round((d - today) / 86400000);
+  const level = days < 0 ? 'expired' : days <= INS_SOON_DAYS ? 'soon' : 'ok';
+  return { has: true, level, days, ymd: `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`, durText: ymdText(d) };
+}
+function insSites() { return sites.filter(s => s.status !== 'done'); }   // 進行中案場才需保險提醒
+function insAlerts() {
+  const items = [];
+  insSites().forEach(s => INS_META.forEach(m => {
+    const st = insStatus((insData[s.id] || {})[m.key]);
+    if (st.has && (st.level === 'expired' || st.level === 'soon')) items.push({ site: s, key: m.key, label: m.label, st });
+  }));
+  return items.sort((a, b) => a.st.days - b.st.days);
+}
+// 首頁保險提醒卡（只列逾期或 30 天內到期）
+function renderInsReminder() {
+  const el = document.getElementById('home-ins-list');
+  if (!el) return;
+  const items = insAlerts();
+  if (!items.length) { el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前沒有即將到期或逾期的保險</div>`; return; }
+  el.innerHTML = items.map(({ site, key, label, st }) => `
+    <div class="cert-alert-row" onclick="goInsCell(${site.id},'${key}')" style="cursor:pointer">
+      <span class="cert-dot" style="background:${CERT_COLORS[st.level]}"></span>
+      <div class="cert-alert-text">
+        <div class="cert-alert-line1">
+          <span class="cert-alert-name">${site.label || site.name}</span>
+          <span class="cert-pill" style="background:${CERT_COLORS[st.level]}">${st.durText}</span>
+        </div>
+        <span class="cert-alert-cert">${label}</span>
+      </div>
+    </div>`).join('');
+}
+// 人力資源頁完整保險表
+function renderInsTable() {
+  const el = document.getElementById('ins-table');
+  if (!el) return;
+  const rows = insSites().map(s => {
+    const cells = INS_META.map(m => {
+      const st = insStatus((insData[s.id] || {})[m.key]);
+      let inner;
+      if (!st.has) inner = `<span style="color:#cbd5e1">—</span>`;
+      else if (st.level === 'ok') inner = `<div style="font-weight:600">${st.ymd}</div>`;
+      else { const txt = st.level === 'expired' ? `已逾期 ${st.durText}` : `剩 ${st.durText}`; inner = `<div style="font-weight:600;color:${CERT_COLORS[st.level]}">${st.ymd}</div><div class="cert-pill" style="background:${CERT_COLORS[st.level]}">${txt}</div>`; }
+      const edit = currentUser ? ` onclick="insEditCell(${s.id},'${m.key}')" title="點擊編輯到期日"` : '';
+      return `<td class="cert-cell${currentUser ? ' editable' : ''}" data-ins="${s.id}|${m.key}" style="text-align:center;white-space:nowrap"${edit}>${inner}</td>`;
+    }).join('');
+    return `<tr><td style="text-align:center;white-space:nowrap;font-weight:600"><span onclick="openModal(${s.id})" style="cursor:pointer">${s.name}</span></td>${cells}</tr>`;
+  }).join('');
+  el.innerHTML = `<div class="scroll-x"><table class="cert-table">
+    <thead><tr><th>案場</th>${INS_META.map(m => `<th>${m.label}</th>`).join('')}</tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+// 點首頁保險提醒 → 跳到進階分析頁保險表並閃爍該格
+function goInsCell(siteId, key) {
+  showPage('advanced');
+  setTimeout(() => {
+    const title = document.getElementById('ins-hr-title');
+    if (title) title.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const cell = document.querySelector(`#ins-table td[data-ins="${siteId}|${key}"]`);
+    if (!cell) return;
+    cell.classList.remove('cert-flash'); void cell.offsetWidth; cell.classList.add('cert-flash');
+    setTimeout(() => cell.classList.remove('cert-flash'), 2600);
+  }, 60);
+}
+// 編輯保險到期日
+async function insSaveDate(siteId, key, v) {
+  insData[siteId] = insData[siteId] || { a: 'x', b: 'x' };
+  insData[siteId][key] = v;
+  writeInsLS(siteId);
+  if (sb) {
+    try {
+      const rec = { site_id: siteId, ...insData[siteId], updated: new Date().toISOString().slice(0, 10) };
+      const { error } = await sb.from('site_insurance').upsert(rec, { onConflict: 'site_id' });
+      if (error) console.warn('保險雲端儲存失敗（site_insurance 表可能未建立），已存本機', error.message);
+    } catch (e) {}
+  }
+  renderInsTable(); renderInsReminder();
+}
+let insEditRef = null;
+function insEditCell(siteId, key) {
+  if (!currentUser) return;
+  insEditRef = { siteId, key };
+  const s = siteById(siteId), meta = INS_META.find(m => m.key === key);
+  document.getElementById('ins-edit-title').textContent = `${(s && (s.label || s.name)) || ''} · ${meta.label}`;
+  const inp = document.getElementById('ins-edit-input');
+  const cur = insParse((insData[siteId] || {})[key]).date;
+  if (cur) { const p = n => String(n).padStart(2, '0'); inp.value = `${cur.getFullYear()}-${p(cur.getMonth() + 1)}-${p(cur.getDate())}`; } else inp.value = '';
+  document.getElementById('ins-edit-overlay').classList.add('open');
+  setTimeout(() => inp.focus(), 50);
+}
+function closeInsEdit() { document.getElementById('ins-edit-overlay').classList.remove('open'); insEditRef = null; }
+async function insEditSave() {
+  if (!insEditRef) return;
+  const v = document.getElementById('ins-edit-input').value;
+  if (!v) { alert('請選擇到期日，或按「無此保險」'); return; }
+  await insSaveDate(insEditRef.siteId, insEditRef.key, v);
+  closeInsEdit();
+}
+async function insEditNA() { if (!insEditRef) return; await insSaveDate(insEditRef.siteId, insEditRef.key, 'x'); closeInsEdit(); }
+applyInsLS();
 
 // 工地主任每日派工／支援記錄：{ id, log_date, supervisor, site_id }
 let supLogs = [];
@@ -1940,12 +2092,12 @@ function renderCertTable() {
     }).join('');
     const dispName = sv ? sv.name : `${name} <span style="color:#94a3b8;font-weight:400;font-size:11px">(未在冊)</span>`;
     const click = sv ? ` onclick="showAvatarCard('${sv.name.replace(/'/g, "\\'")}',event)" style="cursor:pointer"` : '';
-    return `<tr><td style="text-align:left;white-space:nowrap;font-weight:600">
+    return `<tr><td style="text-align:center;white-space:nowrap;font-weight:600">
       <span${click}>${dispName}</span>
     </td>${cells}</tr>`;
   }).join('');
   el.innerHTML = `<div class="scroll-x"><table class="cert-table">
-    <thead><tr><th style="text-align:left">工地主任</th>${CERT_META.map(m => `<th>${m.full}<br><span style="font-weight:400;color:#94a3b8;font-size:11px">${m.cycle}</span></th>`).join('')}</tr></thead>
+    <thead><tr><th>工地主任</th>${CERT_META.map(m => `<th>${m.full}<br><span style="font-weight:400;color:#94a3b8;font-size:11px">${m.cycle}</span></th>`).join('')}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 function renderHome() {
@@ -1964,6 +2116,7 @@ function renderHome() {
     + notStarted.map(gaugeHTML).join('');
   animateGauges();   // 刷新頁面時掃針動畫（由 0% 掃到各案場實際進度）
   renderCertReminder();   // 首頁證照回訓提醒卡
+  renderInsReminder();    // 首頁保險到期提醒卡
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
@@ -2649,6 +2802,7 @@ function fmtCap(val, unit) {
   return v >= 1000 ? +(v / 1000).toFixed(2) + ' M' + unit.slice(1) : +v.toFixed(2) + ' ' + unit;
 }
 function renderAdvanced() {
+  renderInsTable();   // 案場保險到期 / 續約提醒表（此頁）
   // Region cards
   const regions = [
     { key:'north',  label:'北部', color:'#4f8fde' },
@@ -4882,7 +5036,7 @@ function appDashboardHTML(){
   return `
    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><input type="month" id="app-export-month" value="${ym}" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px"></div>
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-     ${card('跑單中件數', pending, '件', '#d97706', "appGoQueryPending()")}
+     <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
      <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
      <div class="card" style="padding:14px 16px;border-left:4px solid #7c3aed">
        <div style="cursor:pointer" onclick="appGoQueryMonthAmount()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
@@ -5615,6 +5769,22 @@ async function doAppImport(){
   alert('已匯入 '+fresh.length+' 筆歷史申請。');
 }
 
+// 讓規範書封面高度永遠等於課程封面高度（桌機並排時）；手機單欄時各自自然高度
+function syncCoverHeights() {
+  const cc = document.querySelector('.course-cover'), dc = document.querySelector('.doc-cover');
+  if (!cc || !dc) return;
+  if (window.innerWidth <= 960) { dc.style.height = 'auto'; dc.style.objectFit = ''; return; }
+  const h = cc.getBoundingClientRect().height;
+  if (h > 0) { dc.style.height = h + 'px'; dc.style.objectFit = 'contain'; }
+}
+function setupCoverHeightSync() {
+  const cc = document.querySelector('.course-cover');
+  if (!cc) return;
+  const run = () => syncCoverHeights();
+  if (cc.complete) run(); else cc.addEventListener('load', run);
+  window.addEventListener('resize', run);
+  if (window.ResizeObserver) { try { new ResizeObserver(run).observe(cc); } catch (e) {} }
+}
 async function initApp() {
   if (sb) {
     currentUser = true; // 不需登入，連上雲端即可編輯
@@ -5624,7 +5794,9 @@ async function initApp() {
     loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  setupCoverHeightSync();  // 讓「工程規範書」封面永遠與「課程」封面等高（不論視窗寬度）
   loadCertExpiry().then(() => { renderCertTable(); renderCertReminder(); }); // 證照到期共用資料（表未建立則沿用內建/本機）
+  loadInsurance().then(() => { renderInsTable(); renderInsReminder(); });     // 案場保險共用資料（site_insurance 表未建立則用本機）
   // 自訂常用地點載入後重繪地圖，但延到首頁儀表掃針動畫（約 0.9s）結束後，避免搶主執行緒卡動畫
   loadCustomPlaces().then(() => setTimeout(() => { try { renderTaiwanMap(); } catch (e) {} }, 1100));
   // 地圖容器尺寸底定/視窗縮放時重繪，讓頭貼避讓依「最終尺寸」重算。
