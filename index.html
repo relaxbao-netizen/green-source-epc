@@ -9,7 +9,7 @@
   --bg: #f1f5f9;
   --surface: #ffffff;
   --surface2: #f8fafc;
-  --border: #e2e8f0;
+  --border: #d3dbe4;
   --accent: #059669;
   --accent2: #0ea5e9;
   --accent3: #7c3aed;
@@ -87,7 +87,10 @@ nav > * { flex-shrink: 0; }
   letter-spacing: .06em; text-transform: uppercase;
   margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
 }
-.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section-title::after { content: ''; flex: 1; height: 0; border-top: 1px solid var(--border); }
+.section-title.no-line::after { display: none; }
+/* 首頁以外所有分頁的灰字標題統一 14px（蓋過個別行內 font-size） */
+.page:not(#page-home) .section-title { font-size: 14px !important; }
 
 /* MAIN GRID */
 .main-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
@@ -308,7 +311,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .tab-btn { padding: 6px 14px; border: none; border-radius: 20px; font-size: 12px; cursor: pointer; background: var(--surface2); color: var(--muted); font-family: var(--font); transition: all .15s; }
 .tab-btn.active { background: var(--accent); color: #fff; font-weight: 600; }
 .prog-table { width: 100%; border-collapse: collapse; min-width: 800px; }
-.prog-table th { text-align: left; padding: 10px 12px; font-size: 12px; color: var(--muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.prog-table th { text-align: left; padding: 10px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
 .prog-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .prog-table tr:hover td { background: var(--surface2); cursor: pointer; }
 .prog-table tr:last-child td { border-bottom: none; }
@@ -402,6 +405,14 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .btn-primary:hover { filter: brightness(1.1); }
 .btn-secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .btn-danger { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+/* 全站主要動作按鈕統一高度 36px（不含篩選膠囊 .tab-btn 與表格小編輯鈕 .btn-edit） */
+.btn-primary, .btn-secondary, .btn-danger, .btn-pri, .btn-sec {
+  height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+}
+/* 申請簽核標題列：總覽/查詢分頁與月份選擇器對齊「新增申請」的 36px 高 */
+#app-subtabs .tab-btn, #app-export-month {
+  height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+}
 .btn-edit { border: none; box-sizing: border-box; height: 21px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s; }
 .btn-edit:hover { filter: brightness(.93); }
 #sf-wbs-grid input { width: 70px; box-sizing: border-box; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; text-align: right; }
@@ -555,6 +566,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
   .page { padding: 14px; }
   .section-title { font-size: 12px; }
+  .page:not(#page-home) .section-title { font-size: 12px !important; }
 
   /* KPI：手機 2 欄、字級縮小、移除裝飾圖示 */
   .kpi-row { grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 16px; }
@@ -714,11 +726,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
           <img class="doc-cover" src="courses/spec-cover.jpg" alt="太陽光電發電系統工程規範書">
         </a>
         <div class="side-right-col">
-          <div class="card home-cert-card">
+          <div class="card home-cert-card" style="cursor:pointer" onclick="goCertTable(event)" title="點此前往證照到期表格">
             <div class="card-title">證照回訓提醒</div>
             <div id="home-cert-list"></div>
           </div>
-          <div class="card home-ins-card">
+          <div class="card home-ins-card" style="cursor:pointer" onclick="goInsTable(event)" title="點此前往案場保險到期表格">
             <div class="card-title">保險到期提醒</div>
             <div id="home-ins-list"></div>
           </div>
@@ -757,25 +769,25 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== HR ===== -->
 <div id="page-hr" class="page">
-  <div class="section-title" style="display:flex;align-items:center;gap:8px">工程人員日行程表
-    <button class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openPlacesModal()">常用地點</button>
+  <div class="section-title no-line" style="display:flex;align-items:center;gap:8px">工程人員日行程表
+    <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>
+    <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="openPlacesModal()">📍 常用地點</button>
     <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">📊 匯出 Excel</button>
+    <button class="btn-primary" id="btn-add-supervisor" style="display:none;padding:6px 14px;font-size:13px" onclick="openSupervisorForm()">＋ 新增工地主任</button>
   </div>
   <div class="card"><div id="disp-inline"></div></div>
 
   <div class="section-title" id="cert-hr-title" style="margin-top:20px;scroll-margin-top:70px">證照到期 / 回訓提醒</div>
   <div class="card"><div id="cert-table"></div></div>
 
-  <div class="section-title" style="margin-top:20px">人力資源看板 — 工地主任工作量分析</div>
+  <div class="section-title" style="margin-top:20px">工地主任工作量分析</div>
   <div class="alert-box" id="hr-alert"></div>
   <div class="card">
-    <div class="card-title" style="display:flex;align-items:center">工地主任負荷一覽
-      <button class="btn-primary" id="btn-add-supervisor" style="display:none;margin-left:auto" onclick="openSupervisorForm()">＋ 新增工地主任</button>
-    </div>
+    <div class="card-title" style="display:flex;align-items:center">工地主任負荷一覽</div>
     <div id="hr-list"></div>
   </div>
 
-  <div class="section-title" style="margin-top:20px">主任案場分配詳情</div>
+  <div class="section-title" style="margin-top:20px">工地主任案場分配詳情</div>
   <div class="hr-grid" id="hr-detail-grid"></div>
 </div>
 
@@ -1006,10 +1018,10 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>區域</label><select id="sf-region" onchange="updateCityOptions()"><option value="north">北部</option><option value="center">中部</option><option value="south">南部</option><option value="east">東部</option></select></div>
         <div class="form-field"><label>縣市</label><select id="sf-city"></select></div>
         <div class="form-field" style="grid-column:1/-1"><label>案場地址</label><input type="text" id="sf-addr"></div>
-        <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs();updateCapFields()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
         <div class="form-field"><label>業主</label><input type="text" id="sf-owner"></div>
-        <div class="form-field" style="grid-column:1/-1"><label>工地主任（可複選）</label><div id="sf-pm" style="display:flex;flex-wrap:wrap;gap:6px 14px;border:1px solid var(--border);border-radius:8px;padding:10px"></div></div>
         <div class="form-field"><label>案場業務</label><select id="sf-sales"></select></div>
+        <div class="form-field"><label>類型</label><select id="sf-type" onchange="renderWbsInputs();updateCapFields()"><option>太陽能</option><option>儲能</option><option>太陽能+儲能</option><option>儀電配管</option></select></div>
+        <div class="form-field" style="grid-column:1/-1"><label>工地主任（可複選）</label><div id="sf-pm" style="display:flex;flex-wrap:wrap;gap:6px 14px;border:1px solid var(--border);border-radius:8px;padding:10px"></div></div>
         <div class="form-field"><label>光電容量 (kWp)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
@@ -1019,7 +1031,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
           <div style="display:flex;align-items:center;margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">
             <span style="font-size:12px;font-weight:700;color:var(--muted)">WBS 施工項目完成率（%）</span>
             <button type="button" class="btn-secondary" style="margin-left:auto;padding:3px 10px;font-size:11px" onclick="openWbsImport()">📋 匯入工項</button>
-            <button type="button" id="sf-wbs-reset" class="btn-secondary" style="margin-left:6px;padding:3px 10px;font-size:11px;display:none" onclick="resetWbsItems()">恢復預設</button>
+            <button type="button" id="sf-wbs-reset" class="btn-secondary" style="margin-left:6px;padding:3px 10px;font-size:11px;display:none" onclick="resetWbsItems()">🔄 恢復預設</button>
           </div>
           <div id="sf-wbs-grid"></div>
         </div>
@@ -1055,7 +1067,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== SITE DETAIL MODAL ===== -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
-  <div class="modal-box" onclick="event.stopPropagation()">
+  <div class="modal-box" style="width:795px;max-height:90vh" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="modal-title"></div>
       <div id="modal-status-badge"></div>
@@ -1068,12 +1080,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== 工程／物料申請簽核系統 ===== -->
 <div id="page-approval" class="page">
-  <div class="section-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">工程／物料申請簽核系統
-    <div id="app-subtabs" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+  <div class="section-title no-line" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">工程／物料申請簽核系統
+    <div id="app-subtabs" style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="tab-btn active" onclick="showAppSection('dash',this)">📊 總覽</button>
       <button class="tab-btn" onclick="showAppSection('query',this)">🔍 查詢</button>
       <button class="tab-btn" style="display:none" onclick="showAppSection('people',this)">👤 人員</button>
     </div>
+    <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>
+    <button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button>
+    <input type="month" id="app-export-month" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px">
   </div>
   <div id="approval-content"></div>
 </div>
@@ -1442,6 +1457,23 @@ function goInsCell(siteId, key) {
     setTimeout(() => cell.classList.remove('cert-flash'), 2600);
   }, 60);
 }
+// ---- 點卡片（邊框/標題）跳到對應表格 ----
+function goCertTable(ev) {
+  if (ev && ev.target.closest('.cert-alert-row')) return;   // 內列有自己的跳轉，避免重複觸發
+  showPage('hr');
+  setTimeout(() => {
+    const title = document.getElementById('cert-hr-title');
+    if (title) title.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
+function goInsTable(ev) {
+  if (ev && ev.target.closest('.cert-alert-row')) return;
+  showPage('advanced');
+  setTimeout(() => {
+    const title = document.getElementById('ins-hr-title');
+    if (title) title.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 60);
+}
 // 編輯保險到期日
 async function insSaveDate(siteId, key, v) {
   insData[siteId] = insData[siteId] || { a: 'x', b: 'x' };
@@ -1735,8 +1767,8 @@ function drawDailyLog() {
   }
   const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
-  const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;visibility:${dailyLogDirty.size ? 'visible' : 'hidden'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
-  let html = `<div class="section-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 ${monthSel}${saveBtn}</div>`;
+  const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;display:${dailyLogDirty.size ? 'inline-flex' : 'none'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
+  let html = `<div class="section-title no-line" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>${saveBtn}${monthSel}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
     html += '<div class="card" style="padding:20px;color:var(--muted)">尚無資料。請在本機執行「執行.bat」，跑完會自動上傳到這裡。</div>';
@@ -1809,11 +1841,15 @@ function drawDailyLog() {
   const missCell = (name, f, n) => n > 0
     ? `<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','${f}')" title="點看缺交日期" style="text-align:center;color:#dc2626;font-weight:600;cursor:pointer">${n}</td>`
     : `<td style="text-align:center;color:var(--muted)">0</td>`;
-  const sumRows = Object.entries(summary).filter(([, s]) => s.total > 0).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) =>
-    `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left">${appEsc(name)}</td><td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`).join('')
+  const sumRows = Object.entries(summary).filter(([, s]) => s.total > 0).sort((a, b) => b[1].total - a[1].total).map(([name, s], i) => {
+    const msR = matchSite(name);
+    const nameTd = msR
+      ? `<td style="text-align:left;cursor:pointer" onclick="openModal(${msR.id})" title="檢視案場資料">${appEsc(name)}</td>`
+      : `<td style="text-align:left">${appEsc(name)}</td>`;
+    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`;
+  }).join('')
     || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
-  html += `<div class="section-title" style="font-size:15px;margin-top:14px">缺繳統計（缺繳＝當日未交，x）</div>
-      <div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(f)}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
+  html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(f)}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
@@ -1828,7 +1864,10 @@ function drawDailyLog() {
         return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}" onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
-      return `<tr><td style="text-align:center">${i + 1}</td><td style="text-align:left;white-space:nowrap">${appEsc(ms ? ms.name : r.project)}</td>${cells}</tr>`;
+      const nameTd = ms
+        ? `<td style="text-align:left;white-space:nowrap;cursor:pointer" onclick="openModal(${ms.id})" title="檢視案場資料">${appEsc(ms.name)}</td>`
+        : `<td style="text-align:left;white-space:nowrap">${appEsc(r.project)}</td>`;
+      return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}${cells}</tr>`;
     }).join('');
     html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(form)}</div>
       <div class="card" style="margin-bottom:16px"><div class="daily-scroll" style="overflow-x:auto"><table class="prog-table daily-grid" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
@@ -1901,7 +1940,7 @@ function appCycleDailyMark(id, day) {
     }
   }
   const btn = document.getElementById('daily-save-btn');
-  if (btn) { btn.textContent = `💾 儲存變更（${dailyLogDirty.size}）`; btn.style.visibility = dailyLogDirty.size ? 'visible' : 'hidden'; }
+  if (btn) { btn.textContent = `💾 儲存變更（${dailyLogDirty.size}）`; btn.style.display = dailyLogDirty.size ? 'inline-flex' : 'none'; }
 }
 // 就地更新單一格的顯示符號與顏色（override 有值就顯示它，否則顯示該格的自動值 data-auto）
 function _updateDailyCell(id, day, overrideVal) {
@@ -2288,7 +2327,7 @@ function renderHR() {
     <div class="hr-detail-card${overload ? ' overloaded' : ''}">
       <div class="hd-header">
         <div class="hr-avatar" style="background:${sv.color}20;color:${sv.color};width:36px;height:36px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${avatarInner(sv)}</div>
-        <span class="hd-name">${sv.name}</span>
+        <span class="hd-name" style="cursor:pointer" onclick="showAvatarCard('${sv.name}',event)">${sv.name}</span>
         ${overload ? '<span class="hd-overload">超載</span>' : ''}
       </div>
       ${siteRows}
@@ -2608,8 +2647,7 @@ function renderDispatchReport(preserveScroll) {
   const prevScroll = document.getElementById('disp-scroll')?.scrollLeft || 0;
   body.innerHTML = controls +
     `<div style="font-weight:800;font-size:16px;text-align:center;margin:6px 0">${y}年${mo}月份工程人員日行程表</div>
-     <div id="disp-scroll" style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>
-     <div style="font-size:12px;color:var(--muted);margin-top:6px">點任一格子即可登記／修改；綠色＝支援（非本人負責案場）。</div>`;
+     <div id="disp-scroll" style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const ns = document.getElementById('disp-scroll');
   if (ns) {
     if (preserveScroll) {
@@ -2873,7 +2911,7 @@ function openModal(id) {
         <td>${wbsStatusBadge(sub.pct)}</td>
       </tr>`;
     }).join('');
-    return `<tr style="border-top:2px solid var(--border)">
+    return `<tr style="border-top:1px solid var(--border)">
       <td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci+1}.</span>${cat.name}</td>
       <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>
       <td style="font-weight:700;color:${cc}">${cat.catPct}%</td>
@@ -4145,10 +4183,10 @@ function renderWbsInputs(wbsMap) {
     const catCell = `<td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>
       <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:2px solid var(--border)">${catCell}
+      rows += `<tr style="border-top:1px solid var(--border)">${catCell}
         <td><input type="number" min="0" max="100" data-wbs="${cat.name}" value="${current[cat.name] ?? 0}"></td></tr>`;
     } else {
-      rows += `<tr style="border-top:2px solid var(--border)">${catCell}<td></td></tr>`;
+      rows += `<tr style="border-top:1px solid var(--border)">${catCell}<td></td></tr>`;
       cat.subs.forEach(sub => {
         const nm = typeof sub === 'string' ? sub : sub.name;
         const w  = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
@@ -4249,7 +4287,7 @@ function updateCityOptions(keepCity) {
 function openSiteForm(id) {
   editingSiteId = (id === undefined || id === null) ? null : id;
   const s = editingSiteId !== null ? siteById(editingSiteId) : null;
-  document.getElementById('site-form-title').textContent = s ? '✏ 編輯案場' : '＋ 新增案場';
+  document.getElementById('site-form-title').textContent = s ? '編輯案場' : '＋ 新增案場';
   document.getElementById('sf-delete-btn').style.display = s ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
   // 工地主任複選：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
@@ -4719,6 +4757,8 @@ function showAppSection(sec, btn){
 }
 
 function renderApproval(){
+  const mi = document.getElementById('app-export-month');
+  if(mi && !mi.value){ const n=new Date(); mi.value = n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); }
   const el = document.getElementById('approval-content');
   if(!el) return;
   if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
@@ -4855,7 +4895,7 @@ function appBillableTableHTML(rows){
     const cbCell=cb>0 ? `<span style="color:#dc2626;font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
     return `<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
     <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
-  }).join('')}</tbody><tfoot><tr style="font-weight:700;border-top:2px solid var(--border)"><td colspan="3" style="text-align:right">合計</td><td style="text-align:right">${appMoney(addTot)}</td><td style="text-align:right;color:#dc2626">${appMoney(billTot)}</td><td></td></tr></tfoot></table>`;
+  }).join('')}</tbody><tfoot><tr style="font-weight:700;border-top:1px solid var(--border)"><td colspan="3" style="text-align:right">合計</td><td style="text-align:right">${appMoney(addTot)}</td><td style="text-align:right;color:#dc2626">${appMoney(billTot)}</td><td></td></tr></tfoot></table>`;
 }
 function appReqMatchSite(r, s){
   const rn=(r.site_name||'').trim(); if(!rn||!s) return false;
@@ -5041,7 +5081,6 @@ function appDashboardHTML(){
   });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
-   <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button><input type="month" id="app-export-month" value="${ym}" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px"></div>
    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
      <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
      <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
