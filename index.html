@@ -316,15 +316,16 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .prog-table tr:hover td { background: var(--surface2); cursor: pointer; }
 .prog-table tr:last-child td { border-bottom: none; }
 /* 器具借用表：固定欄寬讓兩表排列一致；除器具名稱(2)、借用人(4)外置中 */
-.equip-table { table-layout: fixed; width: 100%; }
+.equip-table { table-layout: fixed; width: 100%; min-width: 0; }
 .equip-table th, .equip-table td { text-align: center; word-break: break-all; }
-.equip-table th:nth-child(1), .equip-table td:nth-child(1) { width: 6%; }
-.equip-table th:nth-child(2), .equip-table td:nth-child(2) { width: 28%; text-align: left; }
-.equip-table th:nth-child(3), .equip-table td:nth-child(3) { width: 11%; }
-.equip-table th:nth-child(4), .equip-table td:nth-child(4) { width: 18%; text-align: left; }
-.equip-table th:nth-child(5), .equip-table td:nth-child(5) { width: 14%; }
-.equip-table th:nth-child(6), .equip-table td:nth-child(6) { width: 13%; }
-.equip-table th:nth-child(7), .equip-table td:nth-child(7) { width: 10%; }
+.equip-table th:nth-child(1), .equip-table td:nth-child(1) { width: 5%; }
+.equip-table th:nth-child(2), .equip-table td:nth-child(2) { width: 24%; text-align: left; }
+.equip-table th:nth-child(3), .equip-table td:nth-child(3) { width: 9%; }
+.equip-table th:nth-child(4), .equip-table td:nth-child(4) { width: 15%; text-align: left; }
+.equip-table th:nth-child(5), .equip-table td:nth-child(5) { width: 12%; }
+.equip-table th:nth-child(6), .equip-table td:nth-child(6) { width: 13%; text-align: left; }
+.equip-table th:nth-child(7), .equip-table td:nth-child(7) { width: 12%; text-align: left; }
+.equip-table th:nth-child(8), .equip-table td:nth-child(8) { width: 10%; }
 .status-badge { padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 .s-done    { background: #e0f2fe; color: #0ea5e9; }
 .s-normal  { background: #dcfce7; color: #15803d; }
@@ -850,10 +851,22 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div class="modal-body">
       <div class="form-field" style="margin-bottom:10px"><label>借用人 *</label><select id="eb-borrower" style="font-weight:400"></select></div>
       <div class="form-field" style="margin-bottom:10px"><label>借出日期</label><input type="date" id="eb-borrow-date"></div>
-      <div class="form-field" style="margin-bottom:10px"><label>用途／案場／備註</label><input type="text" id="eb-note" placeholder="選填"></div>
+      <div class="form-field" style="margin-bottom:10px"><label>用於案場</label><select id="eb-site" style="font-weight:400"></select></div>
+      <div class="form-field" style="margin-bottom:10px"><label>用途／備註</label><input type="text" id="eb-note" placeholder="選填"></div>
       <div id="eb-error" style="color:var(--danger);font-size:13px;display:none;margin-bottom:8px"></div>
       <button class="btn-primary" onclick="confirmEquipBorrow()">確認借出</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== 器具借出歷史 Modal ===== -->
+<div class="modal-overlay" id="equip-history-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="width:1000px;max-width:95vw" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">器具借出歷史</div>
+      <button class="modal-close" onclick="document.getElementById('equip-history-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="equip-history-body" style="max-height:70vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -4549,6 +4562,13 @@ function equipOpenRecord(i) {
   // 該器具目前未歸還的借出記錄
   return equipLogs.find(r => r.item_id === i && !r.return_date);
 }
+// 解析 note：以「【案場】」標記者拆出案場與備註；舊資料（純文字）整段視為備註
+function equipParseNote(note) {
+  if (!note) return { site: '', memo: '' };
+  const m = String(note).match(/^【案場】([^｜]*)(?:｜([\s\S]*))?$/);
+  if (m) return { site: (m[1] || '').trim(), memo: (m[2] || '').trim() };
+  return { site: '', memo: String(note) };
+}
 
 function renderEquip() {
   const cont = document.getElementById('equip-container');
@@ -4583,7 +4603,9 @@ function renderEquip() {
           : `<span class="status-badge s-normal">在庫</span>`;
       const who = borrowed ? rec.borrower : '';
       const bd = borrowed ? (rec.borrow_date || '') : '';
-      const note = borrowed ? (rec.note || '') : '';
+      const parsedNote = equipParseNote(borrowed ? rec.note : '');
+      const useSite = parsedNote.site;
+      const memo = parsedNote.memo;
       const action = broken
         ? `<span style="color:var(--muted);font-size:12px">不可借</span>`
         : borrowed
@@ -4595,17 +4617,18 @@ function renderEquip() {
         <td>${status}</td>
         <td>${who}</td>
         <td>${bd}</td>
-        <td style="font-size:12px;color:var(--muted)">${note}</td>
+        <td style="font-size:12px">${useSite ? `<span style="color:var(--text)">${useSite}</span>` : ''}</td>
+        <td style="font-size:12px;color:var(--muted)">${memo}</td>
         <td>${action}</td>
       </tr>`;
     }).join('');
     const isMain = g.title === '工程部測量器具借用登記';
     return `<div class="section-title${isMain ? ' no-line' : ''}" style="display:flex;align-items:center">${g.title}
         <span style="margin-left:12px;font-size:13px;font-weight:400;color:var(--muted)">共 ${idxs.length} 項，借出中 ${out} 項</span>
-        ${isMain ? `<span style="flex:1;height:0;border-top:1px solid var(--border);margin:0 12px"></span><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button>` : ''}
+        ${isMain ? `<span style="flex:1;height:0;border-top:1px solid var(--border);margin:0 12px"></span><button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="openEquipHistory()">📋 借出歷史</button><button class="btn-primary" style="padding:6px 14px;font-size:13px;margin-left:8px" onclick="openEquipAdd()">＋ 新增器具</button>` : ''}
       </div>
       <div class="card" style="margin-bottom:20px"><div style="overflow-x:auto"><table class="prog-table equip-table"><thead><tr>
-        <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>用途／備註</th><th>動作</th>
+        <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>案場</th><th>用途／備註</th><th>動作</th>
       </tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }).join('');
 }
@@ -4674,6 +4697,16 @@ function openEquipBorrow(i) {
     '<option value="">請選擇</option>' + deptOrder.map(d => `<optgroup label="${d}">${byDept[d].map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('');
   document.getElementById('eb-borrower').value = '';
   document.getElementById('eb-borrow-date').value = localDate(new Date());
+  // 案場下拉：未完工案場優先在前，其餘（含已完工）列於後，另含「未指定」
+  const siteName = s => s.label || s.name;
+  const active = sites.filter(s => s.status !== 'done').map(siteName);
+  const doneS = sites.filter(s => s.status === 'done').map(siteName);
+  const uniq = arr => [...new Set(arr.filter(Boolean))];
+  const opt = n => `<option value="${String(n).replace(/"/g, '&quot;')}">${n}</option>`;
+  document.getElementById('eb-site').innerHTML =
+    '<option value="">未指定</option>' + uniq(active).map(opt).join('') +
+    (doneS.length ? `<optgroup label="已完工">${uniq(doneS).map(opt).join('')}</optgroup>` : '');
+  document.getElementById('eb-site').value = '';
   document.getElementById('eb-note').value = '';
   document.getElementById('eb-error').style.display = 'none';
   document.getElementById('equip-borrow-overlay').classList.add('open');
@@ -4683,12 +4716,16 @@ async function confirmEquipBorrow() {
   const errEl = document.getElementById('eb-error');
   const borrower = document.getElementById('eb-borrower').value.trim();
   if (!borrower) { errEl.textContent = '請填寫借用人'; errEl.style.display = 'block'; return; }
+  const site = document.getElementById('eb-site').value.trim();
+  const memo = document.getElementById('eb-note').value.trim();
+  // 案場以「【案場】」標記存進 note 欄（不需改動資料表結構），顯示時解析出獨立欄位
+  const note = site ? ('【案場】' + site + (memo ? '｜' + memo : '')) : (memo || null);
   const row = {
     item_id: _equipBorrowIdx,
     item_name: EQUIPMENT[_equipBorrowIdx],
     borrower,
     borrow_date: document.getElementById('eb-borrow-date').value || localDate(new Date()),
-    note: document.getElementById('eb-note').value.trim() || null,
+    note,
     return_date: null,
   };
   const { error } = await sb.from('equipment_borrow').insert(row);
@@ -4696,6 +4733,82 @@ async function confirmEquipBorrow() {
   document.getElementById('equip-borrow-overlay').classList.remove('open');
   await loadEquipLogs();
   renderEquip();
+}
+
+// 器具借出歷史：equipment_borrow 全部記錄（含已歸還），可依器具篩選、依借出日由新到舊
+let _equipHistFilter = null; // 篩選的 item_id；null＝全部
+function openEquipHistory(itemId) {
+  _equipHistFilter = (typeof itemId === 'number') ? itemId : null;
+  renderEquipHistoryBody();
+  document.getElementById('equip-history-overlay').classList.add('open');
+}
+function equipHistorySetFilter(v) { _equipHistFilter = (v === '') ? null : Number(v); renderEquipHistoryBody(); }
+// 依 item_id 找所屬登記表分組（工程部／南部辦公室）
+function equipGroupOf(itemId) {
+  for (const g of EQUIP_GROUPS) if ((g.idxs || []).includes(itemId)) return g;
+  return null;
+}
+// 排序後組成單一表格
+function equipHistoryTable(rows) {
+  rows = rows.slice().sort((a, b) =>
+    String(b.borrow_date || '').localeCompare(String(a.borrow_date || '')) || (b.id || 0) - (a.id || 0));
+  if (!rows.length) return '<div style="color:var(--muted);padding:8px 0">尚無借用紀錄</div>';
+  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:0;width:100%;table-layout:fixed;font-size:12px;word-break:break-word">
+      <colgroup><col style="width:24%"><col style="width:14%"><col style="width:13%"><col style="width:19%"><col style="width:15%"><col style="width:15%"></colgroup>
+      <thead><tr><th style="text-align:left">器具</th><th>借用人</th><th style="text-align:left">案場</th><th style="text-align:left">用途／備註</th><th>借出日</th><th>歸還日</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const p = equipParseNote(r.note);
+        const name = equipDisplayName(r.item_id);
+        const ret = r.return_date ? r.return_date : '<span class="status-badge s-warn">借出中</span>';
+        return `<tr><td style="text-align:left;font-weight:600">${name}</td><td>${r.borrower || ''}</td><td style="text-align:left">${p.site || ''}</td><td style="text-align:left;color:var(--muted)">${p.memo || ''}</td><td style="white-space:nowrap">${r.borrow_date || ''}</td><td style="white-space:nowrap">${ret}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+}
+function renderEquipHistoryBody() {
+  const body = document.getElementById('equip-history-body');
+  // 篩選下拉：依登記表分組（工程部／南部），僅列有借用紀錄的器具
+  const usedIds = new Set(equipLogs.map(r => r.item_id));
+  const optgroups = EQUIP_GROUPS.map(g => {
+    const ids = (g.idxs || []).filter(id => usedIds.has(id)).sort((a, b) => a - b);
+    if (!ids.length) return '';
+    return `<optgroup label="${g.title}">${ids.map(id => `<option value="${id}" ${_equipHistFilter === id ? 'selected' : ''}>${equipDisplayName(id)}</option>`).join('')}</optgroup>`;
+  }).join('');
+  const filterSel = `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <label style="font-size:13px;color:var(--muted)">篩選器具</label>
+    <select onchange="equipHistorySetFilter(this.value)" style="padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;max-width:100%">
+      <option value="">全部器具（${equipLogs.length} 筆）</option>${optgroups}
+    </select></div>`;
+  let html = filterSel;
+  if (_equipHistFilter != null) {
+    // 篩選單一器具：直接列出該筆
+    html += equipHistoryTable(equipLogs.filter(r => r.item_id === _equipHistFilter));
+  } else {
+    // 依登記表分組呈現（工程部／南部）
+    let any = false;
+    EQUIP_GROUPS.forEach(g => {
+      const ids = new Set(g.idxs || []);
+      const grp = equipLogs.filter(r => ids.has(r.item_id));
+      if (!grp.length) return;
+      any = true;
+      html += `<div class="section-title" style="font-size:14px;margin:16px 0 8px">${g.title}<span style="margin-left:10px;font-weight:400;color:var(--muted)">${grp.length} 筆</span></div>` + equipHistoryTable(grp);
+    });
+    // 不屬於任何分組的（已移除器具等）另列於後
+    const grouped = new Set(EQUIP_GROUPS.flatMap(g => g.idxs || []));
+    const orphan = equipLogs.filter(r => !grouped.has(r.item_id));
+    if (orphan.length) { any = true; html += `<div class="section-title" style="font-size:14px;margin:16px 0 8px">其他</div>` + equipHistoryTable(orphan); }
+    if (!any) html += '<div style="color:var(--muted);padding:8px 0">尚無借用紀錄</div>';
+  }
+  body.innerHTML = html;
+}
+
+// 刪除單筆借出歷史（不可復原）
+async function deleteEquipLog(recId) {
+  if (!sb) return;
+  if (!confirm('確認刪除此借出紀錄？此動作無法復原。')) return;
+  const { error } = await sb.from('equipment_borrow').delete().eq('id', recId);
+  if (error) { alert('刪除失敗：' + error.message); return; }
+  await loadEquipLogs();
+  renderEquip();
+  openEquipHistory(); // 重新整理歷史清單
 }
 
 async function returnEquip(recId) {
