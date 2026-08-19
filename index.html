@@ -409,10 +409,13 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .btn-primary, .btn-secondary, .btn-danger, .btn-pri, .btn-sec {
   height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
 }
-/* 申請簽核標題列：總覽/查詢分頁與月份選擇器對齊「新增申請」的 36px 高 */
-#app-subtabs .tab-btn, #app-export-month {
+/* 申請簽核標題列：總覽/查詢分頁對齊「新增申請」的 36px 高（月份選擇器則比照各頁的月份選擇器樣式） */
+#app-subtabs .tab-btn {
   height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
 }
+/* 行程表月份導覽：圓形箭頭鈕 */
+.disp-nav-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; transition: background .15s, color .15s, border-color .15s; }
+.disp-nav-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-edit { border: none; box-sizing: border-box; height: 21px; display: inline-flex; align-items: center; padding: 0 8px; border-radius: 10px; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; font-family: inherit; white-space: nowrap; transition: filter .15s; }
 .btn-edit:hover { filter: brightness(.93); }
 #sf-wbs-grid input { width: 70px; box-sizing: border-box; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; text-align: right; }
@@ -1088,14 +1091,14 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     </div>
     <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>
     <button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button>
-    <input type="month" id="app-export-month" onchange="appMonthCardRefresh()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px">
+    <input type="month" id="app-export-month" onchange="appMonthCardRefresh()" style="height:36px;padding:6px 10px;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;background:var(--surface);color:inherit">
   </div>
   <div id="approval-content"></div>
 </div>
 
 <!-- ===== 申請簽核：簽核 / 表單 / 檢視 共用彈窗 ===== -->
 <div class="modal-overlay" id="app-sign-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="kpi-list-box" style="max-width:560px" onclick="event.stopPropagation()">
+  <div class="kpi-list-box" style="max-width:680px" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="app-sign-title">簽核</div>
       <div id="app-sign-status-actions" style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap"></div>
@@ -1765,7 +1768,7 @@ function drawDailyLog() {
     const n = new Date();
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
-  const monthSel = `<select onchange="dailyLogYm=this.value;drawDailyLog()" style="padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-weight:400">${yms.map(k => `<option${k === dailyLogYm ? ' selected' : ''}>${k}</option>`).join('') || `<option>${dailyLogYm}</option>`}</select>`;
+  const monthSel = `<input type="month" value="${dailyLogYm}" onchange="dailyLogYm=this.value;drawDailyLog()" style="height:36px;padding:6px 10px;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;background:var(--surface);color:inherit">`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
   const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;display:${dailyLogDirty.size ? 'inline-flex' : 'none'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
   let html = `<div class="section-title no-line" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>${saveBtn}${monthSel}</div>`;
@@ -2341,15 +2344,20 @@ function renderHR() {
 function todayStr() { return localDate(new Date()); }
 
 // Supabase 單次回傳上限 1000 筆，分頁抓滿全部記錄
+// 先取第一頁並帶回總筆數，其餘頁一次平行抓，避免逐頁序列等待拖慢載入
 async function fetchAllSupLogs() {
   const pageSize = 1000;
-  let from = 0, all = [];
-  while (true) {
-    const { data, error } = await sb.from('supervisor_log').select('*').order('log_date').range(from, from + pageSize - 1);
-    if (error) throw error;
-    all = all.concat(data || []);
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
+  const first = await sb.from('supervisor_log').select('*', { count: 'exact' }).order('log_date').range(0, pageSize - 1);
+  if (first.error) throw first.error;
+  let all = first.data || [];
+  const total = first.count || all.length;
+  if (total > pageSize) {
+    const reqs = [];
+    for (let from = pageSize; from < total; from += pageSize) {
+      reqs.push(sb.from('supervisor_log').select('*').order('log_date').range(from, from + pageSize - 1));
+    }
+    const results = await Promise.all(reqs);           // 其餘頁平行抓，順序由陣列保證
+    for (const r of results) { if (!r.error && r.data) all = all.concat(r.data); }
   }
   return all;
 }
@@ -2602,10 +2610,11 @@ function renderDispatchReport(preserveScroll) {
   }
   const [y, mo] = dispMonth.split('-').map(Number);
   const days = new Date(y, mo, 0).getDate();
-  const controls = `<div style="display:flex;gap:8px;align-items:flex-end;justify-content:center;margin-bottom:10px">
-    <button class="btn-secondary" onclick="shiftDispMonth(-1)" title="上月">‹ 上月</button>
-    <button class="btn-secondary" onclick="shiftDispMonth(1)" title="下月">下月 ›</button>
-    <div class="form-field"><input type="month" id="disp-month" value="${dispMonth}" onchange="applyDispatchMonth()"></div></div>`;
+  const controls = `<div style="display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+    <button class="disp-nav-btn" onclick="shiftDispMonth(-1)" title="上月" aria-label="上月">‹</button>
+    <div style="font-weight:800;font-size:16px">${y}年${mo}月份工程人員日行程表</div>
+    <button class="disp-nav-btn" onclick="shiftDispMonth(1)" title="下月" aria-label="下月">›</button>
+  </div>`;
 
   // 索引：主任 → 日 → [記錄]
   const idx = {};
@@ -2646,8 +2655,7 @@ function renderDispatchReport(preserveScroll) {
   // 編輯格子後（preserveScroll）保留原橫向捲動位置；否則預設捲到「今天」那一欄
   const prevScroll = document.getElementById('disp-scroll')?.scrollLeft || 0;
   body.innerHTML = controls +
-    `<div style="font-weight:800;font-size:16px;text-align:center;margin:6px 0">${y}年${mo}月份工程人員日行程表</div>
-     <div id="disp-scroll" style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    `<div id="disp-scroll" style="overflow-x:auto"><table class="rain-grid sched-grid"><thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   const ns = document.getElementById('disp-scroll');
   if (ns) {
     if (preserveScroll) {
@@ -4545,7 +4553,7 @@ function equipOpenRecord(i) {
 function renderEquip() {
   const cont = document.getElementById('equip-container');
   if (!cont) return;
-  cont.innerHTML = `<div style="display:flex;justify-content:flex-end;margin-bottom:12px"><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button></div>` + EQUIP_GROUPS.map(g => {
+  cont.innerHTML = EQUIP_GROUPS.map(g => {
     // 維持原登記順序；「同款」自動插到同款最後一項後面。
     // 同款判定：去掉括號註記、開頭尺寸（2分/8線/50米）、頭尾英文型號（FULLER/TLC2000/600V）後名稱相同，
     // 例：2分/3分/4分電子扭力板手為一家、空拍機（全新）/（墜機找回）為一家。
@@ -4591,8 +4599,10 @@ function renderEquip() {
         <td>${action}</td>
       </tr>`;
     }).join('');
-    return `<div class="section-title" style="display:flex;align-items:center">${g.title}
+    const isMain = g.title === '工程部測量器具借用登記';
+    return `<div class="section-title${isMain ? ' no-line' : ''}" style="display:flex;align-items:center">${g.title}
         <span style="margin-left:12px;font-size:13px;font-weight:400;color:var(--muted)">共 ${idxs.length} 項，借出中 ${out} 項</span>
+        ${isMain ? `<span style="flex:1;height:0;border-top:1px solid var(--border);margin:0 12px"></span><button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openEquipAdd()">＋ 新增器具</button>` : ''}
       </div>
       <div class="card" style="margin-bottom:20px"><div style="overflow-x:auto"><table class="prog-table equip-table"><thead><tr>
         <th>#</th><th>器具名稱</th><th>狀態</th><th>借用人</th><th>借出日</th><th>用途／備註</th><th>動作</th>
@@ -4925,21 +4935,24 @@ function appTrendSVG(byMonth){
   const x = i => padX + i * ((W-2*padX)/Math.max(1,keys.length-1));
   const y = v => H-padBot - ((t(v)-lo)/span)*(H-padTop-padBot);
   const pts = vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
-  const dots = vals.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="5" fill="#059669" style="cursor:pointer" onclick="appGoQueryMonthKey('${keys[i]}')"><title>${keys[i]}　NT$ ${appMoney(v)}</title></circle>`).join('');
+  const dots = vals.map((v,i)=>{
+    const cx=x(i), cy=y(v), ly = cy>52 ? cy-24 : cy+40;
+    return `<g class="trend-dot"><circle cx="${cx}" cy="${cy}" r="5" fill="#059669" style="cursor:pointer" onclick="appGoQueryMonthKey('${keys[i]}')"><title>${keys[i]}　NT$ ${appMoney(v)}</title></circle><text class="amt" x="${cx}" y="${ly}" font-size="25" font-weight="800" text-anchor="middle" fill="#0f172a" style="paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round">NT$ ${appMoney(v)}</text></g>`;
+  }).join('');
   const labels = keys.map((k,i)=>`<text x="${x(i)}" y="${H-8}" font-size="10" text-anchor="middle" fill="#64748b">${k.slice(2)}</text>`).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto"><polyline points="${pts}" fill="none" stroke="#059669" stroke-width="2"/>${dots}${labels}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto"><style>.trend-dot circle{transition:r .12s ease}.trend-dot:hover circle{r:15}.trend-dot .amt{opacity:0;transition:opacity .12s ease;pointer-events:none}.trend-dot:hover .amt{opacity:1}</style><polyline points="${pts}" fill="none" stroke="#059669" stroke-width="2"/>${dots}${labels}</svg>`;
 }
 function appBillSplit(b,a,ym){
   const t = b+a || 1;
   return `<div style="margin:6px 0">
     <div style="display:flex;justify-content:space-between;font-size:12px;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',true)"><span>需向客戶請款</span><b style="color:#16a34a">${appMoney(b)}</b></div>
     <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0 10px;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',true)"><div style="height:100%;width:${b/t*100}%;background:#16a34a"></div></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',false)"><span>公司自行吸收</span><b style="color:#dc2626">${appMoney(a)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',false)"><span>綠源自行吸收</span><b style="color:#dc2626">${appMoney(a)}</b></div>
     <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',false)"><div style="height:100%;width:${a/t*100}%;background:#dc2626"></div></div></div>`;
 }
 function appGoQueryBillSplit(ym,billable){
   const rows=appRequests.filter(r=>r.status!=='rejected' && (r.apply_date||r.created_at||'').slice(0,7)===ym && appIsBillable(r)===billable);
-  appShowResultModal(`${ym}　${billable?'需向客戶請款':'公司自行吸收'}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  appShowResultModal(`${ym}　${billable?'需向客戶請款':'綠源自行吸收'}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
 function appGoQueryMonthStatus(ym,statusKey){
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && appStatusKey(r)===statusKey);
@@ -5081,18 +5094,29 @@ function appDashboardHTML(){
   });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
-     <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
-     <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
-     <div class="card" style="padding:14px 16px;border-left:4px solid #7c3aed">
-       <div style="cursor:pointer" onclick="appGoQueryMonthAmount()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
-       <button class="btn-secondary" style="margin-top:8px;padding:5px 10px;font-size:12px;width:100%" onclick="appExportMonth()">📥 匯出追加明細</button>
+   <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start">
+     <div style="display:flex;flex-direction:column;gap:14px">
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+         <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
+         <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+       </div>
+       <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款</div>
+         ${appCompareChart(cmp)}</div>
      </div>
-   </div>
-   <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;margin-top:16px">
-     <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款</div>
-       ${appCompareChart(cmp)}</div>
-     <div class="card" style="padding:14px 16px"><div class="card-title">每月追加趨勢（近一年）</div>${appTrendSVG((function(){ const o={}; for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); o[k]=byMonth[k]||0; } return o; })())}</div>
+     <div class="card" style="padding:14px 16px">
+       <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+         <div style="cursor:pointer;flex:1;min-width:120px" onclick="appGoQueryMonthAmount()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
+         <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="appExportMonth()">📥 匯出追加明細</button>
+       </div>
+       <div class="card-title" style="margin-top:16px">本月追加明細</div>${(function(){
+         const rows=monthReqs.filter(r=>r.status!=='rejected').sort((a,b)=>String(b.apply_date||'').localeCompare(String(a.apply_date||'')));
+         if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">本月尚無追加</div>';
+         return `<div style="max-height:360px;overflow-y:auto">${rows.map(r=>`<div onclick="appViewReq(${r.id})" style="cursor:pointer;padding:8px 0;border-top:1px solid var(--border)">
+           <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b>${appEsc(siteShortName(r.site_name))}</b><span style="font-weight:700;white-space:nowrap">NT$ ${appMoney(r.total_amount)}</span></div>
+           <div style="font-size:12px;color:var(--muted);margin-top:2px">${(Array.isArray(r.items)?r.items:[]).map(it=>appEsc(it.name)).join('、')||'—'}</div>
+         </div>`).join('')}</div>`;
+       })()}
+     </div>
    </div>`;
 }
 
@@ -5124,9 +5148,9 @@ function appFormHTML(){
     <div class="form-field"><label>工程名稱 *</label><select id="ar-site"><option value="">請選擇</option>${siteOpts}</select></div>
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
-    <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()">${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
+    <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()"><option value="" selected>請選擇</option>${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
     <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
-    <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option>公司自行吸收</option><option>需向客戶請款</option></select></div>
+    <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option value="" selected>請選擇</option><option>綠源自行吸收</option><option>需向客戶請款</option></select></div>
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
@@ -5246,7 +5270,7 @@ function appFormInner(r){
    <tr><td style="text-align:left;width:22%"><b>申請單位</b></td><td style="text-align:left">${appEsc(r.apply_dept)}</td><td style="text-align:left;width:22%"><b>流水號</b></td><td style="text-align:left">${appEsc(r.serial_no)}</td></tr>
    <tr><td style="text-align:left"><b>工程名稱</b></td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="text-align:left"><b>申請日期</b></td><td style="text-align:left">${appEsc(r.apply_date)}</td></tr>
    <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(r.total_amount)}</td></tr>
-   <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appIsBillable(r)?'需向客戶請款（NT$ '+appMoney(r.client_amount)+'）':'公司自行吸收'}</td></tr>
+   <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appIsBillable(r)?'需向客戶請款（NT$ '+appMoney(r.client_amount)+'）':'綠源自行吸收'}</td></tr>
   </table>
   <h2>追加明細</h2>
   <table><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th></tr></thead>
@@ -5358,7 +5382,7 @@ function appRecipientEmails(r){
 }
 function appMailSend(id){
   const r=appRequests.find(x=>x.id===id); if(!r) return;
-  const costLine=appIsBillable(r)?'費用歸屬：需向客戶請款（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'NT$ '+appMoney(r.client_amount))+'）':'費用歸屬：公司自行吸收';
+  const costLine=appIsBillable(r)?'費用歸屬：需向客戶請款（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'NT$ '+appMoney(r.client_amount))+'）':'費用歸屬：綠源自行吸收';
   const itemLines=(r.items||[]).map(it=>it.name+'\t'+((it.qty!=null&&it.qty!=='')?it.qty:'')+(it.unit||'')).join('\n');
   const body=[
     (r.site_name||'')+' 工程／物料申請單 '+r.serial_no,
@@ -5460,26 +5484,39 @@ function appViewReq(id){
     const mark = s.action==='approve'?'✅':s.action==='reject'?'⛔':cur?'⏳':'○';
     return `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0;align-items:baseline"><span>${mark}</span><b>${s.role}</b><span style="color:var(--muted)">${appEsc(s.approver)||''} ${s.signed_at?s.signed_at.slice(0,16).replace('T',' '):''}</span>${s.comment?`<span style="color:#64748b">「${appEsc(s.comment)}」</span>`:''}</div>`;
   }).join('');
-  const items=r.items.map((it,i)=>`<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(it.amount)}</td></tr>`).join('');
+  const items=r.items.map((it,i)=>{
+    const amt=(r.items.length===1 && !(Number(it.amount)>0)) ? (Number(r.total_amount)||0) : it.amount; // 只有一項且金額為 0 時，自動帶入追加總額
+    return `<tr><td>${i+1}</td><td style="text-align:left">${appEsc(it.name)}</td><td>${it.qty}${appEsc(it.unit)}</td><td style="text-align:right">${appMoney(amt)}</td></tr>`;
+  }).join('');
   const statusText=appStatusText(r);
   document.getElementById('app-sign-title').textContent=r.serial_no+'　'+siteFullName(r.site_name);
   document.getElementById('app-sign-status-actions').innerHTML=`<div style="position:relative">
     <button style="padding:3px 9px;font-size:11px;border:none;border-radius:6px;cursor:pointer;background:${STATUS_COLORS[appStatusKey(r)]};color:#fff" onclick="event.stopPropagation();appToggleStatusMenu(${r.id})">${statusText}</button>
     <div id="app-status-menu" style="display:none;position:absolute;right:0;top:26px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:10;min-width:90px;overflow:hidden">
-      ${Object.keys(STATUS_LABELS).filter(k=>k!==appStatusKey(r)).map(k=>`<div style="padding:7px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseover="this.style.background='var(--bg2,#f5f7fa)'" onmouseout="this.style.background=''" onclick="appChangeStatus(${r.id},'${k}')">${STATUS_LABELS[k]}</div>`).join('')}
+      ${Object.keys(STATUS_LABELS).filter(k=>k!==appStatusKey(r) && k!=='rejected').map(k=>`<div style="padding:7px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseover="this.style.background='var(--bg2,#f5f7fa)'" onmouseout="this.style.background=''" onclick="appChangeStatus(${r.id},'${k}')">${STATUS_LABELS[k]}</div>`).join('')}
     </div>
   </div>`;
+  const secLabel = t => `<div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em;margin:14px 0 7px">${t}</div>`;
   document.getElementById('app-sign-body').innerHTML=`
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_date)||''}</div>
-    <div style="font-size:13px;margin-bottom:6px">追加總額 <b>NT$ ${appMoney(r.total_amount)}</b>・${appIsBillable(r)?'需向客戶請款':'公司自行吸收'}${Number(r.client_amount)>0?'（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'對'+appEsc((Array.isArray(r.client_bills)&&r.client_bills[0]&&r.client_bills[0].vendor)||'客戶')+' NT$ '+appMoney(r.client_amount))+'）':''}</div>
-    ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
-    ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
-    <table class="prog-table" style="width:100%;min-width:0;margin-bottom:8px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
-    <div style="font-size:13px;margin:6px 0"><b>原因說明：</b>${appEsc(r.reason_text)||'—'}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="btn-primary" style="padding:5px 12px;font-size:12px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
-      <button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
-      <button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px">申請人　<b style="color:var(--text)">${appEsc(r.applicant)}</b>　·　${appEsc(r.apply_date)||''}</div>
+    <div style="background:#f8fafc;border-radius:10px;padding:13px 16px;margin-bottom:4px">
+      <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px">
+        <span style="font-size:13px;color:var(--muted)">追加總額</span>
+        <b style="font-size:20px;color:#0f172a">NT$ ${appMoney(r.total_amount)}</b>
+      </div>
+      <div style="font-size:12px;color:${appIsBillable(r)?'#dc2626':'#16a34a'};font-weight:600;margin-top:3px">${appIsBillable(r)?'需向客戶請款 NT$ '+appMoney(r.client_amount):'綠源自行吸收'}</div>
+      ${(Array.isArray(r.client_bills)&&r.client_bills.length>1)?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${r.client_bills.map(b=>appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、')}</div>`:''}
+      ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-top:4px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
+      ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-top:4px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
+    </div>
+    ${secLabel('追加明細')}
+    <table class="prog-table" style="width:100%;min-width:0;font-size:13px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
+    ${secLabel('原因說明')}
+    <div style="font-size:13px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:11px 14px">${appEsc(r.reason_text)||'—'}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+      <button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
+      <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
+      <button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
 }
@@ -5501,10 +5538,10 @@ function appEditReq(id){
    <div class="form-grid">
     <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
     <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
     <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(r.total_amount)||0}"></div>
-    <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option ${bill?'selected':''}>需向客戶請款</option><option ${!bill?'selected':''}>公司自行吸收</option></select></div>
+    <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
+    <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option ${bill?'selected':''}>需向客戶請款</option><option ${!bill?'selected':''}>綠源自行吸收</option></select></div>
    </div>
    <div id="e-bill-sec"><div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="e-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="e-bills"></div></div>
    <div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
@@ -5580,7 +5617,7 @@ function appQueryHTML(){
   if(!years.includes(curY)) years.unshift(curY);
   const yearOpts=`<option value="">全部年度</option>`+years.map(y=>`<option value="${y}"${y===curY?' selected':''}>${y} 年</option>`).join('');
   return `<div class="card" style="padding:14px 18px">
-   <div style="display:flex;align-items:center;margin-bottom:4px"><span class="wbs-title">查詢中心</span><button class="btn-secondary" style="margin-left:auto;padding:5px 12px;font-size:12px" onclick="openAppImport()">📥 匯入歷史申請</button></div>
+   <div style="display:flex;align-items:center;margin-bottom:4px"><span class="wbs-title">查詢中心</span></div>
    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">預設顯示本年度；可從「年度」下拉選擇往年，或搭配其他條件查詢。</div>
    <div class="form-grid">
     <div class="form-field"><label>流水號</label><input id="q-serial" oninput="appQueryOnChange()"></div>
@@ -5589,7 +5626,7 @@ function appQueryHTML(){
     <div class="form-field"><label>申請單位</label><select id="q-resp" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
     <div class="form-field"><label>申請人</label><select id="q-applicant" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
     <div class="form-field"><label>簽核狀態</label><select id="q-status" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
-    <div class="form-field"><label>是否對客戶請款</label><select id="q-billable" onchange="appQueryOnChange()"><option value="">全部</option><option value="1">需向客戶請款</option><option value="0">公司自行吸收</option></select></div>
+    <div class="form-field"><label>是否對客戶請款</label><select id="q-billable" onchange="appQueryOnChange()"><option value="">全部</option><option value="1">需向客戶請款</option><option value="0">綠源自行吸收</option></select></div>
    </div>
    <div id="q-result" style="margin-top:12px"></div>
   </div>`;
@@ -5614,9 +5651,8 @@ function appResultTableHTML(rows, compact){
     return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
     <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
-  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th>日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th>金額</th><th>對客戶請款</th><th>狀態</th><th>動作</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td>
-    <td style="white-space:nowrap"><button class="btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();appPrintForm(${r.id})">申請單</button></td></tr>`).join('')}</tbody></table></div>`;
+  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th style="text-align:center">日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th style="text-align:right">金額</th><th style="text-align:right">對客戶請款</th><th>狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
@@ -5761,7 +5797,7 @@ function appParseHistory(text){
       const total=appParseNum(g(r,'total')); const q=appParseQty(g(r,'qty'));
       // 結尾智慧判斷：qC+2 可能是 業務O/X 旗標(2026) 或 直接金額(2024) 或 空
       const v2=g(r,'billable'), v3=g(r,'clientAmt');
-      let cost='公司自行吸收', ca=0;
+      let cost='綠源自行吸收', ca=0;
       if(v2==='O'){ cost='需向客戶請款'; ca=appParseNum(v3); }
       else if(v2!=='' && v2!=='X' && pureNum(v2)){ cost='需向客戶請款'; ca=appParseNum(v2); }
       const billable = cost==='需向客戶請款'; // 僅需向客戶請款才記對客戶金額/開票/收款
