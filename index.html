@@ -793,6 +793,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
   <div class="section-title" style="margin-top:20px">工地主任案場分配詳情</div>
   <div class="hr-grid" id="hr-detail-grid"></div>
+
+  <div class="section-title" id="hr-resigned-title" style="margin-top:20px;display:none">離職人員</div>
+  <div id="hr-resigned"></div>
 </div>
 
 <!-- ===== 派工 / 月曆 / 報表共用彈窗 ===== -->
@@ -1011,6 +1014,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="form-field" style="margin-top:8px"><label>身分</label><select id="sv-role"><option value="工程部主管">工程部主管</option><option value="工地主任">工地主任</option></select></div>
       <div class="form-field" style="margin-top:8px"><label>電話</label><input type="text" id="sv-phone" placeholder="例：0912-345-678"></div>
       <div class="form-field" style="margin-top:8px"><label>Email</label><input type="text" id="sv-email" placeholder="例：mark.hsiao@greensource-tech.com"></div>
+      <div class="form-field" style="margin-top:8px"><label>離職日（填了＝離職歸檔；留空＝在職）</label><input type="date" id="sv-left-date"></div>
       <div id="supervisor-form-error" style="color:var(--danger);font-size:12px;margin:10px 0;display:none"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
         <button class="btn-secondary" onclick="document.getElementById('supervisor-form-overlay').classList.remove('open')">取消</button>
@@ -1270,10 +1274,13 @@ function certAvatar(sv, name, ring) {
 // 需回訓/快到期的證照清單（依剩餘天數由少到多），供首頁提醒卡與 badge 共用
 function certAlerts() {
   const items = [];
-  Object.keys(certData).forEach(name => CERT_META.forEach(m => {
-    const st = certStatus(certData[name][m.key]);
-    if (st.has && (st.level === 'expired' || st.level === 'soon')) items.push({ name, key: m.key, cert: m.full, st });
-  }));
+  Object.keys(certData).forEach(name => {
+    if (isResignedName(name)) return;   // 離職者不提醒
+    CERT_META.forEach(m => {
+      const st = certStatus(certData[name][m.key]);
+      if (st.has && (st.level === 'expired' || st.level === 'soon')) items.push({ name, key: m.key, cert: m.full, st });
+    });
+  });
   return items.sort((a, b) => a.st.days - b.st.days);
 }
 
@@ -2137,7 +2144,7 @@ function renderCertReminder() {
 function renderCertTable() {
   const el = document.getElementById('cert-table');
   if (!el) return;
-  const rows = Object.keys(certData).map(name => {
+  const rows = Object.keys(certData).filter(name => !isResignedName(name)).map(name => {   // 離職者不列入證照表
     const sv = certSvByName(name);
     const cells = CERT_META.map(m => {
       const st = certStatus(certData[name][m.key]);
@@ -2183,7 +2190,7 @@ function renderHome() {
 
   // HR workload
   const hrEl = document.getElementById('home-hr-list');
-  if (hrEl) hrEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
+  if (hrEl) hrEl.innerHTML = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const n = activeSitesOf(sv).length;
     const pct = Math.round((n / 3) * 100);
     const overload = n > 3;
@@ -2281,7 +2288,7 @@ function renderProgressTable(filter) {
 function renderHR() {
   renderCertTable();   // 證照到期 / 回訓提醒表
   const maxLoad = 3;
-  const overloaded = supervisors.filter(s => s.role !== '工程部主管' && activeSitesOf(s).length > maxLoad);
+  const overloaded = activeSupervisors().filter(s => s.role !== '工程部主管' && activeSitesOf(s).length > maxLoad);
 
   // Alert
   const alertEl = document.getElementById('hr-alert');
@@ -2294,7 +2301,7 @@ function renderHR() {
 
   // Full list
   const listEl = document.getElementById('hr-list');
-  listEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
+  listEl.innerHTML = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const active = activeSitesOf(sv);
     const n = active.length;
     const overload = n > maxLoad;
@@ -2322,7 +2329,7 @@ function renderHR() {
 
   // Detail cards
   const detailEl = document.getElementById('hr-detail-grid');
-  detailEl.innerHTML = [...supervisors.filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
+  detailEl.innerHTML = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload).map(sv => {
     const overload = activeSitesOf(sv).length > maxLoad;
     const siteRows = activeSitesOf(sv).map(idx => {
       const s = siteById(idx);
@@ -2350,7 +2357,30 @@ function renderHR() {
     </div>`;
   }).join('');
 
+  renderResigned();
   renderDispatchReport();
+}
+
+// 離職人員區：列出已離職者（可查、可復職）
+function renderResigned() {
+  const box = document.getElementById('hr-resigned');
+  const title = document.getElementById('hr-resigned-title');
+  if (!box || !title) return;
+  const list = resignedSupervisors();
+  if (!list.length) { title.style.display = 'none'; box.innerHTML = ''; return; }
+  title.style.display = '';
+  const rows = list.map(sv => {
+    const btn = currentUser ? `<button class="btn-edit s-normal" onclick="openSupervisorForm('${sv.name.replace(/'/g, "\\'")}')">編輯／復職</button>` : '';
+    return `<tr>
+      <td style="text-align:left;font-weight:600">${sv.name}</td>
+      <td style="text-align:left;white-space:nowrap">${sv.role || '工地主任'}</td>
+      <td style="text-align:left;white-space:nowrap">${sv.left_date || ''}</td>
+      <td style="text-align:left">${btn}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `<div class="card"><div style="overflow-x:auto"><table class="prog-table" style="width:100%;min-width:0;font-size:13px">
+    <thead><tr><th style="text-align:left">姓名</th><th style="text-align:left">身分</th><th style="text-align:left">離職日</th><th style="text-align:left">操作</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
 }
 
 // ===================== 工地主任每日派工／支援記錄 =====================
@@ -2479,7 +2509,7 @@ function fillSelect(sel, html) {
 function renderDispatch() {
   const svSel = document.getElementById('disp-sv');
   if (!svSel) return;
-  fillSelect(svSel, supervisors.map(v => `<option value="${v.name}">${v.name}</option>`).join(''));
+  fillSelect(svSel, orderedSupervisors().map(v => `<option value="${v.name}">${v.name}</option>`).join(''));
   fillSelect(document.getElementById('disp-site'), dispatchOptGroups());
   const dateInp = document.getElementById('disp-date');
   if (dateInp && !dateInp.value) dateInp.value = todayStr();
@@ -2586,8 +2616,19 @@ function dispatchRank(name) {
 function supSortKey(v) {
   return v.name.startsWith('林根玄') ? -1 : v.name.startsWith('許白龍') ? 99999 : dispatchRank(v.name);
 }
+// 在職者（未離職）；離職＝有 left_date
+function activeSupervisors() {
+  return supervisors.filter(s => !s.left_date);
+}
+function resignedSupervisors() {
+  return supervisors.filter(s => s.left_date).sort((a, b) => String(b.left_date).localeCompare(String(a.left_date)));
+}
+// 某短名(如'陳其民')對應的主任是否已離職
+function isResignedName(shortName) {
+  return supervisors.some(s => (s.name || '').includes(shortName) && s.left_date);
+}
 function orderedSupervisors() {
-  return [...supervisors].sort((a, b) => supSortKey(a) - supSortKey(b));
+  return activeSupervisors().sort((a, b) => supSortKey(a) - supSortKey(b));   // 排除離職者
 }
 
 function openDispatchReport() {
@@ -3501,13 +3542,13 @@ async function renderTaiwanMap() {
   // 每位主任「當前時段」的派工記錄：依登記順序第一筆＝上午、第二筆＝下午；
   // 保留無座標者（休假／北上等）一起排序，下午才能正確落到第二筆（見 curRec）
   const curRec = {};
-  supervisors.forEach(sv => {
+  activeSupervisors().forEach(sv => {
     const all = supLogs
       .filter(r => r.supervisor === sv.name && r.log_date === today && (r.site_id != null || r.place))
       .sort((a, b) => (a.id || 0) - (b.id || 0));
     if (all.length) curRec[sv.name] = isPM ? (all[1] || all[0]) : all[0];
   });
-  supervisors.forEach(sv => {
+  activeSupervisors().forEach(sv => {
     const rec = curRec[sv.name];
     if (!rec) return;
     let loc;
@@ -3653,7 +3694,7 @@ async function renderTaiwanMap() {
   const seen = new Set();
   const items = [];
   // 依「當前時段」記錄決定是否列入休假框（上午看第一筆、下午看第二筆），與地圖同步
-  supervisors.forEach(sv => {
+  activeSupervisors().forEach(sv => {
     const rec = curRec[sv.name];
     if (!rec || rec.site_id != null) return;
     const place = rec.place;
@@ -3948,7 +3989,7 @@ async function loadFromCloud() {
     if (siteRes.error) throw siteRes.error;
     if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
     if (!svRes.error && svRes.data && svRes.data.length) {
-      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', email: r.email || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任' }));
+      supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', email: r.email || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任', left_date: r.left_date || '' }));
     }
     supLogs = (logRes && !logRes.error && logRes.data) ? logRes.data : [];
     return true;
@@ -4109,6 +4150,7 @@ function openSupervisorForm(name) {
   document.getElementById('sv-role').value = sv ? (sv.role || '工地主任') : '工地主任';
   document.getElementById('sv-phone').value = sv ? sv.phone : '';
   document.getElementById('sv-email').value = sv ? (sv.email || '') : '';
+  document.getElementById('sv-left-date').value = sv ? (sv.left_date || '') : '';
   editingAvatarData = sv ? (sv.avatar || '') : '';
   updateAvatarPreview();
   document.getElementById('supervisor-form-error').style.display = 'none';
@@ -4122,6 +4164,7 @@ async function saveSupervisorForm() {
   const phone = document.getElementById('sv-phone').value.trim();
   const email = document.getElementById('sv-email').value.trim();
   const role = document.getElementById('sv-role').value;
+  const left_date = document.getElementById('sv-left-date').value || null;
   if (!name) {
     errEl.textContent = '請填寫姓名';
     errEl.style.display = 'block';
@@ -4134,10 +4177,10 @@ async function saveSupervisorForm() {
   }
   let q;
   if (editingSupervisorName) {
-    q = sb.from('supervisors').update({ name, phone, email, avatar: editingAvatarData, role }).eq('name', editingSupervisorName);
+    q = sb.from('supervisors').update({ name, phone, email, avatar: editingAvatarData, role, left_date }).eq('name', editingSupervisorName);
   } else {
     const color = supervisorPalette[supervisors.length % supervisorPalette.length];
-    q = sb.from('supervisors').insert({ name, phone, email, color, sites: [], avatar: editingAvatarData, role });
+    q = sb.from('supervisors').insert({ name, phone, email, color, sites: [], avatar: editingAvatarData, role, left_date });
   }
   const { error } = await q;
   if (error) {
@@ -4150,6 +4193,14 @@ async function saveSupervisorForm() {
     const affected = sites.filter(s => pmHas(s, editingSupervisorName));
     for (const s of affected) {
       const newPm = pmList(s).map(n => n === editingSupervisorName ? name : n).join(',');
+      await sb.from('sites').update({ pm: newPm }).eq('id', s.id);
+    }
+  }
+  // 標記離職：從「進行中」案場的工地主任移除（唯一主任者→待確認；完工案場保留歷史不動）
+  if (left_date) {
+    const affected = sites.filter(s => s.status !== 'done' && pmHas(s, name));
+    for (const s of affected) {
+      const newPm = pmList(s).filter(n => n !== name).join(',');
       await sb.from('sites').update({ pm: newPm }).eq('id', s.id);
     }
   }
