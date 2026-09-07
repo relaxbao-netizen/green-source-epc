@@ -1435,7 +1435,7 @@ function renderInsReminder() {
   const el = document.getElementById('home-ins-list');
   if (!el) return;
   const items = insAlerts();
-  if (!items.length) { el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前沒有即將到期或逾期的保險</div>`; return; }
+  if (!items.length) { el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前無到期保險</div>`; return; }
   el.innerHTML = items.map(({ site, key, label, st }) => `
     <div class="cert-alert-row" onclick="goInsCell(${site.id},'${key}')" style="cursor:pointer">
       <span class="cert-dot" style="background:${CERT_COLORS[st.level]}"></span>
@@ -2121,7 +2121,7 @@ function renderCertReminder() {
   if (!el) return;
   const items = certAlerts();
   if (!items.length) {
-    el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前沒有即將到期或逾期的證照</div>`;
+    el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前無到期證照</div>`;
     return;
   }
   el.innerHTML = items.map(({ name, key, cert, st }) => {
@@ -4981,7 +4981,7 @@ function appQueryFilterPass(r, exclude){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
   if(exclude!=='year'){ const yv=g('q-year'); if(yv){ const ry=(r.apply_date||r.created_at||'').slice(0,4) || ('20'+String(r.serial_no||'').slice(0,2)); if(ry!==yv) return false; } }
   if(exclude!=='serial'){ const sv=g('q-serial'); if(sv && !(r.serial_no||'').includes(sv)) return false; }
-  if(exclude!=='site'){ const s=g('q-site'); if(s && r.site_name!==s) return false; }
+  if(exclude!=='site'){ const s=g('q-site'); if(s && siteShortName(r.site_name)!==s) return false; }
   if(exclude!=='resp'){ const d=g('q-resp'); if(d && r.apply_dept!==d) return false; }
   if(exclude!=='applicant'){ const a=g('q-applicant'); if(a && r.applicant!==a) return false; }
   if(exclude!=='status'){ const st=g('q-status'); if(st && appStatusKey(r)!==st) return false; }
@@ -5009,7 +5009,7 @@ function appQueryRefreshOptions(){
     const dateCmp=(x,y)=>{ if(!x&&!y) return 0; if(!x) return 1; if(!y) return -1; return x.localeCompare(y); };
     const orderedSites=sites.slice().sort((a,b)=>(b.pct-a.pct)||dateCmp(a.start,b.start)||dateCmp(a.end,b.end));
     const siteRank=n=>{ const i=orderedSites.findIndex(s=>appReqMatchSite({site_name:n},s)); return i<0?9999:i; };
-    const names=[...new Set(rows.map(r=>r.site_name).filter(Boolean))].sort((a,b)=>(siteRank(a)-siteRank(b))||a.localeCompare(b));
+    const names=[...new Set(rows.map(r=>siteShortName(r.site_name)).filter(Boolean))].sort((a,b)=>(siteRank(a)-siteRank(b))||a.localeCompare(b));   // 依正式短標籤歸併同案場的不同寫法
     const sel=document.getElementById('q-site'); const prev=g('q-site');
     sel.innerHTML='<option value="">全部</option>'+names.map(n=>`<option>${appEsc(n)}</option>`).join('');
     sel.value=names.includes(prev)?prev:'';
@@ -5377,7 +5377,7 @@ function appNewCostToggle(){
   if(bill && !appNewBills.length){ appNewBills.push({vendor:'',amount:appTotalValue(),invoice_date:'',payment_date:''}); appNewBillsRender(); }
 }
 function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
-function appApplicantsForDept(d){ return d==='工程管理部' ? supervisors.map(s=>s.name) : approvers.filter(a=>a.dept===d).map(a=>a.name); }
+function appApplicantsForDept(d){ return d==='工程管理部' ? activeSupervisors().map(s=>s.name) : approvers.filter(a=>a.dept===d).map(a=>a.name); }
 function appDeptChange(){ const d=document.getElementById('ar-dept').value; const sel=document.getElementById('ar-applicant'); if(!sel) return; sel.innerHTML='<option value="">請選擇</option>'+appApplicantsForDept(d).map(n=>`<option>${appEsc(n)}</option>`).join(''); }
 function appUpdateTotal(){
   const el=document.getElementById('ar-total'); if(el && !arTotalManual) el.value = appMoney(appItemsTotal());
@@ -5697,7 +5697,7 @@ function appEditReq(id){
     ? r.client_bills.map(b=>({vendor:b.vendor||'',amount:Number(b.amount)||0,invoice_date:b.invoice_date||'',payment_date:b.payment_date||''}))
     : (Number(r.client_amount)>0?[{vendor:'',amount:Number(r.client_amount),invoice_date:r.invoice_date||'',payment_date:r.payment_date||''}]:[]);
   const siteOpts=[...new Set([...appRequests.map(x=>x.site_name), ...sites.map(s=>s.label||s.name), r.site_name].filter(Boolean))].sort();
-  const nameDir=[...new Set([...approvers.map(a=>a.name), ...supervisors.map(s=>s.name), r.applicant].filter(Boolean))].sort();
+  const nameDir=[...new Set([...approvers.map(a=>a.name), ...activeSupervisors().map(s=>s.name), r.applicant].filter(Boolean))].sort();
   const deptList=[...new Set([...APP_DEPTS, ...approvers.map(a=>a.dept).filter(Boolean), r.apply_dept].filter(Boolean))].sort();
   const bill=appIsBillable(r);
   document.getElementById('app-sign-title').textContent='✏️ 編輯 '+r.serial_no;
