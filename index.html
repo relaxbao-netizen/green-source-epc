@@ -5167,8 +5167,8 @@ async function returnEquip(recId) {
 const APP_DEPTS = ['工程管理部','工程設計部','專案管理部','採購部','GSBU','研發部','品保部'];
 const APP_REASONS = ['客戶追加／變更','原工項未發包','設計未包含','其他'];
 const APP_RESP = ['業主變更','設計變更','採購疏失','施工疏失','其他'];
-const SIGN_BASE = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務'];
-const APP_ALL_ROLES = ['申請人主管','採購部主管','工程設計部主管','專案管理部主管','業務','協理','總經理','董事長'];
+const SIGN_BASE = ['主管','業務'];
+const APP_ALL_ROLES = ['主管','業務','協理','總經理','董事長'];
 let approvers = [];
 let appRequests = [];
 let appItems = [];
@@ -6141,7 +6141,16 @@ function appShowResultModal(title, bodyHTML){
 
 // ---------- 人員 / 角色 ----------
 function appPeopleHTML(){
-  const sorted=[...approvers].sort((a,b)=>(a.left_date?1:0)-(b.left_date?1:0));   // 在職在前、離職在後
+  // 排序：在職優先 → 部門（管理階層在前、無部門在後、其餘依筆劃）→ 職稱大小（董事長最高）→ 姓名
+  const roleRank={'董事長':0,'總經理':1,'協理':2,'主管':3,'業務':4,'無':5};
+  const deptTier=d=>d==='管理階層'?0:(d?1:2);
+  const sorted=[...approvers].sort((a,b)=>{
+    const lv=(a.left_date?1:0)-(b.left_date?1:0); if(lv) return lv;
+    const ta=deptTier(a.dept), tb=deptTier(b.dept); if(ta!==tb) return ta-tb;
+    if((a.dept||'')!==(b.dept||'')) return String(a.dept||'').localeCompare(String(b.dept||''),'zh-Hant');
+    const ra=(a.role in roleRank)?roleRank[a.role]:8, rb=(b.role in roleRank)?roleRank[b.role]:8; if(ra!==rb) return ra-rb;
+    return String(a.name||'').localeCompare(String(b.name||''),'zh-Hant');
+  });
   const rows=sorted.map(a=>`<tr style="cursor:pointer${a.left_date?';opacity:.5':''}" onclick="showApproverCard(${a.id},event)">
     <td style="text-align:left">${appEsc(a.name)}${a.left_date?' <span style="color:#dc2626;font-size:11px">(已離職)</span>':''}</td><td>${appEsc(a.role)}</td><td>${appEsc(a.dept)||''}</td><td style="text-align:left;font-size:12px">${appEsc(a.email)||''}</td><td style="white-space:nowrap">${a.left_date||''}</td></tr>`).join('');
   return `<div class="card" style="padding:14px 18px">
