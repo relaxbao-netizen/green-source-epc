@@ -104,7 +104,7 @@ nav > * { flex-shrink: 0; }
 .course-entry:hover, .doc-entry:hover { box-shadow: 0 6px 18px rgba(0,0,0,.12); transform: translateY(-2px); }
 .course-cover, .doc-cover { width: 100%; border-radius: 8px; display: block; margin-top: 4px; border: 1px solid var(--border); }
 /* 第一列課程／週報封面統一 16:9，兩張等高（各佔半欄、同寬同比例） */
-.course-cover { aspect-ratio: 16 / 9; object-fit: cover; }
+.course-cover { aspect-ratio: 16 / 9; object-fit: cover; object-position: left center; }
 /* 第一列兩張卡外框強制等高（div 與 a 基線行高微差時仍對齊） */
 .course-entry, .weekly-entry { align-self: stretch; }
 .course-entry-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
@@ -783,7 +783,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <div id="page-hr" class="page">
   <div class="section-title no-line" style="display:flex;align-items:center;gap:8px">工程人員日行程表
     <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>
-    <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="openPlacesModal()">📍 常用地點</button>
+    <button id="btn-places" class="btn-secondary" style="display:none;padding:6px 14px;font-size:13px" onclick="openPlacesModal()">📍 常用地點</button>
     <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="printDispatch('disp-inline')">📊 匯出 Excel</button>
     <button class="btn-primary" id="btn-add-supervisor" style="display:none;padding:6px 14px;font-size:13px" onclick="openSupervisorForm()">＋ 新增工地主任</button>
   </div>
@@ -1192,6 +1192,10 @@ const PERM_GROUPS = [
   { group: '人力資源', items: [
     ['hr.supervisor', '工地主任 新增／編輯／離職'],
     ['hr.cert',       '證照到期 編輯'],
+    ['hr.dispatch',   '派工行程表 / 常用地點 編輯'],
+  ]},
+  { group: '施工日誌', items: [
+    ['dailylog.edit', '施工日誌 每日繳交標記 編輯'],
   ]},
   { group: '保險', items: [
     ['ins.edit', '案場保險 編輯'],
@@ -1200,6 +1204,7 @@ const PERM_GROUPS = [
     ['equip.manage', '器具借出／歸還／新增'],
   ]},
   { group: '申請簽核', items: [
+    ['approval.manage', '申請單 編輯／刪單'],
     ['approval.people', '簽核人員管理'],
   ]},
 ];
@@ -1275,7 +1280,7 @@ async function resolveUser(email, name, picture) {
   }
   applyAuthUI();
   rerenderAll();
-  try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); } catch (e) {}
+  try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); if (document.getElementById('page-hr').classList.contains('active')) renderHR(); if (document.getElementById('page-dailylog').classList.contains('active')) renderDailyLog(); } catch (e) {}
 }
 function logout() {
   try { localStorage.removeItem('gs_auth'); } catch (e) {}
@@ -1283,7 +1288,7 @@ function logout() {
   currentUser = null;
   applyAuthUI();
   rerenderAll();
-  try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); } catch (e) {}
+  try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); if (document.getElementById('page-hr').classList.contains('active')) renderHR(); if (document.getElementById('page-dailylog').classList.contains('active')) renderDailyLog(); } catch (e) {}
 }
 // 依登入狀態更新導覽列右側與獨立按鈕
 function applyAuthUI() {
@@ -1309,6 +1314,7 @@ function applyAuthUI() {
   const b1 = document.getElementById('btn-add-site-progress'); if (b1) b1.style.display = can('site.add') ? '' : 'none';
   const b2 = document.getElementById('btn-add-supervisor'); if (b2) b2.style.display = can('hr.supervisor') ? '' : 'none';
   const b3 = document.getElementById('btn-app-new'); if (b3) b3.style.display = isLoggedIn() ? '' : 'none';
+  const b4 = document.getElementById('btn-places'); if (b4) b4.style.display = can('hr.dispatch') ? '' : 'none';
 }
 function doGoogleLogin() {
   if (!GOOGLE_CLIENT_ID) { alert('尚未設定 Google 用戶端 ID。'); return; }
@@ -2159,7 +2165,8 @@ function drawDailyLog() {
         const v = effMark(r, d);
         const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
         const bg = off ? 'background:#f1f5f9;' : '';
-        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}" onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動" style="${bg}${color}text-align:center;cursor:pointer">${v}</td>`;
+        const cd = can('dailylog.edit');
+        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動"` : ''} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       const nameTd = ms
@@ -2216,6 +2223,7 @@ function appShowMissDays(name, form) {
 }
 // 點擊儲存格手動切換：自動 → ○ → x → -（再回自動）。只在本地暫存，按「儲存」才寫入
 function appCycleDailyMark(id, day) {
+  if (!can('dailylog.edit')) { alert('無此權限。'); return; }
   const r = dailyLogRows.find(x => x.id === id);
   if (!r) return;
   const ov = Object.assign({}, r.overrides || {});
@@ -2961,6 +2969,7 @@ function renderDispatchReport(preserveScroll) {
     th.push(`<th${isOffDay(d) ? ` style="${offBg}"` : ''}>${mo}/${d}<br><span style="font-weight:400;color:#94a3b8">${wd}</span></th>`);
   }
   const ordered = orderedSupervisors();
+  const canDisp = can('hr.dispatch');
   const rows = ordered.map((v) => {
     const cells = [`<td class="nm" style="cursor:pointer" onclick="showAvatarCard('${v.name}',event)">${v.name}</td>`];
     for (let d = 1; d <= days; d++) {
@@ -2971,12 +2980,12 @@ function renderDispatchReport(preserveScroll) {
         const color = label === '休假' ? '#dc2626' : ((label === '週休' || label === '國定假日' || label === '颱風假') ? '#3b82f6' : ((label === '北上' || label === '南下') ? '#f07820' : (isSupport(r) ? '#16a34a' : 'inherit')));
         return `<span style="color:${color};white-space:nowrap">${label}</span>`;
       }).join('<br>');
-      let empty = '<span class="disp-add">＋</span>';
+      let empty = canDisp ? '<span class="disp-add">＋</span>' : '';
       if (!chips) {
         const auto = autoOffLabel(ds);
         if (auto) empty = `<span class="auto-off" style="color:#3b82f6;white-space:nowrap">${auto}</span>`;
       }
-      cells.push(`<td class="disp-cell"${isOffDay(d) ? ` style="${offBg}"` : ''} onclick="openCellEditor('${v.name}','${ds}')">${chips || empty}</td>`);
+      cells.push(`<td class="${canDisp ? 'disp-cell' : ''}"${isOffDay(d) ? ` style="${offBg}"` : ''}${canDisp ? ` onclick="openCellEditor('${v.name}','${ds}')"` : ''}>${chips || empty}</td>`);
     }
     return `<tr>${cells.join('')}</tr>`;
   }).join('');
@@ -3007,6 +3016,7 @@ function renderDispatchReport(preserveScroll) {
 // 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
 let _editCell = { name: null, ds: null };
 function openCellEditor(name, ds) {
+  if (!can('hr.dispatch')) { alert('無此權限。'); return; }
   _editCell = { name, ds };
   const d = new Date(ds + 'T00:00:00');
   document.getElementById('disp-edit-title').textContent = `${name}　${ds.slice(5).replace('-', '/')}（${_WKD[d.getDay()]}）`;
@@ -4313,6 +4323,7 @@ async function geocodeAddr(addr, city) {
 
 // ---- 常用地點管理 ----
 function openPlacesModal() {
+  if (!can('hr.dispatch')) { alert('無此權限。'); return; }
   if (!sb) { alert('需連接雲端才能管理地點'); return; }
   document.getElementById('pl-name').value = '';
   document.getElementById('pl-addr').value = '';
@@ -5900,6 +5911,7 @@ async function doAppSign(action){
   await loadApprovalData(); renderApproval();
 }
 async function appDeleteReq(id){
+  if (!can('approval.manage')) { alert('無此權限。'); return; }
   if(!confirm('確認刪除此申請單？此動作無法復原。')) return;
   const {error}=await sb.from('app_request').delete().eq('id',id);
   if(error){ alert('刪除失敗：'+error.message); return; }
@@ -5967,15 +5979,16 @@ function appViewReq(id){
     ${secLabel('原因說明')}
     <div style="font-size:13px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:11px 14px">${appEsc(r.reason_text)||'—'}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
-      <button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>
+      ${can('approval.manage') ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
       <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
-      <button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>
+      ${can('approval.manage') ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
 }
 
 // ---------- 編輯申請 ----------
 function appEditReq(id){
+  if (!can('approval.manage')) { alert('無此權限。'); return; }
   const r=appRequests.find(x=>x.id===id); if(!r) return;
   editItems=(r.items||[]).map(it=>({name:it.name||'',qty:(it.qty??''),unit:it.unit||'',amount:Number(it.amount)||0}));
   editBills=(Array.isArray(r.client_bills)&&r.client_bills.length)
