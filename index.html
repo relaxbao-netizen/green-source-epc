@@ -4148,6 +4148,7 @@ function showAvatarCard(name, e) {
       </svg>
       ${sv.phone}
     </a>` : ''}
+    ${sv.email ? `<div style="text-align:center;font-size:12px;color:var(--muted);margin-top:4px;word-break:break-all">${appEsc(sv.email)}</div>` : ''}
     ${can('hr.supervisor') ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
       <button class="btn-secondary" style="padding:5px 14px;font-size:12px" onclick="closeAvatarCard();openSupervisorForm('${sv.name}')">✏️ 編輯</button>
       <button class="btn-danger" style="padding:5px 14px;font-size:12px" onclick="deleteSupervisor('${sv.name}')">刪除</button>
@@ -5168,7 +5169,7 @@ const APP_DEPTS = ['工程管理部','工程設計部','專案管理部','採購
 const APP_REASONS = ['客戶追加／變更','原工項未發包','設計未包含','其他'];
 const APP_RESP = ['業主變更','設計變更','採購疏失','施工疏失','其他'];
 const SIGN_BASE = ['主管','業務'];
-const APP_ALL_ROLES = ['主管','業務','協理','總經理','董事長'];
+const APP_ALL_ROLES = ['董事長','總經理','協理','主管','業務']; // 下拉／清單依職稱大小（大→小）
 let approvers = [];
 let appRequests = [];
 let appItems = [];
@@ -6166,7 +6167,7 @@ function openApproverForm(id){
   document.getElementById('app-sign-status-actions').innerHTML='';
   document.getElementById('app-sign-body').innerHTML=`
     <div class="form-field"><label>姓名 *</label><input id="ap-name" value="${appEsc(a.name)}"></div>
-    <div class="form-field" style="margin-top:8px"><label>角色 *</label><select id="ap-role">${[...APP_ALL_ROLES,'無'].map(rr=>`<option ${a.role===rr?'selected':''}>${rr}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>角色 *</label><select id="ap-role">${[...APP_ALL_ROLES,'無'].map(rr=>`<option ${(a.role===rr || (!a.role && rr==='無'))?'selected':''}>${rr}</option>`).join('')}</select></div>
     <div class="form-field" style="margin-top:8px"><label>部門</label><select id="ap-dept"><option value=""></option>${[...new Set([...APP_DEPTS, ...approvers.map(x=>x.dept).filter(Boolean), ...(a.dept?[a.dept]:[])])].map(d=>`<option ${a.dept===d?'selected':''}>${d}</option>`).join('')}</select></div>
     <div class="form-field" style="margin-top:8px"><label>Email</label><input id="ap-email" value="${appEsc(a.email)}" placeholder="例：name@greensource-tech.com"></div>
     <div class="form-field" style="margin-top:8px"><label>離職日（填了＝離職歸檔；留空＝在職）</label><input type="date" id="ap-left-date" value="${appEsc(a.left_date)||''}"></div>
