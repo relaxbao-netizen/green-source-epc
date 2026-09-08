@@ -31,9 +31,13 @@ nav {
   padding: 0 24px; height: 56px; gap: 2px;
   position: sticky; top: 0; z-index: 100;
   box-shadow: 0 1px 4px rgba(0,0,0,.12);
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.55) transparent; /* 窄畫面時顯示細捲軸，提示可左右拖曳 */
 }
-nav::-webkit-scrollbar { display: none; }
+nav::-webkit-scrollbar { height: 6px; }
+nav::-webkit-scrollbar-track { background: transparent; }
+nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.5); border-radius: 3px; }
+nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.75); }
 nav > * { flex-shrink: 0; }
 .logo {
   display: flex; align-items: center; gap: 8px;
@@ -1183,29 +1187,15 @@ const BOOTSTRAP_ADMINS = ['sophia.yeh@greensource-tech.com'];
 // 限定公司網域（留空＝不限制）。設 'greensource-tech.com' 則只允許此網域的 Google 帳號。
 const ALLOW_DOMAIN = '';
 // 功能權限清單（功能層級，依分頁分組）。key 供 can() 判定，label 供權限管理勾選介面顯示。
+// 目前只開放「編輯案場 / 進度」與「申請單 編輯／刪單」可個別授權；
+// 其餘功能（新增/刪除案場、工地主任、證照、派工、施工日誌、保險、器具、簽核人員管理）
+// 一律僅「管理員」可做（不列在此＝一般人無法被授權，管理員仍可）。
 const PERM_GROUPS = [
   { group: '案場 / 工程進度', items: [
-    ['site.add',    '新增案場'],
     ['site.edit',   '編輯案場 / 進度'],
-    ['site.delete', '刪除案場'],
-  ]},
-  { group: '人力資源', items: [
-    ['hr.supervisor', '工地主任 新增／編輯／離職'],
-    ['hr.cert',       '證照到期 編輯'],
-    ['hr.dispatch',   '派工行程表 / 常用地點 編輯'],
-  ]},
-  { group: '施工日誌', items: [
-    ['dailylog.edit', '施工日誌 每日繳交標記 編輯'],
-  ]},
-  { group: '保險', items: [
-    ['ins.edit', '案場保險 編輯'],
-  ]},
-  { group: '器具借用', items: [
-    ['equip.manage', '器具借出／歸還／新增'],
   ]},
   { group: '申請簽核', items: [
     ['approval.manage', '申請單 編輯／刪單'],
-    ['approval.people', '簽核人員管理'],
   ]},
 ];
 const ALL_PERM_KEYS = PERM_GROUPS.flatMap(g => g.items.map(it => it[0]));
@@ -6335,7 +6325,21 @@ function setupCoverHeightSync() {
   window.addEventListener('resize', run);
   if (window.ResizeObserver) { try { new ResizeObserver(run).observe(cc); } catch (e) {} }
 }
+// 導覽列窄畫面時：桌機滑鼠滾輪在 nav 上自動轉成左右捲動（觸控／觸控板本來就能橫滑）
+function setupNavWheelScroll() {
+  const nav = document.querySelector('nav');
+  if (!nav) return;
+  nav.addEventListener('wheel', (e) => {
+    if (nav.scrollWidth <= nav.clientWidth) return;         // 沒溢出就不接管
+    if (Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;   // 已是橫向滾動則放行
+    const max = nav.scrollWidth - nav.clientWidth;
+    if ((e.deltaY < 0 && nav.scrollLeft <= 0) || (e.deltaY > 0 && nav.scrollLeft >= max)) return; // 到底則放行給頁面
+    nav.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+}
 async function initApp() {
+  setupNavWheelScroll(); // 導覽列可用滑鼠滾輪左右捲動
   initGoogleAuth(); // Google 登入 + 權限（未設定用戶端 ID 或未登入＝全站唯讀）
   if (sb) {
     await loadFromCloud(); // 失敗時自動沿用內建資料
