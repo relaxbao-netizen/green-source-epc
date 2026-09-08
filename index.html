@@ -1269,7 +1269,7 @@ async function resolveUser(email, name, picture) {
     currentUser = { email, name: name || email, picture, perms: new Set(), isAdmin: false, active: false };
   }
   applyAuthUI();
-  rerenderAll();
+  // 不呼叫 rerenderAll（會重播首頁儀表掃針動畫造成閃爍）；首頁無依權限刷新的內容，只更新相關分頁
   try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); if (document.getElementById('page-hr').classList.contains('active')) renderHR(); if (document.getElementById('page-dailylog').classList.contains('active')) renderDailyLog(); } catch (e) {}
 }
 function logout() {
@@ -1277,7 +1277,7 @@ function logout() {
   try { if (window.google && google.accounts && google.accounts.id) { google.accounts.id.disableAutoSelect(); } } catch (e) {}
   currentUser = null;
   applyAuthUI();
-  rerenderAll();
+  // 登出不重繪首頁（避免儀表動畫重播）；只更新相關分頁
   try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); if (document.getElementById('page-hr').classList.contains('active')) renderHR(); if (document.getElementById('page-dailylog').classList.contains('active')) renderDailyLog(); } catch (e) {}
 }
 // 依登入狀態更新導覽列右側與獨立按鈕
