@@ -629,6 +629,17 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .cert-alert-days { font-size: 11px; }
   /* 證照表格：內距收窄，配合橫向觸控捲動 */
   .cert-table th, .cert-table td { padding: 8px; }
+
+  /* 寬表格：橫向捲動時凍結第一欄（姓名／案場名稱），保留對照；右側陰影標示凍結線 */
+  .cert-table th:first-child, .cert-table td:first-child,
+  .prog-table th:first-child, .prog-table td:first-child {
+    position: sticky; left: 0; z-index: 1;
+    box-shadow: 6px 0 6px -6px rgba(0,0,0,.18);
+  }
+  .cert-table td:first-child { background: var(--surface, #fff); }
+  .cert-table thead th:first-child { z-index: 2; }               /* 表頭凍結格壓過內容 */
+  .prog-table td:first-child { background: var(--surface, #fff); }
+  .prog-table thead th:first-child { position: sticky; left: 0; z-index: 2; background: var(--surface, #fff); }
   /* 課程園地：手機一列 2 個 */
   .course-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
 }
