@@ -1190,6 +1190,16 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div style="padding:16px 20px" id="users-body"></div>
   </div>
 </div>
+<!-- ===== 操作紀錄 Modal（僅管理員）===== -->
+<div class="modal-overlay" id="audit-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="width:660px;max-width:95vw" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">📜 操作紀錄</div>
+      <button class="modal-close" onclick="document.getElementById('audit-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px" id="audit-body"></div>
+  </div>
+</div>
 <!-- ===== 單一使用者權限編輯 Modal ===== -->
 <div class="modal-overlay" id="user-edit-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="kpi-list-box" style="width:560px;max-width:95vw" onclick="event.stopPropagation()">
@@ -1373,7 +1383,7 @@ function applyAuthUI() {
         ? `<img src="${currentUser.picture}" referrerpolicy="no-referrer" style="width:26px;height:26px;border-radius:50%;flex-shrink:0" alt="">`
         : `<span style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff">${(currentUser.name || '?').slice(0, 1)}</span>`;
       const tag = currentUser.isAdmin ? '管理員' : (currentUser.active ? '' : '唯讀');
-      const adminBtn = isAdmin() ? `<button onclick="openUsersModal()" title="使用者權限管理" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">⚙️ 權限管理</button>` : '';
+      const adminBtn = isAdmin() ? `<button onclick="openAuditModal()" title="操作紀錄" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📜 紀錄</button><button onclick="openUsersModal()" title="使用者權限管理" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">⚙️ 權限管理</button>` : '';
       box.innerHTML = `${adminBtn}
         <div style="display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;white-space:nowrap">${pic}<span>${currentUser.name}${tag ? `<span style="opacity:.8">（${tag}）</span>` : ''}</span></div>
         <button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">登出</button>`;
@@ -4898,6 +4908,54 @@ function equipDisplayName(i) {
   return name;
 }
 
+// ===================== 操作稽核紀錄（audit log）=====================
+// 記錄「非管理員」在網頁上的新增/修改/刪除（管理員自己的動作不記）。攔截 sb.from(table).insert/update/delete/upsert。
+const AUDIT_TABLE_NAMES = { sites: '案場', supervisors: '工地主任', cert_expiry: '證照到期', site_insurance: '案場保險', equipment: '器具', equipment_borrow: '器具借用', app_request: '申請單', approvers: '簽核人員', uniforms: '制服領取', supervisor_log: '派工', custom_places: '常用地點', daily_log_status: '施工日誌', app_users: '使用者權限' };
+let auditLog = [];
+function logAudit(table, op, payload) {
+  try {
+    if (!sb || !currentUser || !currentUser.email || isAdmin()) return; // 管理員（我）自己的動作不記
+    const label = AUDIT_TABLE_NAMES[table]; if (!label) return;
+    const opName = { insert: '新增', update: '修改', delete: '刪除', upsert: '新增/修改' }[op] || op;
+    const pick = o => o && (o.name || o.serial_no || o.site_name || o.email || o.title || '');
+    const key = Array.isArray(payload) ? payload.map(pick).filter(Boolean).slice(0, 3).join('、') : pick(payload);
+    const summary = `${opName}${label}${key ? '：' + key : ''}`;
+    sb.from('audit_log').insert({ actor_email: currentUser.email, actor_name: currentUser.name || currentUser.email, action: opName, entity: label, summary }).then(() => {}).catch(() => {});
+  } catch (e) {}
+}
+function setupAudit() {
+  if (!sb || sb.__aud) return; sb.__aud = true;
+  const of = sb.from.bind(sb);
+  sb.from = (t) => {
+    const qb = of(t);
+    if (t !== 'audit_log' && AUDIT_TABLE_NAMES[t]) {
+      ['insert', 'update', 'delete', 'upsert'].forEach(m => {
+        if (typeof qb[m] !== 'function') return;
+        const orig = qb[m].bind(qb);
+        qb[m] = (payload, ...rest) => { logAudit(t, m, payload); return orig(payload, ...rest); };
+      });
+    }
+    return qb;
+  };
+}
+async function loadAuditLog() {
+  if (!sb) return;
+  try { const { data } = await sb.from('audit_log').select('*').order('id', { ascending: false }).limit(500); auditLog = data || []; } catch (e) { auditLog = []; }
+}
+async function openAuditModal() {
+  if (!isAdmin()) { alert('僅管理員可檢視操作紀錄。'); return; }
+  await loadAuditLog();
+  const rows = auditLog.map(r => `<tr>
+      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(String(r.at || '').replace('T', ' ').slice(0, 16))}</td>
+      <td style="white-space:nowrap">${appEsc(r.actor_name || r.actor_email || '')}</td>
+      <td style="text-align:left">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
+  document.getElementById('audit-body').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">最近 ${auditLog.length} 筆（管理員自己的動作不記錄）。</div>
+    <div style="overflow-x:auto;max-height:62vh;overflow-y:auto"><table class="prog-table" style="min-width:520px">
+      <thead><tr><th style="text-align:left">時間</th><th style="text-align:left">操作人</th><th style="text-align:left">動作</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  document.getElementById('audit-overlay').classList.add('open');
+}
+
 // ===================== 制服領取 =====================
 const UNIFORM_SIZES = ['M','L','XL','2XL','3XL'];
 let uniforms = [];
@@ -6659,6 +6717,7 @@ function setupNavWheelScroll() {
 }
 async function initApp() {
   setupNavWheelScroll(); // 導覽列可用滑鼠滾輪左右捲動
+  setupAudit(); // 攔截寫入以記錄非管理員的操作軌跡
   initGoogleAuth(); // Google 登入 + 權限（未設定用戶端 ID 或未登入＝全站唯讀）
   if (sb) {
     await loadFromCloud(); // 失敗時自動沿用內建資料
