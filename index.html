@@ -863,9 +863,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== 器具借用 / 制服領取 ===== -->
 <div id="page-equip" class="page">
-  <div id="equip-subtabs" style="display:flex;gap:6px;margin-bottom:14px">
+  <div id="equip-subtabs" style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
     <button id="eq-tab-tool" class="tab-btn active" onclick="showEquipTab('tool')">🔧 器具借用</button>
     <button id="eq-tab-uniform" class="tab-btn" onclick="showEquipTab('uniform')">🧥 制服領取</button>
+    <span style="flex:1"></span>
+    <button id="btn-uniform-add" class="btn-primary" style="padding:6px 14px;font-size:13px;display:none" onclick="openUniformForm()">＋ 新增領取</button>
   </div>
   <div id="equip-container"></div>
   <div id="uniform-container" hidden></div>
@@ -4913,6 +4915,7 @@ function showEquipTab(tab) {
   document.getElementById('uniform-container').hidden = !isU;
   document.getElementById('eq-tab-tool').classList.toggle('active', !isU);
   document.getElementById('eq-tab-uniform').classList.toggle('active', isU);
+  const ab = document.getElementById('btn-uniform-add'); if (ab) ab.style.display = (isU && isAdmin()) ? '' : 'none';
   if (isU) renderUniforms(); else renderEquip();
 }
 function renderUniforms() {
@@ -4957,8 +4960,7 @@ function renderUniforms() {
     ${personCard}
     <div class="card" style="padding:14px 18px">
       <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title" style="margin-bottom:0">制服領取明細</span>
-        <span style="margin-left:10px;font-size:12px;color:var(--muted)">共 ${totalQty} 件・${people.size} 人</span>
-        <span style="flex:1"></span>${addBtn}</div>
+        <span style="margin-left:10px;font-size:12px;color:var(--muted)">共 ${totalQty} 件・${people.size} 人</span></div>
       <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px">
         <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
         <tbody>${body}</tbody></table></div>
