@@ -34,6 +34,9 @@ nav {
   overflow-x: auto; overflow-y: hidden;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.55) transparent; /* 窄畫面時顯示細捲軸，提示可左右拖曳 */
 }
+/* 登入閘門：未登入前全螢幕遮罩，只顯示登入卡 */
+#auth-gate { position: fixed; inset: 0; z-index: 1000; background: #eef2f6; display: flex; align-items: center; justify-content: center; padding: 24px; }
+#auth-gate .gate-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 36px 28px; width: 100%; max-width: 340px; text-align: center; box-shadow: 0 12px 44px rgba(0,0,0,.1); }
 nav::-webkit-scrollbar { height: 6px; }
 nav::-webkit-scrollbar-track { background: transparent; }
 nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.5); border-radius: 3px; }
@@ -664,6 +667,29 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   </div>
 </nav>
 
+<!-- ===== 登入閘門：未登入公司帳號前蓋住全站（僅登入者可檢視）===== -->
+<div id="auth-gate">
+  <div class="gate-card">
+    <div style="font-size:40px;line-height:1;margin-bottom:6px">🏗️</div>
+    <div style="font-size:19px;font-weight:800;margin-bottom:4px">綠源工程戰情室</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px">請使用公司 Google 帳號登入後檢視</div>
+    <div id="auth-gate-btn" style="display:flex;justify-content:center;min-height:44px"></div>
+    <button id="auth-gate-fallback" hidden onclick="doGoogleLogin()" style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:#3c4043;cursor:pointer">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      使用 Google 登入
+    </button>
+    <div id="auth-gate-msg" style="font-size:12px;color:var(--danger);margin-top:12px;display:none"></div>
+    <div id="auth-gate-dev" hidden style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">🤖 開發測試登入（僅本機／正式站不顯示）</div>
+      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+        <button onclick="devLogin('admin')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">管理員</button>
+        <button onclick="devLogin('supervisor')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">工地主任</button>
+        <button onclick="devLogin('staff')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">一般員工</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== HOME ===== -->
 <div id="page-home" class="page active">
   <!-- KPI -->
@@ -1267,9 +1293,23 @@ function decodeJwt(token) {
   } catch (e) { return null; }
 }
 function initGoogleAuth() {
-  if (!GOOGLE_CLIENT_ID) { applyAuthUI(); return; } // 尚未設定用戶端 ID：全站唯讀
-  if (!(window.google && google.accounts && google.accounts.id)) { setTimeout(initGoogleAuth, 300); return; }
-  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential, auto_select: true });
+  if (!GOOGLE_CLIENT_ID) { applyAuthUI(); return; } // 尚未設定用戶端 ID：不啟用閘門
+  updateAuthGate(); // 一載入就先蓋住（未登入）
+  // GIS 尚未載入：先確保閘門有備用按鈕可按，稍後再試官方按鈕
+  const fb0 = document.getElementById('auth-gate-fallback');
+  if (!(window.google && google.accounts && google.accounts.id)) { if (fb0) fb0.hidden = false; setTimeout(initGoogleAuth, 300); return; }
+  try {
+    google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential, auto_select: true });
+    const g = document.getElementById('auth-gate-btn'); if (g) { g.innerHTML = ''; google.accounts.id.renderButton(g, { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', width: 240 }); }
+  } catch (e) {}
+  // 官方按鈕渲染出來就藏備用鈕；輪詢最多 ~3 秒，都沒渲染才留備用鈕（避免同時出現兩顆）
+  (function watchGoogleBtn(tries) {
+    const g = document.getElementById('auth-gate-btn'), fb = document.getElementById('auth-gate-fallback');
+    if (!fb) return;
+    if (g && g.childElementCount > 0) { fb.hidden = true; return; }
+    if (tries <= 0) { fb.hidden = false; return; }
+    setTimeout(() => watchGoogleBtn(tries - 1), 300);
+  })(10);
   // 若曾登入，先用快取的 Email 還原權限（UI 層），再交給 GIS 靜默續期
   const cached = (() => { try { return JSON.parse(localStorage.getItem('gs_auth') || 'null'); } catch (e) { return null; } })();
   if (cached && cached.email) { resolveUser(cached.email, cached.name || '', cached.picture || ''); }
@@ -1350,6 +1390,36 @@ function applyAuthUI() {
   const b2 = document.getElementById('btn-add-supervisor'); if (b2) b2.style.display = can('hr.supervisor') ? '' : 'none';
   const b3 = document.getElementById('btn-app-new'); if (b3) b3.style.display = isLoggedIn() ? '' : 'none';
   const b4 = document.getElementById('btn-places'); if (b4) b4.style.display = can('hr.dispatch') ? '' : 'none';
+  updateAuthGate();
+}
+// 開發環境（本機檔案 / localhost / 預覽）才顯示測試登入；正式站（https 網域）不顯示
+function isDevEnv() {
+  return location.protocol === 'file:' || location.protocol === 'data:' ||
+    /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+}
+// 測試登入（機器人帳號，不經 Google／不寫 Supabase）：admin＝全開、supervisor＝某工地主任、staff＝一般員工
+function devLogin(role) {
+  let u;
+  if (role === 'admin') u = { email: 'bot-admin@test.local', name: '🤖 測試管理員', isAdmin: true };
+  else if (role === 'supervisor') { const sv = (typeof supervisors !== 'undefined' ? supervisors : []).find(s => !s.left_date && s.role !== '工程部主管') || {}; u = { email: sv.email || 'bot-sv@test.local', name: sv.name || '🤖 測試工地主任', isAdmin: false }; }
+  else u = { email: 'bot-staff@test.local', name: '🤖 測試員工', isAdmin: false };
+  currentUser = { email: u.email, name: u.name, picture: '', perms: new Set(), isAdmin: u.isAdmin, active: true };
+  applyAuthUI();
+  try { renderCertTable(); renderInsTable(); if (typeof renderEquip === 'function') renderEquip(); if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); if (document.getElementById('page-hr').classList.contains('active')) renderHR(); if (document.getElementById('page-dailylog').classList.contains('active')) renderDailyLog(); } catch (e) {}
+}
+// 登入閘門：設定了 GOOGLE_CLIENT_ID 且尚未登入（或被停用）時，蓋住全站只顯示登入卡
+function updateAuthGate() {
+  const gate = document.getElementById('auth-gate');
+  if (!gate) return;
+  const needLogin = !!GOOGLE_CLIENT_ID && !(currentUser && currentUser.active);
+  gate.hidden = !needLogin;
+  const dev = document.getElementById('auth-gate-dev'); if (dev) dev.hidden = !isDevEnv();
+  const msg = document.getElementById('auth-gate-msg');
+  if (msg) {
+    if (currentUser && !currentUser.active) { msg.textContent = '此帳號已被停用，請聯絡管理員。'; msg.style.display = 'block'; }
+    else { msg.style.display = 'none'; }
+  }
+  try { document.body.style.overflow = needLogin ? 'hidden' : ''; } catch (e) {}
 }
 function doGoogleLogin() {
   if (!GOOGLE_CLIENT_ID) { alert('尚未設定 Google 用戶端 ID。'); return; }
