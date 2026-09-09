@@ -1424,7 +1424,7 @@ function openUserEdit(email) {
     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin:10px 0"><input type="checkbox" id="ue-admin"${u.is_admin ? ' checked' : ''} onchange="document.getElementById('ue-perms-wrap').style.display=this.checked?'none':''">設為管理員（全部功能可編輯 ＋ 可管理權限）</label>
     <div id="ue-perms-wrap" style="${u.is_admin ? 'display:none' : ''}">
       ${PERM_GROUPS.length ? `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">勾選此人可編輯的功能：</div>${groupsHtml}`
-        : `<div style="font-size:12px;color:var(--muted);line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px">非管理員的權限依身分自動判定，無需逐項勾選：<br>・該案場<b>工地主任</b>可改自己案場的進度（WBS 完成率）<br>・任何登入者可<b>新增申請單</b>，並可<b>編輯自己填的申請單</b><br>・完整編輯案場、刪除案場、申請單刪單＝僅管理員</div>`}
+        : `<div style="font-size:12px;color:var(--muted);line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px">非管理員的權限依身分自動判定，無需逐項勾選：<br>・該案場<b>工地主任</b>可改自己案場的進度（WBS 完成率）<br>・任何登入者可<b>新增申請單</b>，並可<b>編輯自己填的申請單</b></div>`}
     </div>
     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-top:6px"><input type="checkbox" id="ue-active"${u.active !== false ? ' checked' : ''}>啟用（取消＝停用此帳號，全站唯讀）</label>
     <div id="ue-err" style="color:var(--danger);font-size:12px;margin-top:8px;display:none"></div>
