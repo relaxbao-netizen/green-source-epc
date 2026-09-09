@@ -4918,6 +4918,14 @@ function showEquipTab(tab) {
   const ab = document.getElementById('btn-uniform-add'); if (ab) ab.style.display = (isU && isAdmin()) ? '' : 'none';
   if (isU) renderUniforms(); else renderEquip();
 }
+// 把制服紀錄的（短）姓名對應到系統中完整姓名（工地主任/簽核人員），如 Brian→陳建偉 Brian、鍾璧堯→鍾璧堯 Leon；對不到則原樣
+function uniformDisplayName(name) {
+  const n = String(name || '').trim();
+  if (!n) return n;
+  const all = [...(typeof supervisors !== 'undefined' ? supervisors : []), ...(typeof approvers !== 'undefined' ? approvers : [])];
+  const hit = all.find(p => { const pn = String(p.name || '').trim(); return pn && (pn === n || pn.includes(n)); });
+  return hit ? hit.name : n;
+}
 function renderUniforms() {
   const cont = document.getElementById('uniform-container');
   if (!cont) return;
@@ -4925,12 +4933,12 @@ function renderUniforms() {
   // 各尺寸總量
   const bySize = {}; UNIFORM_SIZES.forEach(s => bySize[s] = 0);
   let totalQty = 0; const people = new Set();
-  rows.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; totalQty += q; if (r.name) people.add(r.name); });
+  rows.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; totalQty += q; if (r.name) people.add(uniformDisplayName(r.name)); });
   const sizeCards = UNIFORM_SIZES.map(s => `<div class="card" style="padding:12px 14px;text-align:center;cursor:pointer" onclick="uniformShowSize('${s}')" title="點看 ${s} 領取明細"><div style="font-size:12px;color:var(--muted)">${s}</div><div style="font-size:22px;font-weight:800;margin-top:2px">${bySize[s]}</div><div style="font-size:11px;color:var(--muted)">件</div></div>`).join('');
   const canEdit = isAdmin();
   const addBtn = canEdit ? '<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openUniformForm()">＋ 新增領取</button>' : '';
   const body = rows.length ? rows.map(r => `<tr>
-      <td style="text-align:left">${appEsc(r.name)}</td>
+      <td style="text-align:left">${appEsc(uniformDisplayName(r.name))}</td>
       <td style="text-align:center">${appEsc(r.size)}</td>
       <td style="text-align:center">${Number(r.qty) || 0}</td>
       <td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td>
@@ -4938,7 +4946,7 @@ function renderUniforms() {
     </tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
   // 每人領取合計（姓名 × 各尺寸 樞紐 + 合計），依合計多到少
   const byPerson = {};
-  rows.forEach(r => { const n = r.name || '?'; if (!byPerson[n]) byPerson[n] = Object.fromEntries(UNIFORM_SIZES.map(s => [s, 0])); byPerson[n][r.size] = (byPerson[n][r.size] || 0) + (Number(r.qty) || 0); });
+  rows.forEach(r => { const n = uniformDisplayName(r.name) || '?'; if (!byPerson[n]) byPerson[n] = Object.fromEntries(UNIFORM_SIZES.map(s => [s, 0])); byPerson[n][r.size] = (byPerson[n][r.size] || 0) + (Number(r.qty) || 0); });
   const personRows = Object.keys(byPerson).map(n => { const tot = UNIFORM_SIZES.reduce((s, z) => s + (byPerson[n][z] || 0), 0); return { name: n, sizes: byPerson[n], total: tot }; }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'zh-Hant'));
   const personBody = personRows.length ? personRows.map(p => `<tr>
       <td style="text-align:left">${appEsc(p.name)}</td>
@@ -4972,7 +4980,7 @@ function uniformShowSize(size) {
   const total = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
   const body = rows.length ? `<div style="overflow-x:auto"><table class="prog-table" style="min-width:360px">
     <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th></tr></thead>
-    <tbody>${rows.map(r => `<tr><td style="text-align:left">${appEsc(r.name)}</td><td style="text-align:center">${Number(r.qty) || 0}</td><td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td></tr>`).join('')}</tbody></table></div>`
+    <tbody>${rows.map(r => `<tr><td style="text-align:left">${appEsc(uniformDisplayName(r.name))}</td><td style="text-align:center">${Number(r.qty) || 0}</td><td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td></tr>`).join('')}</tbody></table></div>`
     : '<div style="color:var(--muted);padding:8px">此尺寸尚無領取紀錄</div>';
   appShowResultModal(`${size} 制服領取（${total} 件・${rows.length} 筆）`, body);
 }
