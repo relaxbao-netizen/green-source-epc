@@ -423,8 +423,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .btn-primary, .btn-secondary, .btn-danger, .btn-pri, .btn-sec {
   height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
 }
-/* 申請簽核標題列：總覽/查詢分頁對齊「新增申請」的 36px 高（月份選擇器則比照各頁的月份選擇器樣式） */
-#app-subtabs .tab-btn {
+/* 分頁膠囊統一 36px 高：申請簽核子分頁、工程進度篩選、器具/制服子分頁 */
+#app-subtabs .tab-btn, .tab-row .tab-btn, #equip-subtabs .tab-btn {
   height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
 }
 /* 行程表月份導覽：圓形箭頭鈕 */
@@ -4923,7 +4923,7 @@ function renderUniforms() {
   const bySize = {}; UNIFORM_SIZES.forEach(s => bySize[s] = 0);
   let totalQty = 0; const people = new Set();
   rows.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; totalQty += q; if (r.name) people.add(r.name); });
-  const sizeCards = UNIFORM_SIZES.map(s => `<div class="card" style="padding:12px 14px;text-align:center"><div style="font-size:12px;color:var(--muted)">${s}</div><div style="font-size:22px;font-weight:800;margin-top:2px">${bySize[s]}</div><div style="font-size:11px;color:var(--muted)">件</div></div>`).join('');
+  const sizeCards = UNIFORM_SIZES.map(s => `<div class="card" style="padding:12px 14px;text-align:center;cursor:pointer" onclick="uniformShowSize('${s}')" title="點看 ${s} 領取明細"><div style="font-size:12px;color:var(--muted)">${s}</div><div style="font-size:22px;font-weight:800;margin-top:2px">${bySize[s]}</div><div style="font-size:11px;color:var(--muted)">件</div></div>`).join('');
   const canEdit = isAdmin();
   const addBtn = canEdit ? '<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openUniformForm()">＋ 新增領取</button>' : '';
   const body = rows.length ? rows.map(r => `<tr>
@@ -4936,13 +4936,23 @@ function renderUniforms() {
   cont.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">${sizeCards}</div>
     <div class="card" style="padding:14px 18px">
-      <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">制服領取明細</span>
+      <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title" style="margin-bottom:0">制服領取明細</span>
         <span style="margin-left:10px;font-size:12px;color:var(--muted)">共 ${totalQty} 件・${people.size} 人</span>
         <span style="flex:1"></span>${addBtn}</div>
       <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px">
         <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
         <tbody>${body}</tbody></table></div>
     </div>`;
+}
+// 點尺寸卡：列出該尺寸的領取明細（依日期新到舊）
+function uniformShowSize(size) {
+  const rows = uniforms.filter(r => r.size === size).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const total = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  const body = rows.length ? `<div style="overflow-x:auto"><table class="prog-table" style="min-width:360px">
+    <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td style="text-align:left">${appEsc(r.name)}</td><td style="text-align:center">${Number(r.qty) || 0}</td><td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div style="color:var(--muted);padding:8px">此尺寸尚無領取紀錄</div>';
+  appShowResultModal(`${size} 制服領取（${total} 件・${rows.length} 筆）`, body);
 }
 let editingUniformId = null;
 function openUniformForm(id) {
