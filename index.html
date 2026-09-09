@@ -861,9 +861,25 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="card"><div id="ins-table"></div></div>
 </div>
 
-<!-- ===== 器具借用 ===== -->
+<!-- ===== 器具借用 / 制服領取 ===== -->
 <div id="page-equip" class="page">
+  <div id="equip-subtabs" style="display:flex;gap:6px;margin-bottom:14px">
+    <button id="eq-tab-tool" class="tab-btn active" onclick="showEquipTab('tool')">🔧 器具借用</button>
+    <button id="eq-tab-uniform" class="tab-btn" onclick="showEquipTab('uniform')">🧥 制服領取</button>
+  </div>
   <div id="equip-container"></div>
+  <div id="uniform-container" hidden></div>
+</div>
+
+<!-- ===== 制服領取 新增/編輯 Modal ===== -->
+<div class="modal-overlay" id="uniform-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kpi-list-box" style="width:420px;max-width:95vw" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="uniform-form-title">＋ 新增領取</div>
+      <button class="modal-close" onclick="document.getElementById('uniform-form-overlay').classList.remove('open')">✕</button>
+    </div>
+    <div style="padding:16px 20px" id="uniform-form-body"></div>
+  </div>
 </div>
 
 <div id="page-dailylog" class="page">
@@ -4880,6 +4896,103 @@ function equipDisplayName(i) {
   return name;
 }
 
+// ===================== 制服領取 =====================
+const UNIFORM_SIZES = ['M','L','XL','2XL','3XL'];
+let uniforms = [];
+async function loadUniforms() {
+  if (!sb) return;
+  try {
+    const { data, error } = await sb.from('uniforms').select('*').order('date', { ascending: false });
+    uniforms = (!error && data) ? data : [];
+  } catch (e) { uniforms = []; }
+}
+// 器具/制服 子分頁切換
+function showEquipTab(tab) {
+  const isU = tab === 'uniform';
+  document.getElementById('equip-container').hidden = isU;
+  document.getElementById('uniform-container').hidden = !isU;
+  document.getElementById('eq-tab-tool').classList.toggle('active', !isU);
+  document.getElementById('eq-tab-uniform').classList.toggle('active', isU);
+  if (isU) renderUniforms(); else renderEquip();
+}
+function renderUniforms() {
+  const cont = document.getElementById('uniform-container');
+  if (!cont) return;
+  const rows = [...uniforms].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  // 各尺寸總量
+  const bySize = {}; UNIFORM_SIZES.forEach(s => bySize[s] = 0);
+  let totalQty = 0; const people = new Set();
+  rows.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; totalQty += q; if (r.name) people.add(r.name); });
+  const sizeCards = UNIFORM_SIZES.map(s => `<div class="card" style="padding:12px 14px;text-align:center"><div style="font-size:12px;color:var(--muted)">${s}</div><div style="font-size:22px;font-weight:800;margin-top:2px">${bySize[s]}</div><div style="font-size:11px;color:var(--muted)">件</div></div>`).join('');
+  const canEdit = isAdmin();
+  const addBtn = canEdit ? '<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openUniformForm()">＋ 新增領取</button>' : '';
+  const body = rows.length ? rows.map(r => `<tr>
+      <td style="text-align:left">${appEsc(r.name)}</td>
+      <td style="text-align:center">${appEsc(r.size)}</td>
+      <td style="text-align:center">${Number(r.qty) || 0}</td>
+      <td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td>
+      <td style="text-align:center">${canEdit ? `<button class="btn-edit s-normal" onclick="openUniformForm(${r.id})">編輯</button> <button class="btn-edit s-done" style="background:#fee2e2;color:#dc2626" onclick="delUniform(${r.id})">刪除</button>` : ''}</td>
+    </tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
+  cont.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">${sizeCards}</div>
+    <div class="card" style="padding:14px 18px">
+      <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">制服領取明細</span>
+        <span style="margin-left:10px;font-size:12px;color:var(--muted)">共 ${totalQty} 件・${people.size} 人</span>
+        <span style="flex:1"></span>${addBtn}</div>
+      <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px">
+        <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
+        <tbody>${body}</tbody></table></div>
+    </div>`;
+}
+let editingUniformId = null;
+function openUniformForm(id) {
+  if (!isAdmin()) { alert('僅管理員可編輯制服領取。'); return; }
+  editingUniformId = id || null;
+  const u = (id ? uniforms.find(x => x.id === id) : null) || {};
+  // 姓名建議清單：工地主任＋簽核人員＋既有領取者
+  const names = [...new Set([
+    ...(typeof supervisors !== 'undefined' ? supervisors : []).map(s => s.name),
+    ...(typeof approvers !== 'undefined' ? approvers : []).map(a => a.name),
+    ...uniforms.map(x => x.name)
+  ].filter(Boolean))].sort();
+  document.getElementById('uniform-form-title').textContent = id ? '✏️ 編輯領取' : '＋ 新增領取';
+  document.getElementById('uniform-form-body').innerHTML = `
+    <div class="form-field"><label>姓名 *</label><input id="uf-name" list="uf-namelist" value="${appEsc(u.name || '')}" placeholder="輸入或選擇姓名"><datalist id="uf-namelist">${names.map(n => `<option>${appEsc(n)}</option>`).join('')}</datalist></div>
+    <div class="form-field" style="margin-top:8px"><label>尺寸 *</label><select id="uf-size">${UNIFORM_SIZES.map(s => `<option ${u.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+    <div class="form-field" style="margin-top:8px"><label>數量 *</label><input id="uf-qty" type="number" min="1" value="${Number(u.qty) || 1}"></div>
+    <div class="form-field" style="margin-top:8px"><label>領取日期 *</label><input id="uf-date" type="date" value="${(u.date || localDate(new Date())).slice(0, 10)}"></div>
+    <div id="uf-err" style="color:var(--danger);font-size:12px;margin-top:8px;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+      <button class="btn-secondary" onclick="document.getElementById('uniform-form-overlay').classList.remove('open')">取消</button>
+      <button class="btn-primary" onclick="saveUniform()">儲存</button>
+    </div>`;
+  document.getElementById('uniform-form-overlay').classList.add('open');
+}
+async function saveUniform() {
+  if (!isAdmin()) { alert('僅管理員可編輯。'); return; }
+  const err = document.getElementById('uf-err');
+  const name = document.getElementById('uf-name').value.trim();
+  const size = document.getElementById('uf-size').value;
+  const qty = Number(document.getElementById('uf-qty').value) || 0;
+  const date = document.getElementById('uf-date').value;
+  if (!name) { err.textContent = '請輸入姓名'; err.style.display = 'block'; return; }
+  if (!qty || qty < 1) { err.textContent = '數量需至少 1'; err.style.display = 'block'; return; }
+  if (!date) { err.textContent = '請選擇領取日期'; err.style.display = 'block'; return; }
+  if (!sb) { err.textContent = '未連上雲端'; err.style.display = 'block'; return; }
+  const rec = { name, size, qty, date, updated: new Date().toISOString() };
+  try {
+    if (editingUniformId) { await sb.from('uniforms').update(rec).eq('id', editingUniformId); }
+    else { await sb.from('uniforms').insert(rec); }
+  } catch (e) { err.textContent = '儲存失敗：' + e.message; err.style.display = 'block'; return; }
+  document.getElementById('uniform-form-overlay').classList.remove('open');
+  await loadUniforms(); renderUniforms();
+}
+async function delUniform(id) {
+  if (!isAdmin()) { alert('僅管理員可刪除。'); return; }
+  if (!confirm('確認刪除此領取紀錄？')) return;
+  if (sb) { try { await sb.from('uniforms').delete().eq('id', id); } catch (e) {} }
+  await loadUniforms(); renderUniforms();
+}
 async function loadEquipList() {
   if (!sb) return;
   const { data, error } = await sb.from('equipment').select('*').order('id');
@@ -6524,6 +6637,7 @@ async function initApp() {
   loadManpower(); // 載入施工日誌工別人數（案場明細用；失敗不影響其他功能）
   ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
   Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
+  loadUniforms().then(() => { const uc = document.getElementById('uniform-container'); if (uc && !uc.hidden) renderUniforms(); }); // 制服領取紀錄
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
