@@ -1148,7 +1148,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <div id="app-subtabs" style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="tab-btn active" onclick="showAppSection('dash',this)">📊 總覽</button>
       <button class="tab-btn" onclick="showAppSection('query',this)">🔍 查詢</button>
-      <button class="tab-btn" onclick="showAppSection('people',this)">👤 人員</button>
+      <button id="btn-app-people" class="tab-btn" style="display:none" onclick="showAppSection('people',this)">👤 人員</button>
     </div>
     <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>
     <button id="btn-app-new" class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="showAppSection('new')">＋ 新增申請</button>
@@ -1412,6 +1412,7 @@ function applyAuthUI() {
   const b2 = document.getElementById('btn-add-supervisor'); if (b2) b2.style.display = can('hr.supervisor') ? '' : 'none';
   const b3 = document.getElementById('btn-app-new'); if (b3) b3.style.display = isLoggedIn() ? '' : 'none';
   const b4 = document.getElementById('btn-places'); if (b4) b4.style.display = can('hr.dispatch') ? '' : 'none';
+  const b5 = document.getElementById('btn-app-people'); if (b5) b5.style.display = isAdmin() ? '' : 'none';
   updateAuthGate();
 }
 // 開發環境（本機檔案 / localhost / 預覽）才顯示測試登入；正式站（https 網域）不顯示
@@ -5546,6 +5547,7 @@ async function loadApprovalData(){
 
 function showAppSection(sec, btn){
   if (sec === 'new' && !isLoggedIn()) { alert('請先用公司 Google 帳號登入才能新增申請。'); return; }
+  if (sec === 'people' && !isAdmin()) { sec = 'dash'; btn = null; }  // 人員分頁僅管理員可看
   appSection = sec;
   document.querySelectorAll('#app-subtabs .tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
@@ -6522,8 +6524,7 @@ function appPeopleHTML(){
   const rows=sorted.map(a=>`<tr style="cursor:pointer${a.left_date?';opacity:.5':''}" onclick="showApproverCard(${a.id},event)">
     <td style="text-align:left">${appEsc(a.name)}${a.left_date?' <span style="color:#dc2626;font-size:11px">(已離職)</span>':''}</td><td>${appEsc(a.role)}</td><td>${appEsc(a.dept)||''}</td><td style="text-align:left;font-size:12px">${appEsc(a.email)||''}</td><td style="white-space:nowrap">${a.left_date||''}</td></tr>`).join('');
   return `<div class="card" style="padding:14px 18px">
-   <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title">簽核人員／角色</span>${can('approval.people') ? '<button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openApproverForm()">＋ 新增人員</button>' : ''}</div>
-   <div style="font-size:12px;color:var(--muted);margin-bottom:8px">角色用於對應簽核關卡。可用角色：${APP_ALL_ROLES.join('、')}。填「離職日」即歸檔、自動從各選單排除。</div>
+   ${can('approval.people') ? '<div style="display:flex;align-items:center;margin-bottom:10px"><button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:13px" onclick="openApproverForm()">＋ 新增人員</button></div>' : ''}
    <div style="overflow-x:auto"><table class="prog-table" style="min-width:600px"><thead><tr><th>姓名</th><th>角色</th><th>部門</th><th>Email</th><th>離職日</th></tr></thead><tbody>${rows||'<tr><td colspan="5" style="color:var(--muted);padding:8px">尚無人員，請新增</td></tr>'}</tbody></table></div>
   </div>`;
 }
