@@ -1360,19 +1360,23 @@ function applyAuthUI() {
         <div style="display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;white-space:nowrap">${pic}<span>${currentUser.name}${tag ? `<span style="opacity:.8">（${tag}）</span>` : ''}</span></div>
         <button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">登出</button>`;
     } else {
-      // 未登入：直接在導覽列渲染官方 GIS 登入按鈕（點擊會開帳號選擇彈窗，可靠；不靠 One Tap）
-      box.innerHTML = '<div id="nav-gsi-btn" style="display:inline-flex"></div>';
+      // 未登入：顯示粗體自訂按鈕，把透明的官方 GIS 按鈕疊在上面接收點擊（外觀粗體＋登入走官方可靠流程）
+      const gsvg = '<svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+      box.innerHTML = `<div id="nav-login-wrap" style="position:relative;display:inline-flex;align-items:center">
+        <span style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:#3c4043;white-space:nowrap">${gsvg} Google 登入</span>
+        <div id="nav-gsi-btn" title="使用 Google 登入" style="position:absolute;inset:0;opacity:0;overflow:hidden;cursor:pointer"></div>
+      </div>`;
       let ok = false;
       try {
         if (window.google && google.accounts && google.accounts.id) {
-          google.accounts.id.renderButton(document.getElementById('nav-gsi-btn'), { theme: 'outline', size: 'medium', type: 'standard', text: 'signin_with', shape: 'pill' });
+          google.accounts.id.renderButton(document.getElementById('nav-gsi-btn'), { theme: 'outline', size: 'large', type: 'standard', text: 'signin_with', shape: 'pill', width: 200 });
           ok = true;
+          // 把隱形官方按鈕拉伸覆蓋整顆粗體按鈕，讓任何點擊都落在官方按鈕上
+          let _t = 0; const fit = () => { const wrap = document.getElementById('nav-login-wrap'), g = document.getElementById('nav-gsi-btn'); if (!wrap || !g) return; const inner = g.firstElementChild; if (inner) { const w = wrap.getBoundingClientRect(), gi = inner.getBoundingClientRect(); if (gi.width > 2 && gi.height > 2) { inner.style.transformOrigin = 'top left'; inner.style.transform = 'scale(' + (w.width / gi.width).toFixed(3) + ',' + (w.height / gi.height).toFixed(3) + ')'; return; } } if (_t++ < 12) setTimeout(fit, 250); }; setTimeout(fit, 250);
         }
       } catch (e) {}
-      if (!ok) { // GIS 尚未載入：先放自訂鈕（呼叫 doGoogleLogin），載入後 applyAuthUI 會換成官方鈕
-        box.innerHTML = `<button onclick="doGoogleLogin()" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:#3c4043;cursor:pointer;white-space:nowrap">
-        <svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        使用 Google 登入</button>`;
+      if (!ok) { // GIS 尚未載入：整顆改為可點的自訂鈕（呼叫 doGoogleLogin），載入後 applyAuthUI 會換回疊層版
+        box.innerHTML = `<button onclick="doGoogleLogin()" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:#3c4043;cursor:pointer;white-space:nowrap">${gsvg} Google 登入</button>`;
       }
     }
   }
@@ -5696,7 +5700,9 @@ function appGenSerial(){
 function appFormHTML(){
   const activeOpts=sites.filter(s=>s.status!=='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
   const doneOpts=sites.filter(s=>s.status==='done').map(s=>`<option>${appEsc(s.name)}</option>`).join('');
-  const siteOpts=activeOpts + (doneOpts ? `<optgroup label="已完工">${doneOpts}</optgroup>` : '');
+  const maintNames=maintSiteNames();
+  const maintOpts=maintNames.length ? `<optgroup label="維運案場">${maintNames.map(n=>`<option>${appEsc(n)}</option>`).join('')}</optgroup>` : '';
+  const siteOpts=activeOpts + (doneOpts ? `<optgroup label="已完工">${doneOpts}</optgroup>` : '') + maintOpts;
   const deptList=[...new Set([...approvers.map(a=>a.dept).filter(Boolean), '工程管理部'])].sort();
   const deptOpts=deptList.map(d=>`<option>${appEsc(d)}</option>`).join('');
   const firstDept=deptList[0]||'';
@@ -5705,7 +5711,7 @@ function appFormHTML(){
    <div class="form-grid">
     <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" maxlength="5" inputmode="numeric" pattern="\\d{5}" oninput="appSerialInput(this)"></div>
     <div class="form-field"><label>申請日期</label><input type="date" id="ar-date" value="${localDate(new Date())}"></div>
-    <div class="form-field"><label>工程名稱 *</label><select id="ar-site"><option value="">請選擇</option>${siteOpts}</select></div>
+    <div class="form-field"><label>工程名稱 *</label><select id="ar-site" onchange="appSiteSelectChange()"><option value="">請選擇</option>${siteOpts}<option value="__custom__">＋ 自行填寫（維運案場）</option></select><input id="ar-site-custom" placeholder="輸入維運案場名稱（會自動標註【維運】）" style="display:none;margin-top:6px"></div>
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()"><option value="" selected>請選擇</option>${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
@@ -5771,6 +5777,12 @@ function appNewCostToggle(){
 function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
 function appApplicantsForDept(d){ return d==='工程管理部' ? activeSupervisors().map(s=>s.name) : approvers.filter(a=>a.dept===d && !a.left_date).map(a=>a.name); }
 function appDeptChange(){ const d=document.getElementById('ar-dept').value; const sel=document.getElementById('ar-applicant'); if(!sel) return; sel.innerHTML='<option value="">請選擇</option>'+appApplicantsForDept(d).map(n=>`<option>${appEsc(n)}</option>`).join(''); }
+// 維運案場：從既有申請單收集標註【維運】的自填工程名稱（去重、排序），供工程名稱下拉「維運案場」群組使用
+function maintSiteNames(){ const set=new Set(); (appRequests||[]).forEach(r=>{ const n=(r.site_name||'').trim(); if(n.includes('【維運】')) set.add(n); }); return [...set].sort(); }
+// 工程名稱下拉選「＋ 自行填寫」時，顯示自訂輸入框
+function appSiteSelectChange(){ const sel=document.getElementById('ar-site'), inp=document.getElementById('ar-site-custom'); if(!sel||!inp) return; const custom=sel.value==='__custom__'; inp.style.display=custom?'':'none'; if(custom) inp.focus(); }
+// 取表單的工程名稱：自填者自動在名稱後標註【維運】
+function appSiteNameFromForm(){ const v=(document.getElementById('ar-site')?document.getElementById('ar-site').value:'').trim(); if(v==='__custom__'){ let c=(document.getElementById('ar-site-custom')?document.getElementById('ar-site-custom').value:'').trim(); if(c && !c.includes('【維運】')) c+='【維運】'; return c; } return v; }
 function appUpdateTotal(){
   const el=document.getElementById('ar-total'); if(el && !arTotalManual) el.value = appMoney(appItemsTotal());
   document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
@@ -5782,7 +5794,7 @@ function appDraftFromForm(){
   const bills= bill ? appNewBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   return {
     serial_no:g('ar-serial'), apply_dept:g('ar-dept'), apply_date:g('ar-date'),
-    site_name:(g('ar-site')||'').trim(), applicant:(g('ar-applicant')||'').trim(),
+    site_name: appSiteNameFromForm(), applicant:(g('ar-applicant')||'').trim(),
     reason_category:(g('ar-reason')==='其他' ? ((g('ar-reason-other')||'').trim()||'其他') : g('ar-reason')), responsibility:g('ar-resp'), cost_owner:g('ar-cost'),
     client_bills: bills, client_amount: bill?bills.reduce((s,b)=>s+b.amount,0):0,
     invoice_date: (bill&&bills.length===1)?bills[0].invoice_date:null, payment_date: (bill&&bills.length===1)?bills[0].payment_date:null,
@@ -5845,7 +5857,7 @@ async function appBuildApplyXlsx(r){
   const B=on=> on?'■':'□';
   // 申請單位（四固定選項）
   const dept=r.apply_dept||'';
-  const dm = /設計/.test(dept)?'工程設計部' : /品保|維運/.test(dept)?'品保/維運' : /業務/.test(dept)?'業務部' : '工程部';
+  const dm = /設計/.test(dept)?'工程設計部' : /品保|維運/.test(dept)?'品保/維運' : /業務|GSBU/i.test(dept)?'業務部' : '工程部';
   const deptLine = `${B(dm==='工程部')}工程部  ${B(dm==='品保/維運')}品保/維運  ${B(dm==='業務部')}業務部  ${B(dm==='工程設計部')}工程設計部`;
   // 申請日期
   const d=(r.apply_date||'').split('-');
@@ -5880,6 +5892,27 @@ async function appBuildApplyXlsx(r){
   const APPLICANT_SI=21; // 申請人簽核列：保留原字串，只換「申請人：」後的姓名
 
   const zip = await JSZip.loadAsync(window.APPLY_TPL_B64, {base64:true});
+  // 字型：整份套用「標楷體（中文）＋ Times New Roman（英數）」。
+  // 做法：佈景主題 major/minor 的東亞(ea)＝標楷體、拉丁(latin)＝Times New Roman，
+  // 再把 styles.xml 每個字型改為走主題(scheme=minor、移除明確字型名)，中英混合格也能各自正確。
+  try {
+    let theme = await zip.file('xl/theme/theme1.xml').async('string');
+    theme = theme.replace('<a:latin typeface="Cambria"/>','<a:latin typeface="Times New Roman"/>')
+                 .replace('<a:latin typeface="Calibri"/>','<a:latin typeface="Times New Roman"/>')
+                 .split('<a:ea typeface=""/>').join('<a:ea typeface="標楷體"/>')
+                 .split('<a:font script="Hant" typeface="新細明體"/>').join('<a:font script="Hant" typeface="標楷體"/>');
+    zip.file('xl/theme/theme1.xml', theme);
+    let styles = await zip.file('xl/styles.xml').async('string');
+    styles = styles.replace(/(<fonts\b[^>]*>)([\s\S]*?)(<\/fonts>)/, (mm, h, b, t) => {
+      const b2 = b.replace(/<font>[\s\S]*?<\/font>/g, f => {
+        f = f.replace(/<name val="[^"]*"\/>/g, '');
+        if (f.indexOf('<scheme') < 0) f = f.replace('</font>', '<scheme val="minor"/></font>');
+        return f;
+      });
+      return h + b2 + t;
+    });
+    zip.file('xl/styles.xml', styles);
+  } catch (e) {}
   let sst = await zip.file('xl/sharedStrings.xml').async('string');
   let i=-1;
   sst = sst.replace(/<si>[\s\S]*?<\/si>/g, m=>{
