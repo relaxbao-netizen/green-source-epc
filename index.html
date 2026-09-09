@@ -1198,17 +1198,13 @@ const BOOTSTRAP_ADMINS = ['sophia.yeh@greensource-tech.com'];
 // 限定公司網域（留空＝不限制）。設 'greensource-tech.com' 則只允許此網域的 Google 帳號。
 const ALLOW_DOMAIN = '';
 // 功能權限清單（功能層級，依分頁分組）。key 供 can() 判定，label 供權限管理勾選介面顯示。
-// 目前只開放「編輯案場 / 進度」與「申請單 編輯／刪單」可個別授權；
-// 其餘功能（新增/刪除案場、工地主任、證照、派工、施工日誌、保險、器具、簽核人員管理）
-// 一律僅「管理員」可做（不列在此＝一般人無法被授權，管理員仍可）。
-const PERM_GROUPS = [
-  { group: '案場 / 工程進度', items: [
-    ['site.edit',   '編輯案場 / 進度'],
-  ]},
-  { group: '申請簽核', items: [
-    ['approval.manage', '申請單 編輯／刪單'],
-  ]},
-];
+// 權限改為「規則式」，不再逐項勾選授權：
+//  - 管理員：全部功能（完整編輯案場、刪除案場、申請單刪單…）
+//  - 該案場工地主任：只能改自己案場的 WBS 進度完成率
+//  - 任何登入者：新增申請單
+//  - 申請人本人：編輯自己那張申請單
+// 因此無可勾選項目；權限管理只設定「管理員 / 啟用」。
+const PERM_GROUPS = [];
 const ALL_PERM_KEYS = PERM_GROUPS.flatMap(g => g.items.map(it => it[0]));
 const PERM_LABELS = Object.fromEntries(PERM_GROUPS.flatMap(g => g.items));
 // currentUser：未登入為 null；登入後為 { email, name, picture, perms:Set, isAdmin, active }
@@ -1221,8 +1217,46 @@ function can(key) {
   return currentUser.perms.has(key);
 }
 function isAdmin() { return !!(currentUser && currentUser.isAdmin && currentUser.active); }
-// 是否已用（公司）Google 帳號登入——新增申請開放給所有登入者，不需個別授權
-function isLoggedIn() { return !!(currentUser && currentUser.email); }
+// 是否已用（公司）Google 帳號登入且未被停用——新增申請、規則式編輯的前提
+function isLoggedIn() { return !!(currentUser && currentUser.email && currentUser.active); }
+
+// ---- 身分比對（規則式權限用）----
+// 目前登入者「可能的姓名」集合：app_users 姓名 ＋ 用 Email 對到的工地主任／簽核人員姓名
+function myNames() {
+  const set = new Set();
+  if (!currentUser) return set;
+  if (currentUser.name) set.add(String(currentUser.name).trim());
+  const email = String(currentUser.email || '').toLowerCase();
+  try { (typeof supervisors !== 'undefined' ? supervisors : []).forEach(s => { if (String(s.email || '').toLowerCase() === email && s.name) set.add(String(s.name).trim()); }); } catch (e) {}
+  try { (typeof approvers !== 'undefined' ? approvers : []).forEach(a => { if (String(a.email || '').toLowerCase() === email && a.name) set.add(String(a.name).trim()); }); } catch (e) {}
+  return set;
+}
+// 兩個姓名是否算同一人（去空白後完全相同，或一方包含另一方的短名，如「吳鎮寶 Abo」對「吳鎮寶」）
+function nameMatches(a, b) {
+  a = String(a || '').trim(); b = String(b || '').trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.includes(b) || b.includes(a);
+}
+// 登入者是否為此案場負責工地主任之一（pm 逗號分隔）
+function isSiteSupervisor(site) {
+  if (!isLoggedIn() || !site) return false;
+  const names = myNames(); if (!names.size) return false;
+  const pm = (typeof pmList === 'function') ? pmList(site) : String(site.pm || '').split(',').map(x => x.trim()).filter(Boolean);
+  return pm.some(p => [...names].some(n => nameMatches(n, p)));
+}
+// 此申請單是否為登入者本人所填（登入姓名比對「申請人」）
+function isMyRequest(r) {
+  if (!isLoggedIn() || !r) return false;
+  const names = myNames(); if (!names.size) return false;
+  return [...names].some(n => nameMatches(n, r.applicant));
+}
+// 能否更新此案場進度（WBS 完成率）：管理員或該案場工地主任
+function canEditProgress(site) { return isAdmin() || isSiteSupervisor(site); }
+// 能否完整編輯此案場（改名稱/日期/主任…）：僅管理員
+function canEditSiteFull() { return isAdmin(); }
+// 能否編輯此申請單：管理員或申請人本人
+function canEditReq(r) { return isAdmin() || isMyRequest(r); }
 
 // ---- Google Identity Services 登入 ----
 function decodeJwt(token) {
@@ -1276,8 +1310,8 @@ async function resolveUser(email, name, picture) {
   } else if (boot) {
     currentUser = { email, name: name || email, picture, perms: new Set(), isAdmin: true, active: true };
   } else {
-    // 有 Google 帳號但不在名單：僅可檢視，無編輯權限
-    currentUser = { email, name: name || email, picture, perms: new Set(), isAdmin: false, active: false };
+    // 有公司 Google 帳號但不在 app_users 名單：仍是有效登入者（可依規則編輯自己案場進度/自己申請單），非管理員
+    currentUser = { email, name: name || email, picture, perms: new Set(), isAdmin: false, active: true };
   }
   applyAuthUI();
   // 不呼叫 rerenderAll（會重播首頁儀表掃針動畫造成閃爍）；首頁無依權限刷新的內容，只更新相關分頁
@@ -1312,7 +1346,7 @@ function applyAuthUI() {
         使用 Google 登入</button>`;
     }
   }
-  const b1 = document.getElementById('btn-add-site-progress'); if (b1) b1.style.display = can('site.add') ? '' : 'none';
+  const b1 = document.getElementById('btn-add-site-progress'); if (b1) b1.style.display = isAdmin() ? '' : 'none';
   const b2 = document.getElementById('btn-add-supervisor'); if (b2) b2.style.display = can('hr.supervisor') ? '' : 'none';
   const b3 = document.getElementById('btn-app-new'); if (b3) b3.style.display = isLoggedIn() ? '' : 'none';
   const b4 = document.getElementById('btn-places'); if (b4) b4.style.display = can('hr.dispatch') ? '' : 'none';
@@ -1389,8 +1423,8 @@ function openUserEdit(email) {
     <div class="form-field" style="margin-top:8px"><label>姓名</label><input id="ue-name" value="${appEsc(u.name || '')}"></div>
     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin:10px 0"><input type="checkbox" id="ue-admin"${u.is_admin ? ' checked' : ''} onchange="document.getElementById('ue-perms-wrap').style.display=this.checked?'none':''">設為管理員（全部功能可編輯 ＋ 可管理權限）</label>
     <div id="ue-perms-wrap" style="${u.is_admin ? 'display:none' : ''}">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">勾選此人可編輯的功能：</div>
-      ${groupsHtml}
+      ${PERM_GROUPS.length ? `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">勾選此人可編輯的功能：</div>${groupsHtml}`
+        : `<div style="font-size:12px;color:var(--muted);line-height:1.6;background:#f8fafc;border-radius:8px;padding:10px 12px">非管理員的權限依身分自動判定，無需逐項勾選：<br>・該案場<b>工地主任</b>可改自己案場的進度（WBS 完成率）<br>・任何登入者可<b>新增申請單</b>，並可<b>編輯自己填的申請單</b><br>・完整編輯案場、刪除案場、申請單刪單＝僅管理員</div>`}
     </div>
     <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-top:6px"><input type="checkbox" id="ue-active"${u.active !== false ? ' checked' : ''}>啟用（取消＝停用此帳號，全站唯讀）</label>
     <div id="ue-err" style="color:var(--danger);font-size:12px;margin-top:8px;display:none"></div>
@@ -3351,7 +3385,8 @@ function openModal(id) {
   `;
 
   const editBtn = document.getElementById('modal-edit-btn');
-  editBtn.style.display = can('site.edit') ? '' : 'none';
+  editBtn.style.display = canEditProgress(s) ? '' : 'none';   // 管理員＝完整編輯；工地主任＝只改進度
+  editBtn.textContent = canEditSiteFull() ? '✏️ 編輯' : '📊 更新進度';
   editBtn.className = 'btn-edit ' + statusClass[s.status]; // 顏色跟隨案場狀態
   editBtn.onclick = () => { closeModalDirect(); openSiteForm(s.id); };
 
@@ -4653,8 +4688,15 @@ function updateCityOptions(keepCity) {
 function openSiteForm(id) {
   editingSiteId = (id === undefined || id === null) ? null : id;
   const s = editingSiteId !== null ? siteById(editingSiteId) : null;
-  document.getElementById('site-form-title').textContent = s ? '編輯案場' : '＋ 新增案場';
-  document.getElementById('sf-delete-btn').style.display = (s && can('site.delete')) ? '' : 'none';
+  // 權限：新增案場＝僅管理員；編輯＝管理員(完整)或該案場工地主任(只改進度)
+  if (s ? !canEditProgress(s) : !isAdmin()) { alert('無此權限。'); return; }
+  const progressOnly = !!(s && !canEditSiteFull());   // 工地主任模式：只顯示 WBS 完成率
+  // 依模式顯示/隱藏一般欄位（保留 WBS 區塊，它不是 .form-field）
+  document.querySelectorAll('#site-form-overlay .form-grid > .form-field').forEach(el => { el.style.display = progressOnly ? 'none' : ''; });
+  document.getElementById('sf-wbs-reset').style.display = 'none';
+  const impBtn = document.querySelector('#site-form-overlay [onclick="openWbsImport()"]'); if (impBtn) impBtn.style.display = progressOnly ? 'none' : '';
+  document.getElementById('site-form-title').textContent = s ? (progressOnly ? ('📊 更新進度：' + (s.label || s.name)) : '編輯案場') : '＋ 新增案場';
+  document.getElementById('sf-delete-btn').style.display = (s && isAdmin()) ? '' : 'none';
   document.getElementById('site-form-error').style.display = 'none';
   // 工地主任複選：只列在職主任（supervisors 名單）；編輯舊案時保留原主任名
   const pms = orderedSupervisors().filter(v => v.role !== '工程部主管').map(v => v.name);
@@ -4687,7 +4729,8 @@ function openSiteForm(id) {
 }
 
 async function saveSiteForm() {
-  if (!(editingSiteId !== null ? can('site.edit') : can('site.add'))) { alert('無此權限。'); return; }
+  const _sfSite = editingSiteId !== null ? siteById(editingSiteId) : null;
+  if (_sfSite ? !canEditProgress(_sfSite) : !isAdmin()) { alert('無此權限。'); return; }
   const errEl = document.getElementById('site-form-error');
   errEl.style.display = 'none';
   const val = fid => document.getElementById(fid).value.trim();
@@ -4729,7 +4772,7 @@ async function saveSiteForm() {
 }
 
 async function deleteSiteFromForm() {
-  if (!can('site.delete')) { alert('無此權限。'); return; }
+  if (!isAdmin()) { alert('僅管理員可刪除案場。'); return; }
   if (editingSiteId === null) return;
   const s = siteById(editingSiteId);
   if (!confirm('確定要刪除「' + (s ? s.name : '') + '」嗎？此動作無法復原。')) return;
@@ -5913,7 +5956,7 @@ async function doAppSign(action){
   await loadApprovalData(); renderApproval();
 }
 async function appDeleteReq(id){
-  if (!can('approval.manage')) { alert('無此權限。'); return; }
+  if (!isAdmin()) { alert('僅管理員可刪單。'); return; }
   if(!confirm('確認刪除此申請單？此動作無法復原。')) return;
   const {error}=await sb.from('app_request').delete().eq('id',id);
   if(error){ alert('刪除失敗：'+error.message); return; }
@@ -5981,17 +6024,17 @@ function appViewReq(id){
     ${secLabel('原因說明')}
     <div style="font-size:13px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:11px 14px">${appEsc(r.reason_text)||'—'}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
-      ${can('approval.manage') ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
+      ${canEditReq(r) ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
       <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
-      ${can('approval.manage') ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
+      ${isAdmin() ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
 }
 
 // ---------- 編輯申請 ----------
 function appEditReq(id){
-  if (!can('approval.manage')) { alert('無此權限。'); return; }
   const r=appRequests.find(x=>x.id===id); if(!r) return;
+  if (!canEditReq(r)) { alert('只能編輯自己填的申請單。'); return; }
   editItems=(r.items||[]).map(it=>({name:it.name||'',qty:(it.qty??''),unit:it.unit||'',amount:Number(it.amount)||0}));
   editBills=(Array.isArray(r.client_bills)&&r.client_bills.length)
     ? r.client_bills.map(b=>({vendor:b.vendor||'',amount:Number(b.amount)||0,invoice_date:b.invoice_date||'',payment_date:b.payment_date||''}))
