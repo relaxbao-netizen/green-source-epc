@@ -667,29 +667,6 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   </div>
 </nav>
 
-<!-- ===== 登入閘門：未登入公司帳號前蓋住全站（僅登入者可檢視）===== -->
-<div id="auth-gate">
-  <div class="gate-card">
-    <div style="font-size:40px;line-height:1;margin-bottom:6px">🏗️</div>
-    <div style="font-size:19px;font-weight:800;margin-bottom:4px">綠源工程戰情室</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:22px">請使用公司 Google 帳號登入後檢視</div>
-    <div id="auth-gate-btn" style="display:flex;justify-content:center;min-height:44px"></div>
-    <button id="auth-gate-fallback" hidden onclick="doGoogleLogin()" style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;color:#3c4043;cursor:pointer">
-      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-      使用 Google 登入
-    </button>
-    <div id="auth-gate-msg" style="font-size:12px;color:var(--danger);margin-top:12px;display:none"></div>
-    <div id="auth-gate-dev" hidden style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border)">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">🤖 開發測試登入（僅本機／正式站不顯示）</div>
-      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-        <button onclick="devLogin('admin')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">管理員</button>
-        <button onclick="devLogin('supervisor')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">工地主任</button>
-        <button onclick="devLogin('staff')" style="background:#eef2f6;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer">一般員工</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ===== HOME ===== -->
 <div id="page-home" class="page active">
   <!-- KPI -->
@@ -1223,6 +1200,8 @@ const GOOGLE_CLIENT_ID = '673692132426-i5jcda1ojh535j72njtgm2pnaaed9ggo.apps.goo
 const BOOTSTRAP_ADMINS = ['sophia.yeh@greensource-tech.com'];
 // 限定公司網域（留空＝不限制）。設 'greensource-tech.com' 則只允許此網域的 Google 帳號。
 const ALLOW_DOMAIN = '';
+// 是否「必須登入才能瀏覽」。false＝誰都可以瀏覽（不登入也能看，唯讀）；true＝未登入前用登入閘門蓋住全站。
+const REQUIRE_LOGIN_TO_VIEW = false;
 // 功能權限清單（功能層級，依分頁分組）。key 供 can() 判定，label 供權限管理勾選介面顯示。
 // 權限改為「規則式」，不再逐項勾選授權：
 //  - 管理員：全部功能（完整編輯案場、刪除案場、申請單刪單…）
@@ -1381,9 +1360,20 @@ function applyAuthUI() {
         <div style="display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;white-space:nowrap">${pic}<span>${currentUser.name}${tag ? `<span style="opacity:.8">（${tag}）</span>` : ''}</span></div>
         <button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">登出</button>`;
     } else {
-      box.innerHTML = `<button onclick="doGoogleLogin()" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:#3c4043;cursor:pointer;white-space:nowrap">
+      // 未登入：直接在導覽列渲染官方 GIS 登入按鈕（點擊會開帳號選擇彈窗，可靠；不靠 One Tap）
+      box.innerHTML = '<div id="nav-gsi-btn" style="display:inline-flex"></div>';
+      let ok = false;
+      try {
+        if (window.google && google.accounts && google.accounts.id) {
+          google.accounts.id.renderButton(document.getElementById('nav-gsi-btn'), { theme: 'outline', size: 'medium', type: 'standard', text: 'signin_with', shape: 'pill' });
+          ok = true;
+        }
+      } catch (e) {}
+      if (!ok) { // GIS 尚未載入：先放自訂鈕（呼叫 doGoogleLogin），載入後 applyAuthUI 會換成官方鈕
+        box.innerHTML = `<button onclick="doGoogleLogin()" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #fff;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:#3c4043;cursor:pointer;white-space:nowrap">
         <svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
         使用 Google 登入</button>`;
+      }
     }
   }
   const b1 = document.getElementById('btn-add-site-progress'); if (b1) b1.style.display = isAdmin() ? '' : 'none';
@@ -1411,7 +1401,7 @@ function devLogin(role) {
 function updateAuthGate() {
   const gate = document.getElementById('auth-gate');
   if (!gate) return;
-  const needLogin = !!GOOGLE_CLIENT_ID && !(currentUser && currentUser.active);
+  const needLogin = REQUIRE_LOGIN_TO_VIEW && !!GOOGLE_CLIENT_ID && !(currentUser && currentUser.active);
   gate.hidden = !needLogin;
   const dev = document.getElementById('auth-gate-dev'); if (dev) dev.hidden = !isDevEnv();
   const msg = document.getElementById('auth-gate-msg');
@@ -1423,25 +1413,16 @@ function updateAuthGate() {
 }
 function doGoogleLogin() {
   if (!GOOGLE_CLIENT_ID) { alert('尚未設定 Google 用戶端 ID。'); return; }
-  if (window.google && google.accounts && google.accounts.id) {
-    google.accounts.id.prompt((n) => {
-      // 若 One Tap 被瀏覽器攔截，改用 OAuth 彈窗做為後備
-      if (n && (n.isNotDisplayed && n.isNotDisplayed()) || (n && n.isSkippedMoment && n.isSkippedMoment())) {
-        try {
-          const c = google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID, scope: 'openid email profile',
-            callback: async (r) => {
-              try {
-                const u = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + r.access_token } }).then(x => x.json());
-                if (u && u.email) { try { localStorage.setItem('gs_auth', JSON.stringify({ email: u.email, name: u.name || '', picture: u.picture || '' })); } catch (e) {} resolveUser(u.email, u.name || '', u.picture || ''); }
-              } catch (e) { alert('登入失敗'); }
-            }
-          });
-          c.requestAccessToken();
-        } catch (e) {}
-      }
-    });
-  }
+  // 只用 GIS 的 ID token 流程（合規）：確保官方按鈕存在＋叫出 One Tap；不使用 oauth2 token 流程
+  try {
+    if (window.google && google.accounts && google.accounts.id) {
+      const g = document.getElementById('auth-gate-btn');
+      if (g && g.childElementCount === 0) { try { google.accounts.id.renderButton(g, { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'pill', width: 240 }); } catch (e) {} }
+      google.accounts.id.prompt();
+    } else {
+      alert('Google 登入尚未就緒，請稍候再試或重新整理頁面。');
+    }
+  } catch (e) {}
 }
 
 // ---- 使用者權限管理（管理員）----
