@@ -5027,10 +5027,10 @@ function uniformDetailHTML() {
       <td style="text-align:center">${appEsc(r.size)}</td>
       <td style="text-align:center">${Number(r.qty) || 0}</td>
       <td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td>
-      <td style="text-align:center">${canEdit ? `<button class="btn-edit s-normal" onclick="openUniformForm(${r.id})">編輯</button> <button class="btn-edit s-done" style="background:#fee2e2;color:#dc2626" onclick="delUniform(${r.id})">刪除</button>` : ''}</td>
-    </tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
-  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:520px;width:100%;table-layout:fixed">
-      <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
+      ${canEdit ? `<td style="text-align:center"><button class="btn-edit s-normal" onclick="openUniformForm(${r.id})">編輯</button> <button class="btn-edit s-done" style="background:#fee2e2;color:#dc2626" onclick="delUniform(${r.id})">刪除</button></td>` : ''}
+    </tr>`).join('') : `<tr><td colspan="${canEdit ? 5 : 4}" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
+  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:${canEdit ? 520 : 380}px;width:100%;table-layout:fixed">
+      <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th>${canEdit ? '<th style="text-align:center">操作</th>' : ''}</tr></thead>
       <tbody>${body}</tbody></table></div>`;
 }
 function openUniformDetail() {
