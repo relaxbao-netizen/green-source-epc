@@ -867,6 +867,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <button id="eq-tab-tool" class="tab-btn active" onclick="showEquipTab('tool')">🔧 器具借用</button>
     <button id="eq-tab-uniform" class="tab-btn" onclick="showEquipTab('uniform')">🧥 制服領取</button>
     <span style="flex:1"></span>
+    <button id="btn-uniform-detail" class="btn-secondary" style="padding:6px 14px;font-size:13px;display:none" onclick="openUniformDetail()">📋 領取明細</button>
     <button id="btn-uniform-add" class="btn-primary" style="padding:6px 14px;font-size:13px;display:none" onclick="openUniformForm()">＋ 新增領取</button>
   </div>
   <div id="equip-container"></div>
@@ -4975,6 +4976,7 @@ function showEquipTab(tab) {
   document.getElementById('eq-tab-tool').classList.toggle('active', !isU);
   document.getElementById('eq-tab-uniform').classList.toggle('active', isU);
   const ab = document.getElementById('btn-uniform-add'); if (ab) ab.style.display = (isU && isAdmin()) ? '' : 'none';
+  const db = document.getElementById('btn-uniform-detail'); if (db) db.style.display = isU ? '' : 'none';
   if (isU) renderUniforms(); else renderEquip();
 }
 // 把制服紀錄的（短）姓名對應到系統中完整姓名（工地主任/簽核人員），如 Brian→陳建偉 Brian、鍾璧堯→鍾璧堯 Leon；對不到則原樣
@@ -4994,15 +4996,6 @@ function renderUniforms() {
   let totalQty = 0; const people = new Set();
   rows.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; totalQty += q; if (r.name) people.add(uniformDisplayName(r.name)); });
   const sizeCards = UNIFORM_SIZES.map(s => `<div class="card" style="padding:12px 14px;text-align:center;cursor:pointer" onclick="uniformShowSize('${s}')" title="點看 ${s} 領取明細"><div style="font-size:12px;color:var(--muted)">${s}</div><div style="font-size:22px;font-weight:800;margin-top:2px">${bySize[s]}</div><div style="font-size:11px;color:var(--muted)">件</div></div>`).join('');
-  const canEdit = isAdmin();
-  const addBtn = canEdit ? '<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="openUniformForm()">＋ 新增領取</button>' : '';
-  const body = rows.length ? rows.map(r => `<tr>
-      <td style="text-align:left;cursor:pointer" onclick="uniformShowPerson('${uniformDisplayName(r.name).replace(/'/g, "\\'")}')" title="點看領取明細">${appEsc(uniformDisplayName(r.name))}</td>
-      <td style="text-align:center">${appEsc(r.size)}</td>
-      <td style="text-align:center">${Number(r.qty) || 0}</td>
-      <td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td>
-      <td style="text-align:center">${canEdit ? `<button class="btn-edit s-normal" onclick="openUniformForm(${r.id})">編輯</button> <button class="btn-edit s-done" style="background:#fee2e2;color:#dc2626" onclick="delUniform(${r.id})">刪除</button>` : ''}</td>
-    </tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
   // 每人領取合計（姓名 × 各尺寸 樞紐 + 合計），依合計多到少
   const byPerson = {};
   rows.forEach(r => { const n = uniformDisplayName(r.name) || '?'; if (!byPerson[n]) byPerson[n] = Object.fromEntries(UNIFORM_SIZES.map(s => [s, 0])); byPerson[n][r.size] = (byPerson[n][r.size] || 0) + (Number(r.qty) || 0); });
@@ -5023,14 +5016,33 @@ function renderUniforms() {
         <thead><tr><th style="text-align:left">姓名</th>${UNIFORM_SIZES.map(s => `<th style="text-align:center">${s}</th>`).join('')}<th style="text-align:center">合計</th></tr></thead>
         <tbody>${personBody}${totalRow}</tbody></table></div>
     </div>`;
-  cont.innerHTML = `
-    ${personCard}
-    <div class="card" style="padding:14px 18px">
-      <div style="display:flex;align-items:center;margin-bottom:10px"><span class="wbs-title" style="margin-bottom:0">制服領取明細</span></div>
-      <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px;width:100%;table-layout:fixed">
-        <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
-        <tbody>${body}</tbody></table></div>
-    </div>`;
+  cont.innerHTML = personCard;
+}
+// 完整領取明細（給右上角「📋 領取明細」按鈕開的彈窗用）
+function uniformDetailHTML() {
+  const rows = [...uniforms].sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const canEdit = isAdmin();
+  const body = rows.length ? rows.map(r => `<tr>
+      <td style="text-align:left;cursor:pointer" onclick="uniformShowPerson('${uniformDisplayName(r.name).replace(/'/g, "\\'")}')" title="點看領取明細">${appEsc(uniformDisplayName(r.name))}</td>
+      <td style="text-align:center">${appEsc(r.size)}</td>
+      <td style="text-align:center">${Number(r.qty) || 0}</td>
+      <td style="text-align:center;white-space:nowrap">${appEsc((r.date || '').slice(0, 10))}</td>
+      <td style="text-align:center">${canEdit ? `<button class="btn-edit s-normal" onclick="openUniformForm(${r.id})">編輯</button> <button class="btn-edit s-done" style="background:#fee2e2;color:#dc2626" onclick="delUniform(${r.id})">刪除</button>` : ''}</td>
+    </tr>`).join('') : `<tr><td colspan="5" style="color:var(--muted);padding:10px">尚無領取紀錄</td></tr>`;
+  return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:520px;width:100%;table-layout:fixed">
+      <thead><tr><th style="text-align:left">姓名</th><th style="text-align:center">尺寸</th><th style="text-align:center">數量</th><th style="text-align:center">領取日期</th><th style="text-align:center">操作</th></tr></thead>
+      <tbody>${body}</tbody></table></div>`;
+}
+function openUniformDetail() {
+  const total = uniforms.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  const ppl = new Set(uniforms.map(r => uniformDisplayName(r.name)).filter(Boolean)).size;
+  appShowResultModal(`制服領取明細（共 ${total} 件・${ppl} 人）`, uniformDetailHTML());
+}
+// 編輯/刪除後，若明細彈窗開著就即時刷新
+function refreshUniformDetailIfOpen() {
+  const ov = document.getElementById('app-result-overlay');
+  const t = document.getElementById('app-result-title');
+  if (ov && ov.classList.contains('open') && t && /制服領取明細/.test(t.textContent)) openUniformDetail();
 }
 // 點姓名：列出該人所有制服領取明細（尺寸/數量/日期）
 function uniformShowPerson(name) {
@@ -5094,13 +5106,13 @@ async function saveUniform() {
     else { await sb.from('uniforms').insert(rec); }
   } catch (e) { err.textContent = '儲存失敗：' + e.message; err.style.display = 'block'; return; }
   document.getElementById('uniform-form-overlay').classList.remove('open');
-  await loadUniforms(); renderUniforms();
+  await loadUniforms(); renderUniforms(); refreshUniformDetailIfOpen();
 }
 async function delUniform(id) {
   if (!isAdmin()) { alert('僅管理員可刪除。'); return; }
   if (!confirm('確認刪除此領取紀錄？')) return;
   if (sb) { try { await sb.from('uniforms').delete().eq('id', id); } catch (e) {} }
-  await loadUniforms(); renderUniforms();
+  await loadUniforms(); renderUniforms(); refreshUniformDetailIfOpen();
 }
 async function loadEquipList() {
   if (!sb) return;
