@@ -5077,8 +5077,12 @@ function openUniformForm(id) {
     ...uniforms.map(x => uniformDisplayName(x.name))   // 舊短名先對照成系統全名再去重，避免重複
   ].filter(Boolean).map(n => String(n).trim()).filter(Boolean))].sort();
   document.getElementById('uniform-form-title').textContent = id ? '✏️ 編輯領取' : '＋ 新增領取';
+  const curName = u.name ? uniformDisplayName(u.name) : '';
+  const nameOther = !!(curName && !names.includes(curName)); // 現有名字不在清單＝自行輸入
   document.getElementById('uniform-form-body').innerHTML = `
-    <div class="form-field"><label>姓名 *</label><input id="uf-name" list="uf-namelist" value="${appEsc(u.name || '')}" placeholder="輸入或選擇姓名"><datalist id="uf-namelist">${names.map(n => `<option>${appEsc(n)}</option>`).join('')}</datalist></div>
+    <div class="form-field"><label>姓名 *</label>
+      <select id="uf-name-sel" onchange="uniformNameSelChange()"><option value="">請選擇</option>${names.map(n => `<option ${curName === n ? 'selected' : ''}>${appEsc(n)}</option>`).join('')}<option value="__other__" ${nameOther ? 'selected' : ''}>＋ 其他（自行輸入）</option></select>
+      <input id="uf-name-custom" placeholder="輸入姓名" value="${nameOther ? appEsc(curName) : ''}" style="display:${nameOther ? '' : 'none'};margin-top:6px"></div>
     <div class="form-field" style="margin-top:8px"><label>尺寸 *</label><select id="uf-size">${UNIFORM_SIZES.map(s => `<option ${u.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
     <div class="form-field" style="margin-top:8px"><label>數量 *</label><input id="uf-qty" type="number" min="1" value="${Number(u.qty) || 1}"></div>
     <div class="form-field" style="margin-top:8px"><label>領取日期 *</label><input id="uf-date" type="date" value="${(u.date || localDate(new Date())).slice(0, 10)}"></div>
@@ -5089,10 +5093,18 @@ function openUniformForm(id) {
     </div>`;
   document.getElementById('uniform-form-overlay').classList.add('open');
 }
+function uniformNameSelChange() {
+  const sel = document.getElementById('uf-name-sel'), inp = document.getElementById('uf-name-custom');
+  if (!sel || !inp) return;
+  const other = sel.value === '__other__';
+  inp.style.display = other ? '' : 'none';
+  if (other) inp.focus();
+}
 async function saveUniform() {
   if (!isAdmin()) { alert('僅管理員可編輯。'); return; }
   const err = document.getElementById('uf-err');
-  const name = document.getElementById('uf-name').value.trim();
+  const nameSel = (document.getElementById('uf-name-sel') || {}).value || '';
+  const name = (nameSel === '__other__' ? (document.getElementById('uf-name-custom') || {}).value || '' : nameSel).trim();
   const size = document.getElementById('uf-size').value;
   const qty = Number(document.getElementById('uf-qty').value) || 0;
   const date = document.getElementById('uf-date').value;
