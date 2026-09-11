@@ -5074,8 +5074,8 @@ function openUniformForm(id) {
   const names = [...new Set([
     ...(typeof supervisors !== 'undefined' ? supervisors : []).map(s => s.name),
     ...(typeof approvers !== 'undefined' ? approvers : []).map(a => a.name),
-    ...uniforms.map(x => x.name)
-  ].filter(Boolean))].sort();
+    ...uniforms.map(x => uniformDisplayName(x.name))   // 舊短名先對照成系統全名再去重，避免重複
+  ].filter(Boolean).map(n => String(n).trim()).filter(Boolean))].sort();
   document.getElementById('uniform-form-title').textContent = id ? '✏️ 編輯領取' : '＋ 新增領取';
   document.getElementById('uniform-form-body').innerHTML = `
     <div class="form-field"><label>姓名 *</label><input id="uf-name" list="uf-namelist" value="${appEsc(u.name || '')}" placeholder="輸入或選擇姓名"><datalist id="uf-namelist">${names.map(n => `<option>${appEsc(n)}</option>`).join('')}</datalist></div>
