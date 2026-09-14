@@ -4849,6 +4849,8 @@ async function saveSiteForm() {
   // 依案場地址自動定位地圖座標（失敗則退回縣市中心點）
   const coords = await geocodeAddr(row.addr, row.city);
   if (coords) { row.lng = coords[0]; row.lat = coords[1]; }
+  // 記錄本次修改的細項差異（供操作紀錄顯示；insert 無需比對）
+  _pendingSiteDiff = editingSiteId !== null ? buildSiteDiff(existing, row) : null;
   const q = editingSiteId !== null
     ? sb.from('sites').update(row).eq('id', editingSiteId)
     : sb.from('sites').insert(row);
@@ -4921,6 +4923,26 @@ function equipDisplayName(i) {
 // 記錄「非管理員」在網頁上的新增/修改/刪除（管理員自己的動作不記）。攔截 sb.from(table).insert/update/delete/upsert。
 const AUDIT_TABLE_NAMES = { sites: '案場', supervisors: '工地主任', cert_expiry: '證照到期', site_insurance: '案場保險', equipment: '器具', equipment_borrow: '器具借用', app_request: '申請單', approvers: '簽核人員', uniforms: '制服領取', supervisor_log: '派工', custom_places: '常用地點', daily_log_status: '施工日誌', app_users: '使用者權限' };
 let auditLog = [];
+// 存檔前由 saveSiteForm 算好的「案場修改細項」差異，交給 logAudit 附在紀錄後
+let _pendingSiteDiff = null;
+// 比對案場舊值 vs 新值，列出有變動的欄位（含 WBS 各工項完成率、整體進度）
+function buildSiteDiff(oldS, newRow) {
+  const labels = { name: '名稱', label: '標籤', region: '區域', city: '縣市', type: '類型', owner: '業主', pm: '工地主任', sales: '業務', addr: '地址', mw: '容量MWp', skw: '容量kWp', mwh: '儲能MWh', start_date: '開工日', end_date: '完工日' };
+  const parts = [];
+  const norm = v => (v == null ? '' : String(v)).trim();
+  Object.keys(labels).forEach(k => {
+    const o = norm(oldS ? oldS[k] : ''), n = norm(newRow[k]);
+    if (o !== n) parts.push(`${labels[k]}「${o || '—'}」→「${n || '—'}」`);
+  });
+  const ow = (oldS && oldS.wbs) || {}, nw = newRow.wbs || {};
+  new Set([...Object.keys(ow), ...Object.keys(nw)]).forEach(k => {
+    const o = Number(ow[k] || 0), n = Number(nw[k] || 0);
+    if (o !== n) parts.push(`${k} ${o}%→${n}%`);
+  });
+  const op = Number(oldS ? oldS.pct : 0) || 0, np = Number(newRow.pct) || 0;
+  if (op !== np) parts.push(`整體進度 ${op}%→${np}%`);
+  return parts;
+}
 function logAudit(table, op, payload) {
   try {
     if (!sb || !currentUser || !currentUser.email || isAdmin()) return; // 管理員（我）自己的動作不記
@@ -4928,7 +4950,12 @@ function logAudit(table, op, payload) {
     const opName = { insert: '新增', update: '修改', delete: '刪除', upsert: '新增/修改' }[op] || op;
     const pick = o => o && (o.name || o.serial_no || o.site_name || o.email || o.title || '');
     const key = Array.isArray(payload) ? payload.map(pick).filter(Boolean).slice(0, 3).join('、') : pick(payload);
-    const summary = `${opName}${label}${key ? '：' + key : ''}`;
+    let summary = `${opName}${label}${key ? '：' + key : ''}`;
+    // 案場修改：附上這次改了哪些細項（saveSiteForm 事先算好）
+    if (table === 'sites' && op === 'update' && _pendingSiteDiff && _pendingSiteDiff.length) {
+      summary += '\n· ' + _pendingSiteDiff.join('\n· ');
+    }
+    if (table === 'sites') _pendingSiteDiff = null;
     sb.from('audit_log').insert({ actor_email: currentUser.email, actor_name: currentUser.name || currentUser.email, action: opName, entity: label, summary }).then(() => {}).catch(() => {});
   } catch (e) {}
 }
@@ -4957,7 +4984,7 @@ async function openAuditModal() {
   const rows = auditLog.map(r => `<tr>
       <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(String(r.at || '').replace('T', ' ').slice(0, 16))}</td>
       <td style="white-space:nowrap">${appEsc(r.actor_name || r.actor_email || '')}</td>
-      <td style="text-align:left">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
+      <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
   document.getElementById('audit-body').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">最近 ${auditLog.length} 筆（管理員自己的動作不記錄）。</div>
     <div style="overflow-x:auto;max-height:62vh;overflow-y:auto"><table class="prog-table" style="min-width:520px">
       <thead><tr><th style="text-align:left">時間</th><th style="text-align:left">操作人</th><th style="text-align:left">動作</th></tr></thead>
