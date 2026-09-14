@@ -1285,8 +1285,15 @@ function isMyRequest(r) {
   const names = myNames(); if (!names.size) return false;
   return [...names].some(n => nameMatches(n, r.applicant));
 }
-// 能否更新此案場進度（WBS 完成率）：管理員或該案場工地主任
-function canEditProgress(site) { return isAdmin() || isSiteSupervisor(site); }
+// 全案場進度更新白名單（工程部主管，非管理員但可改任何案場的 WBS 完成率）
+const PROGRESS_EDIT_NAMES = ['林根玄'];
+function isProgressManager() {
+  if (!isLoggedIn()) return false;
+  const names = myNames(); if (!names.size) return false;
+  return PROGRESS_EDIT_NAMES.some(w => [...names].some(n => nameMatches(n, w)));
+}
+// 能否更新此案場進度（WBS 完成率）：管理員、該案場工地主任、或全案場進度白名單
+function canEditProgress(site) { return isAdmin() || isProgressManager() || isSiteSupervisor(site); }
 // 能否完整編輯此案場（改名稱/日期/主任…）：僅管理員
 function canEditSiteFull() { return isAdmin(); }
 // 能否編輯此申請單：管理員或申請人本人
