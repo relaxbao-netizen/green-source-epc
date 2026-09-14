@@ -4978,18 +4978,28 @@ async function loadAuditLog() {
   if (!sb) return;
   try { const { data } = await sb.from('audit_log').select('*').order('id', { ascending: false }).limit(500); auditLog = data || []; } catch (e) { auditLog = []; }
 }
+// 上次看過的最新紀錄 id（存 localStorage，比它新的視為「未看過」）
+function auditLastSeen() { try { return +(localStorage.getItem('audit_last_seen_id') || 0) || 0; } catch (e) { return 0; } }
+function setAuditLastSeen(id) { try { localStorage.setItem('audit_last_seen_id', String(id || 0)); } catch (e) {} }
 async function openAuditModal() {
   if (!isAdmin()) { alert('僅管理員可檢視操作紀錄。'); return; }
   await loadAuditLog();
-  const rows = auditLog.map(r => `<tr>
+  const seen = auditLastSeen();
+  const maxId = auditLog.reduce((m, r) => Math.max(m, +r.id || 0), 0);
+  const rows = auditLog.map(r => {
+    const isNew = (+r.id || 0) > seen;
+    const badge = isNew ? '<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:middle">NEW</span>' : '';
+    return `<tr${isNew ? ' style="background:#fef2f2"' : ''}>
       <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(String(r.at || '').replace('T', ' ').slice(0, 16))}</td>
-      <td style="white-space:nowrap">${appEsc(r.actor_name || r.actor_email || '')}</td>
-      <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
-  document.getElementById('audit-body').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">最近 ${auditLog.length} 筆（管理員自己的動作不記錄）。</div>
+      <td style="white-space:nowrap">${badge}${appEsc(r.actor_name || r.actor_email || '')}</td>
+      <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
+  document.getElementById('audit-body').innerHTML = `
     <div style="overflow-x:auto;max-height:62vh;overflow-y:auto"><table class="prog-table" style="min-width:520px">
       <thead><tr><th style="text-align:left">時間</th><th style="text-align:left">操作人</th><th style="text-align:left">動作</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   document.getElementById('audit-overlay').classList.add('open');
+  setAuditLastSeen(maxId); // 開啟後即視為已看過，下次不再標 NEW
 }
 
 // ===================== 制服領取 =====================
