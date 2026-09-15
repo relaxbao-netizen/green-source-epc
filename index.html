@@ -5759,7 +5759,7 @@ function appGoQuerySiteBillable(name){
 // 請款明細專用表：無工程名稱欄，金額後加「需向客戶請款」紅字欄
 function appBillableTableHTML(rows){
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
-  const sorted=[...rows].sort((a,b)=>String(b.serial_no||'').localeCompare(String(a.serial_no||''),undefined,{numeric:true}));
+  const sorted=[...rows].sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
   const badge=r=>`<span style="color:${STATUS_COLORS[appStatusKey(r)]}">${appStatusText(r)}</span>`;
   const valid=sorted.filter(r=>r.status!=='rejected');
   const addTot=valid.reduce((a,r)=>a+Number(r.total_amount||0),0);
