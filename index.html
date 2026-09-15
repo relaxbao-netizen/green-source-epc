@@ -4978,6 +4978,13 @@ async function loadAuditLog() {
   if (!sb) return;
   try { const { data } = await sb.from('audit_log').select('*').order('id', { ascending: false }).limit(500); auditLog = data || []; } catch (e) { auditLog = []; }
 }
+// 稽核時間（DB 存 UTC）→ 台灣時間顯示，如 2026-09-14 13:23
+function fmtAuditTime(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  if (isNaN(d)) return String(v).replace('T', ' ').slice(0, 16); // 無法解析則退回原字串
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
 // 上次看過的最新紀錄 id（存 localStorage，比它新的視為「未看過」）
 function auditLastSeen() { try { return +(localStorage.getItem('audit_last_seen_id') || 0) || 0; } catch (e) { return 0; } }
 function setAuditLastSeen(id) { try { localStorage.setItem('audit_last_seen_id', String(id || 0)); } catch (e) {} }
@@ -4990,7 +4997,7 @@ async function openAuditModal() {
     const isNew = (+r.id || 0) > seen;
     const badge = isNew ? '<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:middle">NEW</span>' : '';
     return `<tr${isNew ? ' style="background:#fef2f2"' : ''}>
-      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(String(r.at || '').replace('T', ' ').slice(0, 16))}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(fmtAuditTime(r.at))}</td>
       <td style="white-space:nowrap">${badge}${appEsc(r.actor_name || r.actor_email || '')}</td>
       <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`;
   }).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
@@ -6357,8 +6364,12 @@ document.addEventListener('click', (e)=>{
 });
 async function appChangeStatus(id, status){
   if(!status) return;
-  const patch={status};
   const cur=appRequests.find(x=>x.id===id);
+  // 防呆：費用歸屬未決定時，不可直接改為已核准（與正式簽核流程一致）
+  if(status==='approved' && cur && !appCostDecided(cur)){
+    alert('費用歸屬尚未決定，無法核准。請先編輯此申請單選擇「費用歸屬」再核准。'); return;
+  }
+  const patch={status};
   // 首次進入「已核准」時記下核准日期（已有則保留原日期）
   if(status==='approved' && cur && !cur.approved_date){
     patch.approved_date=new Date().toISOString().slice(0,10);
