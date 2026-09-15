@@ -6547,10 +6547,10 @@ function siteByAnyName(name){
 function siteShortName(name){ const s = siteByAnyName(name); return s ? (s.label || s.name) : name; }
 // 對應回完整工程名；找不到對應案場則原樣顯示
 function siteFullName(name){ const s = siteByAnyName(name); return s ? (s.name || s.label) : name; }
-function appResultTableHTML(rows, compact){
+function appResultTableHTML(rows, compact, desc){
   const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>'}[appStatusKey(r)]);
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
-  rows=[...rows].sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
+  rows=[...rows].sort((a,b)=>{ const c=String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}); return desc?-c:c; });
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
     return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
@@ -6576,7 +6576,7 @@ function runAppQuery(){
     return true;
   });
   const el=document.getElementById('q-result'); if(!el) return;
-  el.innerHTML=appResultTableHTML(rows);
+  el.innerHTML=appResultTableHTML(rows, false, true); // 查詢中心：流水號降冪（大→小）
 }
 function appGoQueryPending(){
   const n=appRequests.filter(r=>appStatusKey(r)==='pending').length;
