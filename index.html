@@ -4930,8 +4930,10 @@ function buildSiteDiff(oldS, newRow) {
   const labels = { name: '名稱', label: '標籤', region: '區域', city: '縣市', type: '類型', owner: '業主', pm: '工地主任', sales: '業務', addr: '地址', mw: '容量MWp', skw: '容量kWp', mwh: '儲能MWh', start_date: '開工日', end_date: '完工日' };
   const parts = [];
   const norm = v => (v == null ? '' : String(v)).trim();
+  const oldKeyMap = { start_date: 'start', end_date: 'end' }; // 記憶體案場用 start/end，存檔用 start_date/end_date
   Object.keys(labels).forEach(k => {
-    const o = norm(oldS ? oldS[k] : ''), n = norm(newRow[k]);
+    const ok = oldKeyMap[k] || k;
+    const o = norm(oldS ? (oldS[k] != null ? oldS[k] : oldS[ok]) : ''), n = norm(newRow[k]);
     if (o !== n) parts.push(`${labels[k]}「${o || '—'}」→「${n || '—'}」`);
   });
   const ow = (oldS && oldS.wbs) || {}, nw = newRow.wbs || {};
