@@ -4995,13 +4995,17 @@ async function openAuditModal() {
   await loadAuditLog();
   const seen = auditLastSeen();
   const maxId = auditLog.reduce((m, r) => Math.max(m, +r.id || 0), 0);
+  // 「整體進度」為系統自動計算（非手動修改）→ 用灰色標示區隔
+  const fmtSummary = s => appEsc(s).split('\n').map(line =>
+    /整體進度/.test(line) ? `<span style="color:#94a3b8">${line}（系統自動計算）</span>` : line
+  ).join('\n');
   const rows = auditLog.map(r => {
     const isNew = (+r.id || 0) > seen;
     const badge = isNew ? '<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:middle">NEW</span>' : '';
     return `<tr${isNew ? ' style="background:#fef2f2"' : ''}>
       <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(fmtAuditTime(r.at))}</td>
       <td style="white-space:nowrap">${badge}${appEsc(r.actor_name || r.actor_email || '')}</td>
-      <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${appEsc(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`;
+      <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${fmtSummary(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`;
   }).join('') || '<tr><td colspan="3" style="color:var(--muted);padding:10px">尚無紀錄</td></tr>';
   document.getElementById('audit-body').innerHTML = `
     <div style="overflow-x:auto;max-height:62vh;overflow-y:auto"><table class="prog-table" style="min-width:520px">
