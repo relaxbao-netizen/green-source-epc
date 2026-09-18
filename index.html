@@ -4994,8 +4994,10 @@ async function openAuditModal() {
   await loadAuditLog();
   const seen = auditLastSeen();
   const maxId = auditLog.reduce((m, r) => Math.max(m, +r.id || 0), 0);
-  // 「整體進度」為系統自動計算（非手動修改）→ 不顯示
-  const fmtSummary = s => appEsc(s).split('\n').filter(line => !/整體進度/.test(line)).join('\n');
+  // 顯示：第一行(標題)粗體並去掉「修改案場：」前綴；明細去掉「· 」符號；整體進度(系統自動計算)不顯示
+  const fmtSummary = s => appEsc(s).split('\n').filter(line => !/整體進度/.test(line)).map((line, i) =>
+    i === 0 ? `<b>${line.replace(/^(新增|修改|刪除|新增\/修改)案場：/, '')}</b>` : line.replace(/^· /, '')
+  ).join('\n');
   const rows = auditLog.map(r => {
     const isNew = (+r.id || 0) > seen;
     const badge = isNew ? '<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:middle">NEW</span>' : '';
