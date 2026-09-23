@@ -5604,6 +5604,24 @@ function appIsBillable(r){ return r.cost_owner==='需向客戶請款' || r.cost_
 function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || Number(r.client_amount)>0; }
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
+// 目前卡在哪個角色/人（僅跑單中）：回傳「角色　人名」，查無對應人則只回角色
+function appPendingWho(r){
+  if(appStatusKey(r)!=='pending') return '';
+  const step=(r.sign_chain||[])[r.cur_step]; const role=step?step.role:'';
+  if(!role) return '';
+  const names=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
+  return names.length ? role+'　'+names.join('、') : role;
+}
+// 卡關備註（僅管理員可編輯）
+async function appSaveHoldNote(id){
+  if(!isAdmin()){ alert('僅管理員可編輯備註。'); return; }
+  const el=document.getElementById('app-hold-note'); if(!el) return;
+  const note=el.value.trim();
+  const {error}=await sb.from('app_request').update({hold_note:note}).eq('id',id);
+  if(error){ alert('備註儲存失敗：'+error.message); return; }
+  const r=appRequests.find(x=>x.id===id); if(r) r.hold_note=note;
+  await loadApprovalData(); renderApproval(); appViewReq(id);
+}
 function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
 let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
@@ -5992,9 +6010,12 @@ function appDashboardHTML(){
            const st=appStatusKey(r);
            const pending=st!=='approved'; // 尚未核准（跑單中）→ 明顯標示
            const stBadge=pending?`<span style="font-size:10px;font-weight:700;color:#fff;background:${STATUS_COLORS[st]};border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle">${appStatusText(r)}</span>`:'';
+           const who=appPendingWho(r);
            return `<div onclick="appViewReq(${r.id})" style="cursor:pointer;padding:8px 0;border-top:1px solid var(--border)${pending?';background:#fff7ed':''}">
            <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">NT$ ${appMoney(r.total_amount)}</span></div>
            <div style="font-size:12px;color:var(--muted);margin-top:2px">${(Array.isArray(r.items)?r.items:[]).map(it=>appEsc(it.name)).join('、')||'—'}</div>
+           ${who?`<div style="font-size:12px;color:#d97706;font-weight:600;margin-top:2px">⏳ 待 ${appEsc(who)} 簽核</div>`:''}
+           ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}
          </div>`;}).join('')}</div>`;
        })()}
      </div>
@@ -6320,6 +6341,8 @@ function appSignListHTML(){
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>${appEsc(r.serial_no)}</b> <span>${appEsc(r.site_name)}</span>
         <span style="margin-left:auto;font-size:12px;color:var(--muted)">NT$ ${appMoney(r.total_amount)}</span></div>
       <div style="font-size:12px;color:var(--muted);margin:4px 0">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}</div>
+      <div style="font-size:12px;color:#d97706;font-weight:600">⏳ 待 ${appEsc(appPendingWho(r))} 簽核</div>
+      ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">📝 ${appEsc(r.hold_note)}</div>`:''}
     </div>`;
   }).join('')+'</div>';
 }
@@ -6430,6 +6453,15 @@ function appViewReq(id){
       ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-top:4px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
       ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-top:4px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
     </div>
+    ${(()=>{ const who=appPendingWho(r); if(!who && !r.hold_note && !isAdmin()) return '';
+      const whoLine = who ? `<div style="font-size:13px;color:#d97706;font-weight:700">⏳ 目前卡在　${appEsc(who)}</div>` : '';
+      const noteEdit = isAdmin()
+        ? `<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註（僅管理員可編輯）</div>
+             <textarea id="app-hold-note" rows="2" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea>
+             <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存備註</button></div></div>`
+        : (r.hold_note?`<div style="font-size:13px;color:var(--text);margin-top:6px">📝 ${appEsc(r.hold_note)}</div>`:'');
+      return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${noteEdit}</div>`;
+    })()}
     ${secLabel('追加明細')}
     <table class="prog-table" style="width:100%;min-width:0;font-size:13px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
     ${secLabel('原因說明')}
@@ -6565,7 +6597,11 @@ function siteShortName(name){ const s = siteByAnyName(name); return s ? (s.label
 // 對應回完整工程名；找不到對應案場則原樣顯示
 function siteFullName(name){ const s = siteByAnyName(name); return s ? (s.name || s.label) : name; }
 function appResultTableHTML(rows, compact, desc){
-  const badge=r=>({pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>'}[appStatusKey(r)]);
+  const badge=r=>{
+    const base={pending:'<span style="color:#d97706">跑單中</span>',approved:'<span style="color:#16a34a">已核准</span>',rejected:'<span style="color:#dc2626">遭退回</span>'}[appStatusKey(r)];
+    const who=appPendingWho(r);
+    return who ? `${base}<div style="font-size:11px;color:#d97706;margin-top:2px">卡在 ${appEsc(who)}</div>${r.hold_note?`<div style="font-size:11px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}` : base;
+  };
   if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px">查無資料</div>';
   rows=[...rows].sort((a,b)=>{ const c=String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}); return desc?-c:c; });
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
