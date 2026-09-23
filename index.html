@@ -5607,11 +5607,15 @@ function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協�
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
 function appPendingWho(r){
   if(appStatusKey(r)!=='pending') return '';
-  if(r.hold_who) return r.hold_who;
+  const apprs=(typeof approvers!=='undefined'?approvers:[]);
+  if(r.hold_who){ // 手動指定：只顯示姓名（去掉部門/角色前綴；比對 approvers 姓名，舊資料也適用）
+    const m=apprs.find(a=>a.name && (r.hold_who===a.name || String(r.hold_who).endsWith(a.name)));
+    return m ? m.name : r.hold_who;
+  }
   const step=(r.sign_chain||[])[r.cur_step]; const role=step?step.role:'';
   if(!role) return '';
-  const names=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
-  return names.length ? role+' '+names.join('、') : role;
+  const names=apprs.filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
+  return names.length ? names.join('、') : role;
 }
 // 卡關「誰」下拉選項（自動＋所有在職簽核人）
 function appHoldWhoOptions(r){
