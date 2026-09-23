@@ -5611,14 +5611,14 @@ function appPendingWho(r){
   const step=(r.sign_chain||[])[r.cur_step]; const role=step?step.role:'';
   if(!role) return '';
   const names=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
-  return names.length ? role+'　'+names.join('、') : role;
+  return names.length ? role+' '+names.join('、') : role;
 }
 // 卡關「誰」下拉選項（自動＋所有在職簽核人）
 function appHoldWhoOptions(r){
   const cur=r.hold_who||'';
   let opts='<option value="">自動（依目前關卡）</option>';
   (typeof approvers!=='undefined'?approvers:[]).filter(a=>a.active!==false && a.name).forEach(a=>{
-    const label=(a.role?a.role+'　':'')+a.name;
+    const label=(a.role?a.role+' ':'')+a.name;
     opts+=`<option${cur===label?' selected':''}>${appEsc(label)}</option>`;
   });
   return opts;
