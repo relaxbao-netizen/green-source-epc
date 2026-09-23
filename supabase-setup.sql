@@ -180,6 +180,7 @@ alter table public.app_request add column if not exists invoice_date text;
 alter table public.app_request add column if not exists payment_date text;
 alter table public.app_request add column if not exists client_bills jsonb default '[]'::jsonb;
 alter table public.app_request add column if not exists hold_note text;   -- 卡關備註（僅管理員可編輯）
+alter table public.app_request add column if not exists hold_who text;    -- 卡在誰（管理員手動指定，空=依關卡自動）
 
 alter table public.approvers   enable row level security;
 alter table public.app_request enable row level security;

@@ -5604,22 +5604,35 @@ function appIsBillable(r){ return r.cost_owner==='需向客戶請款' || r.cost_
 function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || Number(r.client_amount)>0; }
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
-// 目前卡在哪個角色/人（僅跑單中）：回傳「角色　人名」，查無對應人則只回角色
+// 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
 function appPendingWho(r){
   if(appStatusKey(r)!=='pending') return '';
+  if(r.hold_who) return r.hold_who;
   const step=(r.sign_chain||[])[r.cur_step]; const role=step?step.role:'';
   if(!role) return '';
   const names=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
   return names.length ? role+'　'+names.join('、') : role;
 }
-// 卡關備註（僅管理員可編輯）
+// 卡關「誰」下拉選項（自動＋所有在職簽核人）
+function appHoldWhoOptions(r){
+  const cur=r.hold_who||'';
+  let opts='<option value="">自動（依目前關卡）</option>';
+  (typeof approvers!=='undefined'?approvers:[]).filter(a=>a.active!==false && a.name).forEach(a=>{
+    const label=(a.role?a.role+'　':'')+a.name;
+    opts+=`<option${cur===label?' selected':''}>${appEsc(label)}</option>`;
+  });
+  return opts;
+}
+// 卡關備註 / 卡在誰（僅管理員可編輯）
 async function appSaveHoldNote(id){
-  if(!isAdmin()){ alert('僅管理員可編輯備註。'); return; }
-  const el=document.getElementById('app-hold-note'); if(!el) return;
-  const note=el.value.trim();
-  const {error}=await sb.from('app_request').update({hold_note:note}).eq('id',id);
-  if(error){ alert('備註儲存失敗：'+error.message); return; }
-  const r=appRequests.find(x=>x.id===id); if(r) r.hold_note=note;
+  if(!isAdmin()){ alert('僅管理員可編輯。'); return; }
+  const noteEl=document.getElementById('app-hold-note');
+  const whoEl=document.getElementById('app-hold-who');
+  const note=noteEl?noteEl.value.trim():'';
+  const who=whoEl?whoEl.value.trim():'';
+  const {error}=await sb.from('app_request').update({hold_note:note, hold_who:who}).eq('id',id);
+  if(error){ alert('儲存失敗：'+error.message); return; }
+  const r=appRequests.find(x=>x.id===id); if(r){ r.hold_note=note; r.hold_who=who; }
   await loadApprovalData(); renderApproval(); appViewReq(id);
 }
 function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
@@ -6453,14 +6466,17 @@ function appViewReq(id){
       ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-top:4px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
       ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-top:4px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
     </div>
-    ${(()=>{ const who=appPendingWho(r); if(!who && !r.hold_note && !isAdmin()) return '';
+    ${(()=>{ const pending=appStatusKey(r)==='pending'; const who=appPendingWho(r);
+      if(!pending && !r.hold_note && !isAdmin()) return '';
       const whoLine = who ? `<div style="font-size:13px;color:#d97706;font-weight:700">⏳ 目前卡在　${appEsc(who)}</div>` : '';
-      const noteEdit = isAdmin()
-        ? `<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註（僅管理員可編輯）</div>
-             <textarea id="app-hold-note" rows="2" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea>
-             <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存備註</button></div></div>`
+      const editBox = isAdmin()
+        ? `${pending?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡在誰（可手動指定）</div>
+             <select id="app-hold-who" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:inherit">${appHoldWhoOptions(r)}</select></div>`:''}
+           <div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註</div>
+             <textarea id="app-hold-note" rows="2" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
+           <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存</button></div>`
         : (r.hold_note?`<div style="font-size:13px;color:var(--text);margin-top:6px">📝 ${appEsc(r.hold_note)}</div>`:'');
-      return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${noteEdit}</div>`;
+      return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${editBox}</div>`;
     })()}
     ${secLabel('追加明細')}
     <table class="prog-table" style="width:100%;min-width:0;font-size:13px"><thead><tr><th>項次</th><th>品項</th><th>數量</th><th>金額</th></tr></thead><tbody>${items||'<tr><td colspan="4" style="color:var(--muted)">無明細</td></tr>'}</tbody></table>
