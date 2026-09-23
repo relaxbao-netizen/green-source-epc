@@ -5617,7 +5617,10 @@ function appPendingWho(r){
 function appHoldWhoOptions(r){
   const cur=r.hold_who||'';
   let opts='<option value="">自動（依目前關卡）</option>';
-  (typeof approvers!=='undefined'?approvers:[]).filter(a=>a.active!==false && a.name).forEach(a=>{
+  const rank=d=>d==='管理階層'?'0':(d?'1'+d:'2'); // 管理階層最前、無部門最後，其餘依部門分組
+  const list=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.active!==false && a.name)
+    .slice().sort((a,b)=>rank(a.dept).localeCompare(rank(b.dept),'zh-Hant'));
+  list.forEach(a=>{
     const dept=(a.dept && a.dept!=='管理階層')?a.dept+' ':''; // 「管理階層」不顯示
     const label=dept+(a.role?a.role+' ':'')+a.name;
     opts+=`<option${cur===label?' selected':''}>${appEsc(label)}</option>`;
