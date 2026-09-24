@@ -5712,13 +5712,14 @@ function appBarChart(obj, color, clickFn, limit){
 function appCompareChart(obj){
   const entries=Object.entries(obj).filter(([,v])=>v.add>0||v.bill>0).sort((a,b)=>Math.max(b[1].add,b[1].bill)-Math.max(a[1].add,a[1].bill));
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
-  const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill)));
+  const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill,v.absorb||0)));
   const bar=(val,color)=>`<div style="flex:1;background:#eef2f7;border-radius:5px;height:11px;overflow:hidden"><div style="height:100%;width:${val/max*100}%;background:${color}"></div></div>`;
   return entries.map(([k,v])=>{
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
     return `<div ${clk} style="cursor:pointer;margin:9px 0">
       <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#16a34a;width:36px">綠源</span>${bar(v.absorb||0,'#16a34a')}<b style="font-size:13px;width:84px;text-align:right;color:#16a34a">${appMoney(v.absorb||0)}</b></div>
       <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:600;color:#dc2626;width:36px">請款</span>${bar(v.bill,'#dc2626')}<b style="font-size:13px;width:84px;text-align:right;color:#dc2626">${appMoney(v.bill)}</b></div>
     </div>`;
   }).join('');
@@ -6005,8 +6006,9 @@ function appDashboardHTML(){
     const key = s ? (s.label||s.name) : (r.site_name||'未指定');
     const amt=Number(r.total_amount||0);
     const bill=appIsBillable(r) ? (Number(r.client_amount)||amt) : 0;
-    if(!cmp[key]) cmp[key]={add:0,bill:0,id: s?s.id:null};
-    cmp[key].add+=amt; cmp[key].bill+=bill;
+    const absorb=(!appIsBillable(r) && appCostDecided(r)) ? amt : 0; // 綠源自行吸收
+    if(!cmp[key]) cmp[key]={add:0,bill:0,absorb:0,id: s?s.id:null};
+    cmp[key].add+=amt; cmp[key].bill+=bill; cmp[key].absorb+=absorb;
   });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
