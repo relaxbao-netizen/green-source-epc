@@ -6475,7 +6475,7 @@ function appViewReq(id){
       ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-top:4px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
     </div>
     ${(()=>{ const pending=appStatusKey(r)==='pending'; const who=appPendingWho(r);
-      if(!pending && !r.hold_note && !isAdmin()) return '';
+      if(!pending) return ''; // 已核准/遭退回不顯示卡在誰與卡關備註
       const whoLine = who ? `<div style="font-size:13px;color:#d97706;font-weight:700">⏳ 目前卡在　${appEsc(who)}</div>` : '';
       const editBox = isAdmin()
         ? `${pending?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡在誰（可手動指定）</div>
