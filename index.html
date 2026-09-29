@@ -5721,16 +5721,11 @@ function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/<
 function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
 function appPendingWho(r){
-  if(appStatusKey(r)!=='pending') return '';
+  // 只有管理員手動指定(hold_who)才顯示卡在誰；沒選就不自動顯示
+  if(appStatusKey(r)!=='pending' || !r.hold_who) return '';
   const apprs=(typeof approvers!=='undefined'?approvers:[]);
-  if(r.hold_who){ // 手動指定：只顯示姓名（去掉部門/角色前綴；比對 approvers 姓名，舊資料也適用）
-    const m=apprs.find(a=>a.name && (r.hold_who===a.name || String(r.hold_who).endsWith(a.name)));
-    return m ? m.name : r.hold_who;
-  }
-  const step=(r.sign_chain||[])[r.cur_step]; const role=step?step.role:'';
-  if(!role) return '';
-  const names=apprs.filter(a=>a.role===role && a.active!==false).map(a=>a.name).filter(Boolean);
-  return names.length ? names.join('、') : role;
+  const m=apprs.find(a=>a.name && (r.hold_who===a.name || String(r.hold_who).endsWith(a.name)));
+  return m ? m.name : r.hold_who; // 只顯示姓名（去部門/角色前綴），舊 full label 也適用
 }
 // 卡關「誰」下拉選項（自動＋所有在職簽核人）
 function appHoldWhoOptions(r){
@@ -6479,7 +6474,7 @@ function appSignListHTML(){
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>${appEsc(r.serial_no)}</b> <span>${appEsc(r.site_name)}</span>
         <span style="margin-left:auto;font-size:12px;color:var(--muted)">NT$ ${appMoney(r.total_amount)}</span></div>
       <div style="font-size:12px;color:var(--muted);margin:4px 0">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}</div>
-      <div style="font-size:12px;color:#d97706;font-weight:600">⏳ 待 ${appEsc(appPendingWho(r))} 簽核</div>
+      ${(()=>{ const w=appPendingWho(r); return w?`<div style="font-size:12px;color:#d97706;font-weight:600">⏳ 待 ${appEsc(w)} 簽核</div>`:''; })()}
       ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">📝 ${appEsc(r.hold_note)}</div>`:''}
     </div>`;
   }).join('')+'</div>';
