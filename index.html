@@ -1556,6 +1556,7 @@ async function deleteAppUser(email) {
 }
 let editingSiteId = null;
 let editingWbsItems = null; // 編輯中案場的自訂工項清單（null = 用類型範本）
+let editingWbsDays = null;  // 編輯中案場各工項的工期(天) map（null/缺項 = 以權重當預設工期）
 let sites = [
   { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
   { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01', label:'恩盈', lng:120.566, lat:22.571 },
@@ -2055,22 +2056,37 @@ function wbsCatsFor(type, items) {
   return (type === '儲能') ? wbsCats.storage : wbsCats.solar;
 }
 
-function computeWBSFromData(wbsMap, type, items) {
+// 權重改由「工期(天)」推導：某葉節點權重 = 該葉工期 / 各葉工期總和。
+// daysMap 覆寫各葉工期；未指定者以預設權重當初始工期（範本權重和為100，故預設行為不變）。
+function wbsLeafDefaultDays(sub, cat) {
+  return typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
+}
+function computeWBSFromData(wbsMap, type, items, daysMap) {
   const cats = wbsCatsFor(type, items);
+  const dm = daysMap || {};
+  const dayOf = (name, defW) => (dm[name] != null && dm[name] !== '') ? (Number(dm[name]) || 0) : defW;
+  // 先算總工期（所有葉節點）
+  let total = 0;
+  cats.forEach(cat => {
+    if (cat.subs.length === 0) total += dayOf(cat.name, cat.weight);
+    else cat.subs.forEach(sub => total += dayOf(typeof sub === 'string' ? sub : sub.name, wbsLeafDefaultDays(sub, cat)));
+  });
+  const T = total || 1;
   return cats.map(cat => {
-    let subs = [], catPct;
+    let subs = [], catPct, catDays;
     if (cat.subs.length === 0) {
+      catDays = dayOf(cat.name, cat.weight);
       catPct = wbsMap[cat.name] ?? 0;
     } else {
       subs = cat.subs.map(sub => {
         const subName = typeof sub === 'string' ? sub : sub.name;
-        const subWeight = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
-        return { name: subName, pct: wbsMap[subName] ?? 0, weight: subWeight };
+        const d = dayOf(subName, wbsLeafDefaultDays(sub, cat));
+        return { name: subName, pct: wbsMap[subName] ?? 0, days: d, weight: Math.round(d / T * 100) };
       });
-      const totalW = subs.reduce((s, x) => s + x.weight, 0);
-      catPct = totalW ? Math.round(subs.reduce((s, x) => s + x.pct * x.weight, 0) / totalW) : 0;
+      catDays = subs.reduce((s, x) => s + x.days, 0);
+      catPct = catDays ? Math.round(subs.reduce((s, x) => s + x.pct * x.days, 0) / catDays) : 0;
     }
-    return { ...cat, catPct, subs };
+    return { ...cat, days: catDays, weight: Math.round(catDays / T * 100), catPct, subs };
   });
 }
 
@@ -3371,7 +3387,7 @@ function openModal(id) {
   document.getElementById('modal-status-badge').innerHTML =
     `<span class="status-badge ${statusClass[s.status]}">${statusText[s.status]}</span>`;
 
-  const wbsData = s.wbs ? computeWBSFromData(s.wbs, s.type, s.wbs_items) : computeWBS2(s.pct, s.type, s.wbs_items);
+  const wbsData = s.wbs ? computeWBSFromData(s.wbs, s.type, s.wbs_items, s.wbs_days) : computeWBS2(s.pct, s.type, s.wbs_items);
 
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = cat.catPct === 100 ? '#16a34a' : cat.catPct > 0 ? '#d97706' : '#94a3b8';
@@ -3379,6 +3395,7 @@ function openModal(id) {
       const sc = sub.pct === 100 ? '#16a34a' : sub.pct > 0 ? '#d97706' : '#94a3b8';
       return `<tr style="background:#fafafa">
         <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${sub.name}</td>
+        <td style="color:var(--muted);font-size:12px">${sub.days} 天</td>
         <td style="color:var(--muted);font-size:12px">${sub.weight}%</td>
         <td style="font-size:12px;font-weight:700;color:${sc}">${sub.pct}%</td>
         <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
@@ -3388,6 +3405,7 @@ function openModal(id) {
     }).join('');
     return `<tr style="border-top:1px solid var(--border)">
       <td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci+1}.</span>${cat.name}</td>
+      <td style="color:var(--muted);font-size:12px">${cat.days} 天</td>
       <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>
       <td style="font-weight:700;color:${cc}">${cat.catPct}%</td>
       <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
@@ -3434,7 +3452,7 @@ function openModal(id) {
     <div id="modal-weather"></div>
     <div class="wbs-title" style="margin-top:20px">WBS 施工項目</div>
     <table class="wbs-table">
-      <thead><tr><th>施工項目</th><th>權重</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
+      <thead><tr><th>施工項目</th><th>工期</th><th>權重</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
       <tbody>${wbsRows}</tbody>
     </table>
     ${(() => {
@@ -4361,7 +4379,7 @@ function computeStatus(s) {
 
 function rerenderAll() {
   // 進度統一：有 WBS 者以明細加權＋無條件捨去重算，全站（清單/表格/地圖/環形/狀態）一致
-  sites.forEach(s => { s.pct = s.wbs ? wbsOverallPct(s.wbs, s.type, s.wbs_items) : Math.floor(Number(s.pct) || 0); });
+  sites.forEach(s => { s.pct = s.wbs ? wbsOverallPct(s.wbs, s.type, s.wbs_items, s.wbs_days) : Math.floor(Number(s.pct) || 0); });
   sites.forEach(s => { s.status = computeStatus(s); });
   renderKPIs();
   renderTaiwanMap();   // 先把吃重的地圖同步繪完
@@ -4388,6 +4406,7 @@ function rowToSite(r) {
     label: r.label || r.city || '', lng: r.lng ? +r.lng : null, lat: r.lat ? +r.lat : null,
     wbs: r.wbs || undefined,
     wbs_items: Array.isArray(r.wbs_items) ? r.wbs_items : undefined,
+    wbs_days: r.wbs_days || undefined,
     mail_to: r.mail_to || '',
   };
 }
@@ -4669,36 +4688,67 @@ function wbsMapFromSite(s) {
 function renderWbsInputs(wbsMap) {
   const type = document.getElementById('sf-type').value;
   const current = wbsMap || collectWbsInputs();
+  const curDays = collectWbsDays();
+  const daysSrc = Object.keys(curDays).length ? curDays : (editingWbsDays || {});
   const cats = wbsCatsFor(type, editingWbsItems);
   const resetBtn = document.getElementById('sf-wbs-reset');
   if (resetBtn) resetBtn.style.display = (editingWbsItems && editingWbsItems.length) ? '' : 'none';
+  const dayOf = (name, defW) => (daysSrc[name] != null && daysSrc[name] !== '') ? (Number(daysSrc[name]) || 0) : defW;
+  let total = 0;
+  cats.forEach(cat => { if (!cat.subs.length) total += dayOf(cat.name, cat.weight); else cat.subs.forEach(sub => total += dayOf(typeof sub === 'string' ? sub : sub.name, wbsLeafDefaultDays(sub, cat))); });
+  const T = total || 1;
+  const wpct = d => Math.round(d / T * 100);
+  const dayInput = (name, d, cat) => `<input type="number" min="0" step="1" data-wbsday="${name}"${cat ? ` data-cat="${cat}"` : ''} value="${d}" oninput="recalcWbsWeights()">`;
+  const wtSpan = (name, d) => `<span class="wbs-wt" data-wt="${name}" style="color:var(--muted);font-size:12px">${wpct(d)}%</span>`;
   let rows = '';
   cats.forEach((cat, ci) => {
-    const catCell = `<td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>
-      <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>`;
+    const nameCell = `<td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:1px solid var(--border)">${catCell}
+      const d = dayOf(cat.name, cat.weight);
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}
+        <td>${dayInput(cat.name, d)}</td><td>${wtSpan(cat.name, d)}</td>
         <td><input type="number" min="0" max="100" data-wbs="${cat.name}" value="${current[cat.name] ?? 0}"></td></tr>`;
     } else {
-      rows += `<tr style="border-top:1px solid var(--border)">${catCell}<td></td></tr>`;
+      const catDays = cat.subs.reduce((s, sub) => s + dayOf(typeof sub === 'string' ? sub : sub.name, wbsLeafDefaultDays(sub, cat)), 0);
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}
+        <td><span class="wbs-catday" data-catday="${cat.name}" style="color:var(--muted);font-size:12px">${catDays} 天</span></td>
+        <td>${wtSpan(cat.name, catDays)}</td><td></td></tr>`;
       cat.subs.forEach(sub => {
         const nm = typeof sub === 'string' ? sub : sub.name;
-        const w  = typeof sub === 'string' ? Math.round(cat.weight / cat.subs.length) : sub.weight;
+        const d = dayOf(nm, wbsLeafDefaultDays(sub, cat));
         rows += `<tr style="background:#fafafa">
           <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${nm}</td>
-          <td style="color:var(--muted);font-size:12px">${w}%</td>
+          <td>${dayInput(nm, d, cat.name)}</td><td>${wtSpan(nm, d)}</td>
           <td><input type="number" min="0" max="100" data-wbs="${nm}" value="${current[nm] ?? 0}"></td></tr>`;
       });
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table"><thead><tr><th>施工項目</th><th>權重</th><th>完成率 (%)</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<table class="wbs-table"><thead><tr><th>施工項目</th><th>工期(天)</th><th>權重</th><th>完成率 (%)</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+// 工期變動 → 即時重算各項權重（權重 = 該項工期 / 總工期）
+function recalcWbsWeights() {
+  const grid = document.getElementById('sf-wbs-grid'); if (!grid) return;
+  const dayInputs = [...grid.querySelectorAll('input[data-wbsday]')];
+  let total = 0; dayInputs.forEach(i => total += Math.max(0, Number(i.value) || 0));
+  const T = total || 1;
+  const dayByLeaf = {}, catDays = {};
+  dayInputs.forEach(i => { const d = Math.max(0, Number(i.value) || 0); dayByLeaf[i.dataset.wbsday] = d; if (i.dataset.cat) catDays[i.dataset.cat] = (catDays[i.dataset.cat] || 0) + d; });
+  grid.querySelectorAll('.wbs-wt').forEach(sp => { const nm = sp.dataset.wt; const d = (catDays[nm] != null) ? catDays[nm] : (dayByLeaf[nm] || 0); sp.textContent = Math.round(d / T * 100) + '%'; });
+  grid.querySelectorAll('.wbs-catday').forEach(sp => { sp.textContent = (catDays[sp.dataset.catday] || 0) + ' 天'; });
 }
 
 function collectWbsInputs() {
   const map = {};
   document.querySelectorAll('#sf-wbs-grid input[data-wbs]').forEach(inp => {
     map[inp.dataset.wbs] = Math.max(0, Math.min(100, +inp.value || 0));
+  });
+  return map;
+}
+function collectWbsDays() {
+  const map = {};
+  document.querySelectorAll('#sf-wbs-grid input[data-wbsday]').forEach(inp => {
+    map[inp.dataset.wbsday] = Math.max(0, Math.round(Number(inp.value) || 0));
   });
   return map;
 }
@@ -4736,13 +4786,13 @@ function resetWbsItems() {
 }
 
 // 由 WBS 各項完成率加權計算整體進度
-function wbsOverallPct(wbsMap, type, items) {
-  // 依 WBS 明細加權（有子項用子項、否則用類別）後無條件捨去 → 全站唯一進度算法
-  const cats = computeWBSFromData(wbsMap, type, items);
+function wbsOverallPct(wbsMap, type, items, daysMap) {
+  // 依各工項「工期(天)」加權（有子項用子項、否則用類別）後無條件捨去 → 全站唯一進度算法
+  const cats = computeWBSFromData(wbsMap, type, items, daysMap);
   let num = 0, den = 0;
   cats.forEach(cat => {
-    if (cat.subs.length) cat.subs.forEach(sub => { num += (sub.pct || 0) * (sub.weight || 0); den += (sub.weight || 0); });
-    else { num += (cat.catPct || 0) * (cat.weight || 0); den += (cat.weight || 0); }
+    if (cat.subs.length) cat.subs.forEach(sub => { num += (sub.pct || 0) * (sub.days || 0); den += (sub.days || 0); });
+    else { num += (cat.catPct || 0) * (cat.days || 0); den += (cat.days || 0); }
   });
   return den ? Math.floor(num / den) : 0;
 }
@@ -4816,6 +4866,7 @@ function openSiteForm(id) {
   set('sf-start',  s && s.start ? s.start.replace(/\//g, '-') : ''); // type=date 需 YYYY-MM-DD
   set('sf-end',    s && s.end ? s.end.replace(/\//g, '-') : '');
   editingWbsItems = (s && Array.isArray(s.wbs_items) && s.wbs_items.length) ? s.wbs_items.map(it => ({ ...it })) : null;
+  editingWbsDays = (s && s.wbs_days && typeof s.wbs_days === 'object') ? { ...s.wbs_days } : null;
   renderWbsInputs(wbsMapFromSite(s));
   updateCapFields();
   document.getElementById('site-form-overlay').classList.add('open');
@@ -4842,7 +4893,8 @@ async function saveSiteForm() {
   // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
   row.wbs_items = (editingWbsItems && editingWbsItems.length) ? editingWbsItems : null; // 自訂工項（無則用範本）
-  row.pct = wbsOverallPct(row.wbs, row.type, editingWbsItems);
+  row.wbs_days = collectWbsDays(); // 各工項工期(天)，權重由此推導
+  row.pct = wbsOverallPct(row.wbs, row.type, editingWbsItems, row.wbs_days);
   const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
   row.status = row.pct >= 100 ? 'done'
     : (existing && existing.status !== 'done') ? existing.status
@@ -4941,6 +4993,11 @@ function buildSiteDiff(oldS, newRow) {
   new Set([...Object.keys(ow), ...Object.keys(nw)]).forEach(k => {
     const o = Number(ow[k] || 0), n = Number(nw[k] || 0);
     if (o !== n) parts.push(`${k} ${o}%→${n}%`);
+  });
+  const od = (oldS && oldS.wbs_days) || {}, nd = newRow.wbs_days || {};
+  new Set([...Object.keys(od), ...Object.keys(nd)]).forEach(k => {
+    const o = Number(od[k] || 0), n = Number(nd[k] || 0);
+    if (o !== n) parts.push(`${k} 工期 ${o}→${n} 天`);
   });
   // 整體進度為系統自動計算，不列入操作紀錄
   return parts;
