@@ -484,6 +484,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .big-pct { font-size: 52px; font-weight: 800; line-height: 1; }
 .big-pct-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .wbs-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+/* 操作紀錄有新紀錄時，紀錄按鈕底色呼吸（紅↔透明） */
+@keyframes auditFlash { 0%,100% { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.4); } 50% { background: rgba(239,68,68,.75); border-color: rgba(239,68,68,.9); } }
+.audit-flash { animation: auditFlash 1.6s ease-in-out infinite; }
 .wbs-table { width: 100%; border-collapse: collapse; }
 .wbs-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
 .wbs-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
@@ -1392,7 +1395,7 @@ function applyAuthUI() {
         ? `<img src="${currentUser.picture}" referrerpolicy="no-referrer" style="width:26px;height:26px;border-radius:50%;flex-shrink:0" alt="">`
         : `<span style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff">${(currentUser.name || '?').slice(0, 1)}</span>`;
       const tag = currentUser.isAdmin ? '管理員' : (currentUser.active ? '' : '唯讀');
-      const adminBtn = isAdmin() ? `<button id="btn-audit" onclick="openAuditModal()" title="操作紀錄" style="position:relative;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📜 紀錄<span id="audit-new-badge" style="display:none;position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:0 5px;line-height:15px">NEW</span></button>` : '';
+      const adminBtn = isAdmin() ? `<button id="btn-audit" onclick="openAuditModal()" title="操作紀錄" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📜 紀錄</button>` : '';
       box.innerHTML = `${adminBtn}
         <div style="display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;white-space:nowrap">${pic}<span>${currentUser.name}${tag ? `<span style="opacity:.8">（${tag}）</span>` : ''}</span></div>
         <button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">登出</button>`;
@@ -5035,6 +5038,22 @@ function equipDisplayName(i) {
 // 記錄「非管理員」在網頁上的新增/修改/刪除（管理員自己的動作不記）。攔截 sb.from(table).insert/update/delete/upsert。
 const AUDIT_TABLE_NAMES = { sites: '案場', supervisors: '工地主任', cert_expiry: '證照到期', site_insurance: '案場保險', equipment: '器具', equipment_borrow: '器具借用', app_request: '申請單', approvers: '簽核人員', uniforms: '制服領取', supervisor_log: '派工', custom_places: '常用地點', daily_log_status: '施工日誌', app_users: '使用者權限' };
 let auditLog = [];
+let _auditRows = []; // 操作紀錄 modal 目前顯示的列（供點擊跳轉用）
+// 點操作紀錄某列 → 跳到該筆變動的地方（案場→案場詳情、申請單→申請單）
+function auditJumpFromIndex(i) {
+  const r = _auditRows[i]; if (!r) return;
+  const summary = String(r.summary || '');
+  if (r.entity === '案場') {
+    const m = summary.match(/案場：([^\n]+)/);
+    const s = m ? siteByAnyName(m[1].trim()) : null;
+    if (s) { document.getElementById('audit-overlay').classList.remove('open'); openModal(s.id); return; }
+  }
+  if (r.entity === '申請單' && typeof appRequests !== 'undefined') {
+    const m = summary.match(/(\d{5})/);
+    const req = m ? appRequests.find(x => String(x.serial_no) === m[1]) : null;
+    if (req) { document.getElementById('audit-overlay').classList.remove('open'); appViewReq(req.id); return; }
+  }
+}
 // 存檔前由 saveSiteForm 算好的「案場修改細項」差異，交給 logAudit 附在紀錄後
 let _pendingSiteDiff = null;
 // 比對案場舊值 vs 新值，列出有變動的欄位（含 WBS 各工項完成率、整體進度）
@@ -5106,14 +5125,14 @@ function fmtAuditTime(v) {
 // 上次看過的最新紀錄 id（存 localStorage，比它新的視為「未看過」）
 function auditLastSeen() { try { return +(localStorage.getItem('audit_last_seen_id') || 0) || 0; } catch (e) { return 0; } }
 function setAuditLastSeen(id) { try { localStorage.setItem('audit_last_seen_id', String(id || 0)); } catch (e) {} }
-// 主頁「📜 紀錄」按鈕的 NEW 角標：有未看過的操作紀錄就顯示
+// 主頁「📜 紀錄」按鈕：有未看過的操作紀錄就紅框閃爍
 async function refreshAuditNewBadge() {
   if (!sb || !isAdmin()) return;
   try {
     const { data } = await sb.from('audit_log').select('id').order('id', { ascending: false }).limit(1);
     const maxId = (data && data[0]) ? (+data[0].id || 0) : 0;
-    const badge = document.getElementById('audit-new-badge');
-    if (badge) badge.style.display = (maxId > auditLastSeen()) ? 'inline-block' : 'none';
+    const btn = document.getElementById('btn-audit');
+    if (btn) btn.classList.toggle('audit-flash', maxId > auditLastSeen());
   } catch (e) {}
 }
 async function openAuditModal() {
@@ -5132,10 +5151,13 @@ async function openAuditModal() {
     const detail = raw.split('\n').slice(1).filter(l => l.trim() && !/整體進度/.test(l));
     return detail.length > 0;
   });
-  const rows = visible.map(r => {
+  _auditRows = visible;
+  const rows = visible.map((r, i) => {
     const isNew = (+r.id || 0) > seen;
     const badge = isNew ? '<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:middle">NEW</span>' : '';
-    return `<tr${isNew ? ' style="background:#fef2f2"' : ''}>
+    const jump = (r.entity === '案場' || r.entity === '申請單'); // 可跳轉的類型
+    const rowStyle = (isNew ? 'background:#fef2f2;' : '') + (jump ? 'cursor:pointer' : '');
+    return `<tr${rowStyle ? ` style="${rowStyle}"` : ''}${jump ? ` onclick="auditJumpFromIndex(${i})" title="點擊查看變動處"` : ''}>
       <td style="white-space:nowrap;font-size:12px;color:var(--muted)">${appEsc(fmtAuditTime(r.at))}</td>
       <td style="white-space:nowrap">${badge}${appEsc(r.actor_name || r.actor_email || '')}</td>
       <td style="text-align:left;white-space:pre-wrap;line-height:1.5">${fmtSummary(r.summary || ((r.action || '') + ' ' + (r.entity || '')))}</td></tr>`;
