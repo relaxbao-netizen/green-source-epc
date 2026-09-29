@@ -1392,10 +1392,11 @@ function applyAuthUI() {
         ? `<img src="${currentUser.picture}" referrerpolicy="no-referrer" style="width:26px;height:26px;border-radius:50%;flex-shrink:0" alt="">`
         : `<span style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:#fff">${(currentUser.name || '?').slice(0, 1)}</span>`;
       const tag = currentUser.isAdmin ? '管理員' : (currentUser.active ? '' : '唯讀');
-      const adminBtn = isAdmin() ? `<button onclick="openAuditModal()" title="操作紀錄" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📜 紀錄</button>` : '';
+      const adminBtn = isAdmin() ? `<button id="btn-audit" onclick="openAuditModal()" title="操作紀錄" style="position:relative;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">📜 紀錄<span id="audit-new-badge" style="display:none;position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:0 5px;line-height:15px">NEW</span></button>` : '';
       box.innerHTML = `${adminBtn}
         <div style="display:flex;align-items:center;gap:6px;color:#fff;font-size:12px;white-space:nowrap">${pic}<span>${currentUser.name}${tag ? `<span style="opacity:.8">（${tag}）</span>` : ''}</span></div>
         <button onclick="logout()" style="background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:8px;color:#fff;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">登出</button>`;
+      if (isAdmin()) refreshAuditNewBadge();
     } else {
       // 未登入：顯示粗體自訂按鈕，把透明的官方 GIS 按鈕疊在上面接收點擊（外觀粗體＋登入走官方可靠流程）
       const gsvg = '<svg width="14" height="14" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
@@ -5105,6 +5106,16 @@ function fmtAuditTime(v) {
 // 上次看過的最新紀錄 id（存 localStorage，比它新的視為「未看過」）
 function auditLastSeen() { try { return +(localStorage.getItem('audit_last_seen_id') || 0) || 0; } catch (e) { return 0; } }
 function setAuditLastSeen(id) { try { localStorage.setItem('audit_last_seen_id', String(id || 0)); } catch (e) {} }
+// 主頁「📜 紀錄」按鈕的 NEW 角標：有未看過的操作紀錄就顯示
+async function refreshAuditNewBadge() {
+  if (!sb || !isAdmin()) return;
+  try {
+    const { data } = await sb.from('audit_log').select('id').order('id', { ascending: false }).limit(1);
+    const maxId = (data && data[0]) ? (+data[0].id || 0) : 0;
+    const badge = document.getElementById('audit-new-badge');
+    if (badge) badge.style.display = (maxId > auditLastSeen()) ? 'inline-block' : 'none';
+  } catch (e) {}
+}
 async function openAuditModal() {
   if (!isAdmin()) { alert('僅管理員可檢視操作紀錄。'); return; }
   await loadAuditLog();
@@ -5135,6 +5146,7 @@ async function openAuditModal() {
       <tbody>${rows}</tbody></table></div>`;
   document.getElementById('audit-overlay').classList.add('open');
   setAuditLastSeen(maxId); // 開啟後即視為已看過，下次不再標 NEW
+  refreshAuditNewBadge();  // 清掉主頁按鈕的 NEW 角標
 }
 
 // ===================== 制服領取 =====================
