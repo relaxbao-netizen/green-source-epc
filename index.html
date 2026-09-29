@@ -5730,7 +5730,7 @@ function appPendingWho(r){
 // 卡關「誰」下拉選項（自動＋所有在職簽核人）
 function appHoldWhoOptions(r){
   const cur=r.hold_who||'';
-  let opts='<option value="">自動（依目前關卡）</option>';
+  let opts='<option value="">不指定（不顯示）</option>';
   const rank=d=>d==='管理階層'?'0':(d?'1'+d:'2'); // 管理階層最前、無部門最後，其餘依部門分組
   const list=(typeof approvers!=='undefined'?approvers:[]).filter(a=>a.active!==false && a.name)
     .slice().sort((a,b)=>rank(a.dept).localeCompare(rank(b.dept),'zh-Hant'));
