@@ -1091,8 +1091,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>光電容量 (kWp)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
-        <div class="form-field"><label>開工日期</label><input type="date" id="sf-start"></div>
-        <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"></div>
+        <div class="form-field"><label>開工日期</label><input type="date" id="sf-start" oninput="syncEndFromDuration()"></div>
+        <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"><span id="sf-end-auto" style="font-size:11px;color:#16a34a"></span></div>
         <div style="grid-column:1/-1">
           <div style="display:flex;align-items:center;margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">
             <span style="font-size:12px;font-weight:700;color:var(--muted)">WBS 施工項目完成率（%）</span>
@@ -2054,6 +2054,31 @@ function fillClass(status) {
 function wbsCatsFor(type, items) {
   if (items && items.length) return items.map(it => ({ name: it.name, weight: +it.weight || 0, subs: [] }));
   return (type === '儲能') ? wbsCats.storage : wbsCats.solar;
+}
+// 各葉節點的預設工期（＝原權重）map
+function wbsDefaultDays(type, items) {
+  const m = {};
+  wbsCatsFor(type, items).forEach(cat => {
+    if (!cat.subs.length) m[cat.name] = cat.weight;
+    else cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; m[nm] = wbsLeafDefaultDays(sub, cat); });
+  });
+  return m;
+}
+// 日期字串(YYYY/MM/DD 或 YYYY-MM-DD)加 n 天 → YYYY/MM/DD
+function addDaysStr(dateStr, n) {
+  const m = String(dateStr || '').match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (!m) return '';
+  const d = new Date(+m[1], +m[2] - 1, +m[3]); d.setDate(d.getDate() + Math.round(n || 0));
+  const p = x => String(x).padStart(2, '0');
+  return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate());
+}
+// 案場預計完工日：有設真實工期(wbs_days)時 = 開工日 + 各工項工期加總；否則用手動 end
+function siteEndDate(s) {
+  if (s && s.wbs_days && typeof s.wbs_days === 'object') {
+    const total = Object.values(s.wbs_days).reduce((a, b) => a + (Number(b) || 0), 0);
+    if (s.start && total > 0) { const e = addDaysStr(s.start.replace(/-/g, '/'), total); if (e) return e; }
+  }
+  return (s && s.end) || '';
 }
 
 // 權重改由「工期(天)」推導：某葉節點權重 = 該葉工期 / 各葉工期總和。
@@ -3432,7 +3457,7 @@ function openModal(id) {
           return r;
         })()}
         <div class="info-row"><span class="info-label">開工日期</span><span class="info-val">${s.start || ''}</span></div>
-        <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${s.end || ''}</span></div>
+        <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${siteEndDate(s)}</span></div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border-radius:10px;padding:16px">
         ${(() => {
@@ -4736,6 +4761,27 @@ function recalcWbsWeights() {
   dayInputs.forEach(i => { const d = Math.max(0, Number(i.value) || 0); dayByLeaf[i.dataset.wbsday] = d; if (i.dataset.cat) catDays[i.dataset.cat] = (catDays[i.dataset.cat] || 0) + d; });
   grid.querySelectorAll('.wbs-wt').forEach(sp => { const nm = sp.dataset.wt; const d = (catDays[nm] != null) ? catDays[nm] : (dayByLeaf[nm] || 0); sp.textContent = Math.round(d / T * 100) + '%'; });
   grid.querySelectorAll('.wbs-catday').forEach(sp => { sp.textContent = (catDays[sp.dataset.catday] || 0) + ' 天'; });
+  syncEndFromDuration();
+}
+// 工期有實際設定(與預設不同)時，完工日 = 開工日 + 總工期，並鎖定該欄位；否則恢復可手動輸入
+function syncEndFromDuration() {
+  const startEl = document.getElementById('sf-start'), endEl = document.getElementById('sf-end');
+  if (!startEl || !endEl) return;
+  const days = collectWbsDays();
+  const def = wbsDefaultDays(document.getElementById('sf-type').value, editingWbsItems);
+  const hadDays = editingWbsDays && Object.keys(editingWbsDays).length > 0;
+  const customized = hadDays || Object.keys(days).some(k => Number(days[k]) !== Number(def[k] ?? 0));
+  const hint = document.getElementById('sf-end-auto');
+  if (customized) {
+    const total = Object.values(days).reduce((a, b) => a + (Number(b) || 0), 0);
+    const e = addDaysStr(startEl.value, total); // input type=date 值為 YYYY-MM-DD
+    if (e) endEl.value = e.replace(/\//g, '-');
+    endEl.readOnly = true; endEl.style.background = '#f1f5f9';
+    if (hint) hint.textContent = `＝開工日＋總工期 ${total} 天（自動）`;
+  } else {
+    endEl.readOnly = false; endEl.style.background = '';
+    if (hint) hint.textContent = '';
+  }
 }
 
 function collectWbsInputs() {
@@ -4868,6 +4914,7 @@ function openSiteForm(id) {
   editingWbsItems = (s && Array.isArray(s.wbs_items) && s.wbs_items.length) ? s.wbs_items.map(it => ({ ...it })) : null;
   editingWbsDays = (s && s.wbs_days && typeof s.wbs_days === 'object') ? { ...s.wbs_days } : null;
   renderWbsInputs(wbsMapFromSite(s));
+  syncEndFromDuration();
   updateCapFields();
   document.getElementById('site-form-overlay').classList.add('open');
 }
@@ -4893,8 +4940,19 @@ async function saveSiteForm() {
   // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
   row.wbs_items = (editingWbsItems && editingWbsItems.length) ? editingWbsItems : null; // 自訂工項（無則用範本）
-  row.wbs_days = collectWbsDays(); // 各工項工期(天)，權重由此推導
+  // 工期：僅在使用者實際設定（與預設權重不同，或原本已存過）時才啟用「工期驅動」
+  const _days = collectWbsDays();
+  const _def = wbsDefaultDays(row.type, editingWbsItems);
+  const _hadDays = editingWbsDays && Object.keys(editingWbsDays).length > 0;
+  const _customized = _hadDays || Object.keys(_days).some(k => Number(_days[k]) !== Number(_def[k] ?? 0));
+  row.wbs_days = _customized ? _days : null;
   row.pct = wbsOverallPct(row.wbs, row.type, editingWbsItems, row.wbs_days);
+  // 有真實工期 → 完工日 = 開工日 + 總工期（覆寫手動完工日）；否則維持手動輸入
+  if (_customized && row.start_date) {
+    const _total = Object.values(_days).reduce((a, b) => a + (Number(b) || 0), 0);
+    const _end = addDaysStr(row.start_date, _total);
+    if (_total > 0 && _end) row.end_date = _end;
+  }
   const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
   row.status = row.pct >= 100 ? 'done'
     : (existing && existing.status !== 'done') ? existing.status
