@@ -51,6 +51,9 @@ alter table public.sites add column if not exists wbs_days_actual jsonb;
 -- 合約開工/完工日期(YYYY/MM/DD 字串)；實際開工=start_date、預計完工=start+總工期
 alter table public.sites add column if not exists contract_start text;
 alter table public.sites add column if not exists contract_end text;
+-- WBS 專案管理模型：各工項 4 個日期 {工項名:{ps:預計開始,pe:預計完成,as:實際開始,ae:實際完成}}（YYYY/MM/DD）
+-- 完成率/預計工期/實際工期/預計進度/實際進度皆由此推導（工作天排除週末與國定假日）
+alter table public.sites add column if not exists wbs_dates jsonb;
 
 -- 施工晴雨表：每日各縣市上午/下午天氣記錄（自開始使用日起累積）
 create table if not exists public.weather_log (
