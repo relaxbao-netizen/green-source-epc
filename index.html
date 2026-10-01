@@ -7203,9 +7203,9 @@ function setupNavWheelScroll() {
   }, { passive: false });
 }
 function hideAppLoader() {
-  try { window.scrollTo(0, 0); } catch (e) {} // 重新整理後回到最上面
   const el = document.getElementById('app-loader');
-  if (!el || el.classList.contains('hide')) return;
+  if (!el || el.classList.contains('hide')) return; // 已收起就不再動（避免 8 秒保險計時器又把頁面捲回頂端）
+  try { window.scrollTo(0, 0); } catch (e) {} // 僅首次收起載入動畫時回到最上面
   el.classList.add('hide');
   setTimeout(() => { try { el.remove(); } catch (e) {} }, 500);
 }
