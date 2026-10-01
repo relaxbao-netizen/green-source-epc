@@ -1100,7 +1100,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== SITE FORM MODAL（新增/編輯案場） ===== -->
 <div class="modal-overlay" id="site-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="kpi-list-box" style="width:760px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
+  <div class="kpi-list-box" style="width:900px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="site-form-title">＋ 新增案場</div>
       <button class="modal-close" onclick="document.getElementById('site-form-overlay').classList.remove('open')">✕</button>
@@ -1119,13 +1119,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>光電容量 (kWp)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
-        <div class="form-field"><label>合約開工日期</label><input type="date" id="sf-contract-start"></div>
-        <div class="form-field"><label>實際開工日期</label><input type="date" id="sf-start" oninput="syncEndFromDuration()"></div>
-        <div class="form-field"><label>合約完工日期</label><input type="date" id="sf-contract-end"></div>
-        <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"><span id="sf-end-auto" style="font-size:11px;color:#16a34a"></span></div>
+        <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
+          <div class="form-field"><label>合約開工日期</label><input type="date" id="sf-contract-start"></div>
+          <div class="form-field"><label>合約完工日期</label><input type="date" id="sf-contract-end"></div>
+          <div class="form-field"><label>實際開工日期</label><input type="date" id="sf-start"></div>
+          <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"><span id="sf-end-auto" style="font-size:11px;color:var(--muted)">（有填工項日期時＝最晚預計完成日）</span></div>
+        </div>
         <div style="grid-column:1/-1">
           <div style="display:flex;align-items:center;margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">
-            <span style="font-size:12px;font-weight:700;color:var(--muted)">WBS 施工項目完成率（%）</span>
+            <span style="font-size:12px;font-weight:700;color:var(--muted)">WBS 施工項目（填各項日期，完成率/工期/進度自動計算）</span>
             <button type="button" class="btn-secondary" style="margin-left:auto;padding:3px 10px;font-size:11px" onclick="openWbsImport()">📋 匯入工項</button>
             <button type="button" id="sf-wbs-reset" class="btn-secondary" style="margin-left:6px;padding:3px 10px;font-size:11px;display:none" onclick="resetWbsItems()">🔄 恢復預設</button>
           </div>
@@ -3557,8 +3559,8 @@ function openModal(id) {
         })()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:5px;font-size:13px">
           <div><div style="color:var(--muted)">合約開工日期</div><div class="info-val">${s.contract_start || '—'}</div></div>
-          <div><div style="color:var(--muted)">實際開工日期</div><div class="info-val">${s.start || '—'}</div></div>
           <div><div style="color:var(--muted)">合約完工日期</div><div class="info-val">${s.contract_end || '—'}</div></div>
+          <div><div style="color:var(--muted)">實際開工日期</div><div class="info-val">${s.start || '—'}</div></div>
           <div><div style="color:var(--muted)">預計完工日期</div><div class="info-val">${siteEndDate(s) || '—'}</div></div>
         </div>
       </div>
@@ -4824,19 +4826,19 @@ function renderWbsInputs() {
   const cur = collectWbsDates();
   const dates = Object.keys(cur).length ? cur : (editingWbsDates || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
-  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}" style="width:145px;font-size:12px">`;
+  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
-    const nameCell = `<td style="font-weight:700;white-space:nowrap"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
+    const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
       rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${dIn(cat.name, 'pe')}</td><td>${dIn(cat.name, 'as')}</td><td>${dIn(cat.name, 'ae')}</td></tr>`;
     } else {
       rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="4" style="color:var(--muted);font-size:12px">（填各子項日期）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);white-space:nowrap">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td><td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td></tr>`; });
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td><td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td></tr>`; });
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<div style="overflow-x:auto"><table class="wbs-table" style="min-width:760px"><thead><tr><th>施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:22%">施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 // 收集各工項的 4 個日期 → {name:{ps,pe,as,ae}}（只收有填的）
 function collectWbsDates() {
