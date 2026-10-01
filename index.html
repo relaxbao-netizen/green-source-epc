@@ -1122,7 +1122,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px">
           <div class="form-field"><label>合約開工日期</label><input type="date" id="sf-contract-start"></div>
           <div class="form-field"><label>合約完工日期</label><input type="date" id="sf-contract-end"></div>
-          <div class="form-field"><label>實際開工日期</label><input type="date" id="sf-start"></div>
+          <div class="form-field"><label>實際開工日期</label><input type="date" id="sf-start" disabled style="background:#f1f5f9;color:#64748b;cursor:not-allowed"><span style="font-size:11px;color:var(--muted)">自動＝各工項最早的實際開始日（不可手動改）</span></div>
           <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end" disabled style="background:#f1f5f9;color:#64748b;cursor:not-allowed"><span id="sf-end-auto" style="font-size:11px;color:var(--muted)">自動＝各工項最晚的預計完成日（不可手動改）</span></div>
         </div>
         <div style="grid-column:1/-1">
@@ -2202,6 +2202,18 @@ function siteEndDate(s) {
     if (latest) return _wdYmd(latest);
   }
   return (s && s.end) || '';
+}
+// 案場實際開工日 = 各工項「實際開始日」中的最早者；無則用手動 start
+function siteStartDate(s) {
+  if (s && s.wbs_dates && typeof s.wbs_dates === 'object') {
+    let earliest = null;
+    Object.values(s.wbs_dates).forEach(d => {
+      const as = _wdParse(d && d.as);
+      if (as && (!earliest || as < earliest)) earliest = as;
+    });
+    if (earliest) return _wdYmd(earliest);
+  }
+  return (s && s.start) || '';
 }
 
 // 權重改由「工期(天)」推導：某葉節點權重 = 該葉工期 / 各葉工期總和。
@@ -3582,7 +3594,7 @@ function openModal(id) {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:5px;font-size:13px">
           <div><div style="color:var(--muted)">合約開工日期</div><div class="info-val">${s.contract_start || '—'}</div></div>
           <div><div style="color:var(--muted)">合約完工日期</div><div class="info-val">${s.contract_end || '—'}</div></div>
-          <div><div style="color:var(--muted)">實際開工日期</div><div class="info-val">${s.start || '—'}</div></div>
+          <div><div style="color:var(--muted)">實際開工日期</div><div class="info-val">${siteStartDate(s) || '—'}</div></div>
           <div><div style="color:var(--muted)">預計完工日期</div><div class="info-val">${siteEndDate(s) || '—'}</div></div>
         </div>
       </div>
@@ -4851,7 +4863,7 @@ function renderWbsInputs() {
   const curC = collectWbsComp();
   const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
-  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${f === 'pe' ? ' oninput="updatePlannedEnd()"' : ''} style="width:100%;box-sizing:border-box;font-size:12px">`;
+  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${f === 'pe' ? ' oninput="updatePlannedEnd()"' : (f === 'as' ? ' oninput="updateActualStart()"' : '')} style="width:100%;box-sizing:border-box;font-size:12px">`;
   const cIn = (nm) => `<input type="number" min="0" max="100" step="1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率，留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
@@ -4867,6 +4879,7 @@ function renderWbsInputs() {
     `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:20%">施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th><th style="width:11%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
      <div style="font-size:11px;color:var(--muted);margin-top:6px">完成率% 為選填：留空＝依日期自動計算；填了＝以此值覆寫（適用工期拖很久、自動估算不準時）。</div>`;
   updatePlannedEnd();
+  updateActualStart();
 }
 // 預計完工日期（唯讀）＝各工項最晚的「預計完成」日；無則維持原值
 function updatePlannedEnd() {
@@ -4875,6 +4888,14 @@ function updatePlannedEnd() {
   Object.values(dates).forEach(d => { const pe = _wdParse(d && d.pe); if (pe && (!latest || pe > latest)) latest = pe; });
   const el = document.getElementById('sf-end');
   if (el && latest) el.value = _wdYmd(latest).replace(/\//g, '-');
+}
+// 實際開工日期（唯讀）＝各工項最早的「實際開始」日；無則維持原值
+function updateActualStart() {
+  const dates = collectWbsDates();
+  let earliest = null;
+  Object.values(dates).forEach(d => { const as = _wdParse(d && d.as); if (as && (!earliest || as < earliest)) earliest = as; });
+  const el = document.getElementById('sf-start');
+  if (el && earliest) el.value = _wdYmd(earliest).replace(/\//g, '-');
 }
 // 收集各工項手動完成率覆寫 → {name:0~100}（只收有填的）
 function collectWbsComp() {
