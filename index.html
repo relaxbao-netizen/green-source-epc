@@ -490,6 +490,16 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 /* 由操作紀錄跳轉過來時，變動處黃色閃爍標示 */
 @keyframes wbsFlash { 0%,100% { background: transparent; } 40% { background: #fde047; } }
 .wbs-flash { animation: wbsFlash .8s ease-in-out 3; }
+/* 全站載入啟動畫面 */
+#app-loader { position: fixed; inset: 0; z-index: 99999; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; transition: opacity .45s ease; }
+#app-loader.hide { opacity: 0; pointer-events: none; }
+.al-logo-wrap { position: relative; width: 74px; height: 74px; display: flex; align-items: center; justify-content: center; }
+.al-ring { position: absolute; inset: 0; border: 4px solid #e6f4ee; border-top-color: #059669; border-radius: 50%; animation: alSpin .8s linear infinite; }
+.al-logo { width: 42px; height: 42px; object-fit: contain; }
+@keyframes alSpin { to { transform: rotate(360deg); } }
+.al-title { font-size: 17px; font-weight: 800; color: #059669; letter-spacing: .06em; }
+.al-sub { font-size: 12px; color: #94a3b8; animation: alPulse 1.2s ease-in-out infinite; }
+@keyframes alPulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
 .wbs-table { width: 100%; border-collapse: collapse; }
 .wbs-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
 .wbs-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
@@ -656,6 +666,13 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 </style>
 </head>
 <body>
+
+<div id="app-loader">
+  <div class="al-logo-wrap"><div class="al-ring"></div><img id="al-logo" class="al-logo" alt=""></div>
+  <div class="al-title">綠源工程戰情室</div>
+  <div class="al-sub">載入中…</div>
+</div>
+<script>(function(){try{var f=document.querySelector('link[rel="icon"]');var l=document.getElementById('al-logo');if(f&&l)l.src=f.href;}catch(e){}})();</script>
 
 <nav>
   <button class="logo" onclick="location.reload()">
@@ -7054,6 +7071,13 @@ function setupNavWheelScroll() {
     e.preventDefault();
   }, { passive: false });
 }
+function hideAppLoader() {
+  const el = document.getElementById('app-loader');
+  if (!el || el.classList.contains('hide')) return;
+  el.classList.add('hide');
+  setTimeout(() => { try { el.remove(); } catch (e) {} }, 500);
+}
+setTimeout(hideAppLoader, 8000); // 保險：最多 8 秒一定收起載入畫面
 async function initApp() {
   setupNavWheelScroll(); // 導覽列可用滑鼠滾輪左右捲動
   setupAudit(); // 攔截寫入以記錄非管理員的操作軌跡
@@ -7063,6 +7087,7 @@ async function initApp() {
     loadApprovalData().then(() => { if (document.getElementById('page-approval').classList.contains('active')) renderApproval(); });
   }
   rerenderAll(); // KPI、首頁、地圖在此一次畫好
+  hideAppLoader(); // 主畫面已畫好 → 淡出載入動畫
   setupCoverHeightSync();  // 讓「工程規範書」封面永遠與「課程」封面等高（不論視窗寬度）
   loadCertExpiry().then(() => { renderCertTable(); renderCertReminder(); }); // 證照到期共用資料（表未建立則沿用內建/本機）
   loadInsurance().then(() => { renderInsTable(); renderInsReminder(); });     // 案場保險共用資料（site_insurance 表未建立則用本機）
