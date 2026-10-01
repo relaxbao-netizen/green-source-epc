@@ -46,6 +46,9 @@ alter table public.supervisors add column if not exists avatar text default '';
 alter table public.sites add column if not exists sales text default '';
 -- WBS 各工項工期(天) {"整地工程":5,...}；權重由工期占比自動推導（缺項以原權重當預設工期）
 alter table public.sites add column if not exists wbs_days jsonb;
+-- 合約開工/完工日期(YYYY/MM/DD 字串)；實際開工=start_date、預計完工=start+總工期
+alter table public.sites add column if not exists contract_start text;
+alter table public.sites add column if not exists contract_end text;
 
 -- 施工晴雨表：每日各縣市上午/下午天氣記錄（自開始使用日起累積）
 create table if not exists public.weather_log (

@@ -487,6 +487,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 /* 操作紀錄有新紀錄時，紀錄按鈕底色呼吸（紅↔透明） */
 @keyframes auditFlash { 0%,100% { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.4); } 50% { background: rgba(239,68,68,.75); border-color: rgba(239,68,68,.9); } }
 .audit-flash { animation: auditFlash 1.6s ease-in-out infinite; }
+/* 由操作紀錄跳轉過來時，變動處黃色閃爍標示 */
+@keyframes wbsFlash { 0%,100% { background: transparent; } 40% { background: #fde047; } }
+.wbs-flash { animation: wbsFlash .8s ease-in-out 3; }
 .wbs-table { width: 100%; border-collapse: collapse; }
 .wbs-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
 .wbs-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
@@ -1094,7 +1097,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="form-field"><label>光電容量 (kWp)</label><input type="number" step="0.01" id="sf-mw"></div>
         <div class="form-field"><label>儲能功率 (kW)</label><input type="number" step="0.01" id="sf-skw"></div>
         <div class="form-field"><label>儲能容量 (kWh)</label><input type="number" step="0.01" id="sf-mwh"></div>
-        <div class="form-field"><label>開工日期</label><input type="date" id="sf-start" oninput="syncEndFromDuration()"></div>
+        <div class="form-field"><label>合約開工日期</label><input type="date" id="sf-contract-start"></div>
+        <div class="form-field"><label>實際開工日期</label><input type="date" id="sf-start" oninput="syncEndFromDuration()"></div>
+        <div class="form-field"><label>合約完工日期</label><input type="date" id="sf-contract-end"></div>
         <div class="form-field"><label>預計完工日期</label><input type="date" id="sf-end"><span id="sf-end-auto" style="font-size:11px;color:#16a34a"></span></div>
         <div style="grid-column:1/-1">
           <div style="display:flex;align-items:center;margin:6px 0 4px;border-top:1px solid var(--border);padding-top:10px">
@@ -3422,7 +3427,7 @@ function openModal(id) {
     const cc = cat.catPct === 100 ? '#16a34a' : cat.catPct > 0 ? '#d97706' : '#94a3b8';
     const subRows = cat.subs.map(sub => {
       const sc = sub.pct === 100 ? '#16a34a' : sub.pct > 0 ? '#d97706' : '#94a3b8';
-      return `<tr style="background:#fafafa">
+      return `<tr style="background:#fafafa" data-wbsrow="${appEsc(sub.name)}">
         <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${sub.name}</td>
         <td style="color:var(--muted);font-size:12px">${sub.days} 天</td>
         <td style="color:var(--muted);font-size:12px">${sub.weight}%</td>
@@ -3432,7 +3437,7 @@ function openModal(id) {
         <td>${wbsStatusBadge(sub.pct)}</td>
       </tr>`;
     }).join('');
-    return `<tr style="border-top:1px solid var(--border)">
+    return `<tr style="border-top:1px solid var(--border)" data-wbsrow="${appEsc(cat.name)}">
       <td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci+1}.</span>${cat.name}</td>
       <td style="color:var(--muted);font-size:12px">${cat.days} 天</td>
       <td style="color:var(--muted);font-size:12px">${cat.weight}%</td>
@@ -3460,8 +3465,12 @@ function openModal(id) {
           if (!r) r = `<div class="info-row"><span class="info-label">設置容量</span><span class="info-val">${s.cap}</span></div>`;
           return r;
         })()}
-        <div class="info-row"><span class="info-label">開工日期</span><span class="info-val">${s.start || ''}</span></div>
-        <div class="info-row"><span class="info-label">預計完工日期</span><span class="info-val">${siteEndDate(s)}</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:5px;font-size:13px">
+          <div><div style="color:var(--muted)">合約開工日期</div><div class="info-val">${s.contract_start || '—'}</div></div>
+          <div><div style="color:var(--muted)">實際開工日期</div><div class="info-val">${s.start || '—'}</div></div>
+          <div><div style="color:var(--muted)">合約完工日期</div><div class="info-val">${s.contract_end || '—'}</div></div>
+          <div><div style="color:var(--muted)">預計完工日期</div><div class="info-val">${siteEndDate(s) || '—'}</div></div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;border-radius:10px;padding:16px">
         ${(() => {
@@ -4429,6 +4438,7 @@ function rowToSite(r) {
     id: r.id, name: r.name || '', region: r.region || 'north', city: r.city || '',
     cap: r.cap || '待確認', owner: r.owner || '', pm: r.pm || '', sales: r.sales || '',
     start: r.start_date || '', end: r.end_date || '',
+    contract_start: r.contract_start || '', contract_end: r.contract_end || '',
     pct: r.pct ?? 0, status: r.status || 'normal',
     mw: +r.mw || 0, mwh: +r.mwh || 0, skw: +r.skw || 0,
     type: r.type || '太陽能', addr: r.addr || '',
@@ -4913,6 +4923,8 @@ function openSiteForm(id) {
   set('sf-mw',     s && s.mw  ? s.mw  : '');
   set('sf-skw',    s && s.skw ? s.skw : '');
   set('sf-mwh',    s && s.mwh ? s.mwh : '');
+  set('sf-contract-start', s && s.contract_start ? s.contract_start.replace(/\//g, '-') : '');
+  set('sf-contract-end',   s && s.contract_end ? s.contract_end.replace(/\//g, '-') : '');
   set('sf-start',  s && s.start ? s.start.replace(/\//g, '-') : ''); // type=date 需 YYYY-MM-DD
   set('sf-end',    s && s.end ? s.end.replace(/\//g, '-') : '');
   editingWbsItems = (s && Array.isArray(s.wbs_items) && s.wbs_items.length) ? s.wbs_items.map(it => ({ ...it })) : null;
@@ -4940,6 +4952,7 @@ async function saveSiteForm() {
     type: val('sf-type'), owner: val('sf-owner'), pm: [...document.querySelectorAll('.sf-pm-cb:checked')].map(o=>o.value).join(','), sales: val('sf-sales'), addr: val('sf-addr'),
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start').replace(/-/g, '/'), end_date: val('sf-end').replace(/-/g, '/'), // 存回 YYYY/MM/DD
+    contract_start: val('sf-contract-start').replace(/-/g, '/'), contract_end: val('sf-contract-end').replace(/-/g, '/'),
   };
   // WBS 各項完成率 → 自動計算整體進度，狀態顏色跟著進度走
   row.wbs = collectWbsInputs();
@@ -5039,19 +5052,42 @@ function equipDisplayName(i) {
 const AUDIT_TABLE_NAMES = { sites: '案場', supervisors: '工地主任', cert_expiry: '證照到期', site_insurance: '案場保險', equipment: '器具', equipment_borrow: '器具借用', app_request: '申請單', approvers: '簽核人員', uniforms: '制服領取', supervisor_log: '派工', custom_places: '常用地點', daily_log_status: '施工日誌', app_users: '使用者權限' };
 let auditLog = [];
 let _auditRows = []; // 操作紀錄 modal 目前顯示的列（供點擊跳轉用）
-// 點操作紀錄某列 → 跳到該筆變動的地方（案場→案場詳情、申請單→申請單）
+function flashEl(el) { if (!el) return; el.classList.remove('wbs-flash'); void el.offsetWidth; el.classList.add('wbs-flash'); setTimeout(() => el.classList.remove('wbs-flash'), 2600); }
+// 依變動的工項名稱，在案場詳情表格中黃色閃爍標示並捲到該列
+function flashWbsRows(names) {
+  const body = document.getElementById('modal-body'); if (!body) return;
+  let first = null;
+  (names || []).forEach(nm => body.querySelectorAll('tr[data-wbsrow]').forEach(tr => {
+    if (tr.getAttribute('data-wbsrow') === nm) { flashEl(tr); if (!first) first = tr; }
+  }));
+  if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+// 點操作紀錄某列 → 跳到該筆變動的地方，並在該處黃色閃爍標示
 function auditJumpFromIndex(i) {
   const r = _auditRows[i]; if (!r) return;
   const summary = String(r.summary || '');
   if (r.entity === '案場') {
     const m = summary.match(/案場：([^\n]+)/);
     const s = m ? siteByAnyName(m[1].trim()) : null;
-    if (s) { document.getElementById('audit-overlay').classList.remove('open'); openModal(s.id); return; }
+    if (s) {
+      const names = summary.split('\n').slice(1)
+        .map(l => l.replace(/^·\s*/, '')).filter(l => l && !/整體進度/.test(l))
+        .map(l => l.replace(/\s+\d+%→.*$/, '').replace(/\s+工期\s+.*$/, '').trim()).filter(Boolean);
+      document.getElementById('audit-overlay').classList.remove('open');
+      openModal(s.id);
+      setTimeout(() => flashWbsRows(names), 80);
+      return;
+    }
   }
   if (r.entity === '申請單' && typeof appRequests !== 'undefined') {
     const m = summary.match(/(\d{5})/);
     const req = m ? appRequests.find(x => String(x.serial_no) === m[1]) : null;
-    if (req) { document.getElementById('audit-overlay').classList.remove('open'); appViewReq(req.id); return; }
+    if (req) {
+      document.getElementById('audit-overlay').classList.remove('open');
+      appViewReq(req.id);
+      setTimeout(() => { const b = document.getElementById('app-sign-body'); flashEl(b && b.firstElementChild ? b.firstElementChild : b); }, 80);
+      return;
+    }
   }
 }
 // 存檔前由 saveSiteForm 算好的「案場修改細項」差異，交給 logAudit 附在紀錄後
