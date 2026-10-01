@@ -2136,7 +2136,9 @@ function wbsItemCalc(dt, oldComp, oldPlanDays, defW) {
   const planDays = (ps && pe) ? workdaysBetween(ps, pe) : (hasDate ? null : (oldPlanDays != null ? oldPlanDays : defW));
   const actDays = as ? (ae ? workdaysBetween(as, ae) : workdaysBetween(as, todayStr)) : null;
   const planPct = (ps && pe) ? schedPct(ps, pe) : (hasDate ? 0 : Math.max(0, Math.min(100, Number(oldComp) || 0)));
-  const compPct = ae ? 100 : ((as && pe) ? schedPct(as, pe) : (hasDate ? 0 : Math.max(0, Math.min(100, Number(oldComp) || 0))));
+  // 實際進度：填了實際完成=100%；只填實際開始則依「實際開始→預計完成 vs 今日」推估，
+  // 但未確認完成前最高封頂 99%（避免超過預計完成日就誤顯示 100% 完工）
+  const compPct = ae ? 100 : ((as && pe) ? Math.min(99, schedPct(as, pe)) : (hasDate ? 0 : Math.max(0, Math.min(100, Number(oldComp) || 0))));
   const weight = (planDays != null && planDays > 0) ? planDays : ((ps && pe) ? 0 : (oldPlanDays != null ? oldPlanDays : defW));
   return { planDays, actDays, planPct, compPct, weight };
 }
