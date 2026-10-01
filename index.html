@@ -1100,7 +1100,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== SITE FORM MODAL（新增/編輯案場） ===== -->
 <div class="modal-overlay" id="site-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="kpi-list-box" style="width:900px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
+  <div class="kpi-list-box" style="width:940px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="site-form-title">＋ 新增案場</div>
       <button class="modal-close" onclick="document.getElementById('site-form-overlay').classList.remove('open')">✕</button>
@@ -1592,6 +1592,7 @@ let editingWbsItems = null; // 編輯中案場的自訂工項清單（null = 用
 let editingWbsDays = null;  // (舊) 預計工期 map — 保留供無日期的舊項回退
 let editingWbsDaysActual = null; // (舊) 實際工期 map
 let editingWbsDates = null; // 編輯中案場各工項的 4 個日期 {name:{ps,pe,as,ae}}
+let editingWbsComp = null;  // 編輯中案場各工項的手動完成率覆寫 {name:0~100}
 let sites = [
   { id:0,  name:'盛餘屏南太陽能發電系統建置工程',    region:'south',  city:'屏東', cap:'待確認', owner:'待確認',       pm:'待確認', end:'2026/12/31', pct:38, status:'warn',   mw:0, mwh:0, type:'太陽能',     addr:'屏東縣',                    start:'2026/02/01', label:'盛餘屏南', lng:120.515, lat:22.460 },
   { id:1,  name:'恩盈太陽光電及儲能系統工程',        region:'south',  city:'屏東', cap:'待確認', owner:'恩盈企業股份有限公司', pm:'林志鴻 Daniel', end:'2025/10/20', pct:100, status:'done', mw:298.1, mwh:430, skw:200, type:'太陽能+儲能', addr:'屏東縣萬巒鄉佳興路83號', start:'2024/04/01', label:'恩盈', lng:120.566, lat:22.571 },
@@ -2122,12 +2123,14 @@ function workdaysBetween(aStr, bStr) {
   const a = _wdParse(aStr), b = _wdParse(bStr); if (!a || !b || b < a) return 0;
   let n = 0; const d = new Date(a); while (d <= b) { if (isWorkday(d)) n++; d.setDate(d.getDate() + 1); } return n;
 }
-// 某工項依日期(dt={ps,pe,as,ae})算出 {planDays,actDays,planPct,compPct,weight}；無任何日期則回退舊完成率/舊工期
-function wbsItemCalc(dt, oldComp, oldPlanDays, defW) {
+// 某工項依日期(dt={ps,pe,as,ae})算出 {planDays,actDays,planPct,compPct,weight,overdue}；
+// ovr=手動實際完成率%覆寫(填了優先)；無任何日期則回退舊完成率/舊工期
+function wbsItemCalc(dt, oldComp, oldPlanDays, defW, ovr) {
   dt = dt || {};
   const ps = dt.ps || '', pe = dt.pe || '', as = dt.as || '', ae = dt.ae || '';
   const todayStr = _wdYmd(new Date()), today = _wdParse(todayStr);
   const hasDate = !!(ps || pe || as || ae);
+  const hasOvr = ovr != null && ovr !== '' && !isNaN(Number(ovr));
   const schedPct = (startStr, endStr) => { // 時程進度%：(開始~今日工作天)/(開始~完成工作天)
     const tot = workdaysBetween(startStr, endStr) || 1;
     let el; if (today < _wdParse(startStr)) el = 0; else if (today >= _wdParse(endStr)) el = tot; else el = workdaysBetween(startStr, todayStr);
@@ -2137,26 +2140,30 @@ function wbsItemCalc(dt, oldComp, oldPlanDays, defW) {
   const actDays = as ? (ae ? workdaysBetween(as, ae) : workdaysBetween(as, todayStr)) : null;
   // 預計進度：預計開始→今日 ÷ 預計工期(預計開始→預計完成)
   const planPct = (ps && pe) ? schedPct(ps, pe) : (hasDate ? 0 : Math.max(0, Math.min(100, Number(oldComp) || 0)));
-  // 完成率(實際進度)：填了實際完成=100%；否則＝「實際開始→今日」工作天 ÷ 預計工期(預計完成−預計開始)，
-  // 未確認完成前最高封頂 99%（避免超過預計完成日誤顯示 100% 完工）
+  // 完成率(實際進度)：①手動覆寫優先 ②填了實際完成=100% ③否則＝「實際開始→今日」÷預計工期，
+  // 未確認完成前封頂 99%（避免超過預計完成日誤顯示完工）
   let compPct;
-  if (ae) compPct = 100;
+  if (hasOvr) compPct = Math.max(0, Math.min(100, Math.round(Number(ovr))));
+  else if (ae) compPct = 100;
   else if (as && ps && pe) {
     const planTot = workdaysBetween(ps, pe) || 1;         // 分母＝預計工期
     const worked = (today < _wdParse(as)) ? 0 : workdaysBetween(as, todayStr); // 分子＝實際開始到今日
     compPct = Math.max(0, Math.min(99, Math.round(worked / planTot * 100)));
   } else compPct = hasDate ? 0 : Math.max(0, Math.min(100, Number(oldComp) || 0));
+  // 逾期天數(日曆日)：尚未 100% 完成且今日已超過預計完成日
+  let overdue = 0;
+  if (compPct < 100 && pe) { const peD = _wdParse(pe); if (peD && today > peD) overdue = Math.round((today - peD) / 86400000); }
   const weight = (planDays != null && planDays > 0) ? planDays : ((ps && pe) ? 0 : (oldPlanDays != null ? oldPlanDays : defW));
-  return { planDays, actDays, planPct, compPct, weight };
+  return { planDays, actDays, planPct, compPct, weight, overdue };
 }
 // 建 WBS 時程樹（大項/子項，含 planDays/actDays/planPct/compPct/weight）
 function wbsScheduleTree(s) {
   const cats = wbsCatsFor(s.type, s.wbs_items);
-  const dates = s.wbs_dates || {}, oldWbs = s.wbs || {}, oldDays = s.wbs_days || {};
-  const leafCalc = (nm, defW) => wbsItemCalc(dates[nm], oldWbs[nm], (oldDays[nm] != null ? Number(oldDays[nm]) : null), defW);
+  const dates = s.wbs_dates || {}, oldWbs = s.wbs || {}, oldDays = s.wbs_days || {}, ovrMap = s.wbs_comp || {};
+  const leafCalc = (nm, defW) => wbsItemCalc(dates[nm], oldWbs[nm], (oldDays[nm] != null ? Number(oldDays[nm]) : null), defW, ovrMap[nm]);
   return cats.map(cat => {
-    if (!cat.subs.length) { const c = leafCalc(cat.name, cat.weight); return { name: cat.name, subs: [], planDays: c.planDays, actDays: c.actDays, catPct: c.compPct, planPct: c.planPct, weight: c.weight }; }
-    const subs = cat.subs.map(sub => { const nm = typeof sub === 'string' ? sub : sub.name; const c = leafCalc(nm, wbsLeafDefaultDays(sub, cat)); return { name: nm, planDays: c.planDays, actDays: c.actDays, planPct: c.planPct, pct: c.compPct, weight: c.weight }; });
+    if (!cat.subs.length) { const c = leafCalc(cat.name, cat.weight); return { name: cat.name, subs: [], planDays: c.planDays, actDays: c.actDays, catPct: c.compPct, planPct: c.planPct, weight: c.weight, overdue: c.overdue }; }
+    const subs = cat.subs.map(sub => { const nm = typeof sub === 'string' ? sub : sub.name; const c = leafCalc(nm, wbsLeafDefaultDays(sub, cat)); return { name: nm, planDays: c.planDays, actDays: c.actDays, planPct: c.planPct, pct: c.compPct, weight: c.weight, overdue: c.overdue }; });
     const W = subs.reduce((a, x) => a + (x.weight || 0), 0);
     return {
       name: cat.name, subs,
@@ -2164,7 +2171,8 @@ function wbsScheduleTree(s) {
       actDays: subs.some(x => x.actDays != null) ? subs.reduce((a, x) => a + (x.actDays || 0), 0) : null,
       catPct: W ? Math.round(subs.reduce((a, x) => a + x.pct * (x.weight || 0), 0) / W) : 0,
       planPct: W ? Math.round(subs.reduce((a, x) => a + x.planPct * (x.weight || 0), 0) / W) : 0,
-      weight: W
+      weight: W,
+      overdue: subs.reduce((a, x) => Math.max(a, x.overdue || 0), 0)
     };
   });
 }
@@ -2249,10 +2257,11 @@ function computeWBS2(pct, type, items) {
   });
 }
 
-function wbsStatusBadge(pct) {
-  if (pct === 100) return '<span style="background:#e0f2fe;color:#0ea5e9;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">完成</span>';
-  if (pct > 0)     return '<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">進行中</span>';
-  return '<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">未開始</span>';
+function wbsStatusBadge(pct, overdue) {
+  const od = overdue > 0 ? `<span style="display:inline-block;margin-left:4px;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700">逾期 ${overdue} 天</span>` : '';
+  if (pct === 100) return '<span style="background:#e0f2fe;color:#0ea5e9;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">完成</span>' + od;
+  if (pct > 0)     return '<span style="background:#dcfce7;color:#15803d;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">進行中</span>' + od;
+  return '<span style="background:#f1f5f9;color:#64748b;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600">未開始</span>' + od;
 }
 
 function ringChart(pct, color, exp) {
@@ -3536,7 +3545,7 @@ function openModal(id) {
         <td style="font-size:12px;font-weight:700;color:${sc}">${sub.pct}%</td>
         <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
           <div style="width:${sub.pct}%;height:100%;border-radius:3px;background:${sc}"></div></div></td>
-        <td>${wbsStatusBadge(sub.pct)}</td>
+        <td>${wbsStatusBadge(sub.pct, sub.overdue)}</td>
       </tr>`;
     }).join('');
     return `<tr style="border-top:1px solid var(--border)" data-wbsrow="${appEsc(cat.name)}">
@@ -3545,7 +3554,7 @@ function openModal(id) {
       <td style="font-weight:700;color:${cc}">${cat.catPct}%</td>
       <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
         <div style="width:${cat.catPct}%;height:100%;border-radius:3px;background:${cc}"></div></div></td>
-      <td>${wbsStatusBadge(cat.catPct)}</td>
+      <td>${wbsStatusBadge(cat.catPct, cat.overdue)}</td>
     </tr>${subRows}`;
   }).join('');
 
@@ -4518,7 +4527,7 @@ function computeStatus(s) {
 
 function rerenderAll() {
   // 進度統一：有 WBS 者以明細加權＋無條件捨去重算，全站（清單/表格/地圖/環形/狀態）一致
-  sites.forEach(s => { s.pct = (s.wbs || s.wbs_dates || s.wbs_days || (s.wbs_items && s.wbs_items.length)) ? siteActualPct(s) : Math.floor(Number(s.pct) || 0); });
+  sites.forEach(s => { s.pct = (s.wbs || s.wbs_dates || s.wbs_comp || s.wbs_days || (s.wbs_items && s.wbs_items.length)) ? siteActualPct(s) : Math.floor(Number(s.pct) || 0); });
   sites.forEach(s => { s.status = computeStatus(s); });
   renderKPIs();
   renderTaiwanMap();   // 先把吃重的地圖同步繪完
@@ -4549,6 +4558,7 @@ function rowToSite(r) {
     wbs_days: r.wbs_days || undefined,
     wbs_days_actual: r.wbs_days_actual || undefined,
     wbs_dates: r.wbs_dates || undefined,
+    wbs_comp: r.wbs_comp || undefined,
     mail_to: r.mail_to || '',
   };
 }
@@ -4826,7 +4836,7 @@ function wbsMapFromSite(s) {
   return map;
 }
 
-// 渲染 WBS 輸入表格：施工項目｜預計開始｜預計完成｜實際開始｜實際完成（完成率不在此填，由日期自動算）
+// 渲染 WBS 輸入表格：施工項目｜預計開始｜預計完成｜實際開始｜實際完成｜完成率%(選填覆寫)
 function renderWbsInputs() {
   const type = document.getElementById('sf-type').value;
   const cats = wbsCatsFor(type, editingWbsItems);
@@ -4834,20 +4844,33 @@ function renderWbsInputs() {
   if (resetBtn) resetBtn.style.display = (editingWbsItems && editingWbsItems.length) ? '' : 'none';
   const cur = collectWbsDates();
   const dates = Object.keys(cur).length ? cur : (editingWbsDates || {});
+  const curC = collectWbsComp();
+  const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
   const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}" style="width:100%;box-sizing:border-box;font-size:12px">`;
+  const cIn = (nm) => `<input type="number" min="0" max="100" step="1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率，留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
     const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${dIn(cat.name, 'pe')}</td><td>${dIn(cat.name, 'as')}</td><td>${dIn(cat.name, 'ae')}</td></tr>`;
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${dIn(cat.name, 'pe')}</td><td>${dIn(cat.name, 'as')}</td><td>${dIn(cat.name, 'ae')}</td><td>${cIn(cat.name)}</td></tr>`;
     } else {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="4" style="color:var(--muted);font-size:12px">（填各子項日期）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td><td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td></tr>`; });
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="5" style="color:var(--muted);font-size:12px">（填各子項日期）</td></tr>`;
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td><td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td><td>${cIn(nm)}</td></tr>`; });
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:22%">施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th></tr></thead><tbody>${rows}</tbody></table>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:20%">施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th><th style="width:11%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
+     <div style="font-size:11px;color:var(--muted);margin-top:6px">完成率% 為選填：留空＝依日期自動計算；填了＝以此值覆寫（適用工期拖很久、自動估算不準時）。</div>`;
+}
+// 收集各工項手動完成率覆寫 → {name:0~100}（只收有填的）
+function collectWbsComp() {
+  const map = {};
+  document.querySelectorAll('#sf-wbs-grid input[data-comp]').forEach(inp => {
+    const v = inp.value; if (v === '' || v == null) return;
+    map[inp.dataset.comp] = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+  });
+  return map;
 }
 // 收集各工項的 4 個日期 → {name:{ps,pe,as,ae}}（只收有填的）
 function collectWbsDates() {
@@ -5001,6 +5024,7 @@ function openSiteForm(id) {
   editingWbsDays = (s && s.wbs_days && typeof s.wbs_days === 'object') ? { ...s.wbs_days } : null;
   editingWbsDaysActual = (s && s.wbs_days_actual && typeof s.wbs_days_actual === 'object') ? { ...s.wbs_days_actual } : null;
   editingWbsDates = (s && s.wbs_dates && typeof s.wbs_dates === 'object') ? JSON.parse(JSON.stringify(s.wbs_dates)) : null;
+  editingWbsComp = (s && s.wbs_comp && typeof s.wbs_comp === 'object') ? { ...s.wbs_comp } : null;
   { const g = document.getElementById('sf-wbs-grid'); if (g) g.innerHTML = ''; } // 清掉前一個案場殘留的輸入，避免 collectWbsDates 讀到舊值
   renderWbsInputs();
   syncEndFromDuration();
@@ -5033,11 +5057,14 @@ async function saveSiteForm() {
   const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
   const _dates = collectWbsDates();
   row.wbs_dates = (_dates && Object.keys(_dates).length) ? _dates : null;
-  // 整體進度（實際進度）＝依時程樹加權；無日期的工項沿用舊完成率(existing.wbs)
+  const _comp = collectWbsComp();
+  row.wbs_comp = (_comp && Object.keys(_comp).length) ? _comp : null; // 手動完成率覆寫（選填）
+  // 整體進度（實際進度）＝依時程樹加權；無日期的工項沿用舊完成率(existing.wbs)；有手動覆寫則優先
   const _calcSite = {
     type: row.type,
     wbs_items: editingWbsItems,
     wbs_dates: row.wbs_dates,
+    wbs_comp: row.wbs_comp,
     wbs: (existing && existing.wbs) || {},
     wbs_days: (existing && existing.wbs_days) || {},
   };
@@ -5192,7 +5219,13 @@ function buildSiteDiff(oldS, newRow) {
       if (ov !== nv) parts.push(`${k} ${fLbl[f]}「${ov || '—'}」→「${nv || '—'}」`);
     });
   });
-  // 完成率/工期/整體進度皆由日期自動推導，不另列入操作紀錄
+  // 手動完成率覆寫變更
+  const oC = (oldS && oldS.wbs_comp) || {}, nC = newRow.wbs_comp || {};
+  new Set([...Object.keys(oC), ...Object.keys(nC)]).forEach(k => {
+    const o = (oC[k] == null || oC[k] === '') ? '—' : oC[k] + '%', n = (nC[k] == null || nC[k] === '') ? '—' : nC[k] + '%';
+    if (o !== n) parts.push(`${k} 手動完成率「${o}」→「${n}」`);
+  });
+  // 其餘完成率/工期/整體進度由日期自動推導，不另列入操作紀錄
   return parts;
 }
 function logAudit(table, op, payload) {
