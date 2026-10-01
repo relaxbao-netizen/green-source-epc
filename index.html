@@ -677,7 +677,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div class="al-title">綠源工程戰情室</div>
   <div class="al-sub">載入中…</div>
 </div>
-<script>(function(){try{var f=document.querySelector('link[rel="icon"]');var l=document.getElementById('al-logo');if(f&&l)l.src=f.href;}catch(e){}})();</script>
+<script>(function(){try{if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);}catch(e){}try{var f=document.querySelector('link[rel="icon"]');var l=document.getElementById('al-logo');if(f&&l)l.src=f.href;}catch(e){}})();</script>
 
 <nav>
   <button class="logo" onclick="location.reload()">
@@ -5103,13 +5103,20 @@ function auditJumpFromIndex(i) {
   }
   if (r.entity === '申請單' && typeof appRequests !== 'undefined') {
     const m = summary.match(/(\d{5})/);
-    const req = m ? appRequests.find(x => String(x.serial_no) === m[1]) : null;
-    if (req) {
+    const serial = m ? m[1] : '';
+    const req = serial ? appRequests.find(x => String(x.serial_no) === serial) : null;
+    // 流水號可能被重用（原單刪除後重開）→ 比對申請人與紀錄操作人，不符代表非同一張
+    const norm = x => String(x || '').replace(/[_\s]+/g, '');
+    const actor = norm(r.actor_name), appl = req ? norm(req.applicant) : '';
+    const sameOne = req && actor && appl && (actor.includes(appl) || appl.includes(actor));
+    if (sameOne) {
       document.getElementById('audit-overlay').classList.remove('open');
       appViewReq(req.id);
       setTimeout(() => { const b = document.getElementById('app-sign-body'); flashEl(b && b.firstElementChild ? b.firstElementChild : b); }, 80);
       return;
     }
+    alert('找不到對應的申請單，該筆可能已刪除（流水號 ' + serial + ' 目前為不同申請單）。');
+    return;
   }
 }
 // 存檔前由 saveSiteForm 算好的「案場修改細項」差異，交給 logAudit 附在紀錄後
@@ -7079,6 +7086,7 @@ function setupNavWheelScroll() {
   }, { passive: false });
 }
 function hideAppLoader() {
+  try { window.scrollTo(0, 0); } catch (e) {} // 重新整理後回到最上面
   const el = document.getElementById('app-loader');
   if (!el || el.classList.contains('hide')) return;
   el.classList.add('hide');
