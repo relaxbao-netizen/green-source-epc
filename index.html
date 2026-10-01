@@ -2143,7 +2143,7 @@ function wbsItemCalc(dt, oldComp, oldPlanDays, defW, ovr) {
   // 完成率(實際進度)：①手動覆寫優先 ②填了實際完成=100% ③否則＝「實際開始→今日」÷預計工期，
   // 未確認完成前封頂 99%（避免超過預計完成日誤顯示完工）
   let compPct;
-  if (hasOvr) compPct = Math.max(0, Math.min(100, Math.round(Number(ovr))));
+  if (hasOvr) compPct = Math.max(0, Math.min(100, Math.round(Number(ovr) * 10) / 10)); // 手動覆寫保留小數 1 位
   else if (ae) compPct = 100;
   else if (as && ps && pe) {
     const planTot = workdaysBetween(ps, pe) || 1;         // 分母＝預計工期
@@ -4864,7 +4864,7 @@ function renderWbsInputs() {
   const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
   const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${f === 'pe' ? ' oninput="updatePlannedEnd()"' : (f === 'as' ? ' oninput="updateActualStart()"' : '')} style="width:100%;box-sizing:border-box;font-size:12px">`;
-  const cIn = (nm) => `<input type="number" min="0" max="100" step="1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率，留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
+  const cIn = (nm) => `<input type="number" min="0" max="100" step="0.1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率（可到小數點 1 位），留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
     const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
@@ -4902,7 +4902,7 @@ function collectWbsComp() {
   const map = {};
   document.querySelectorAll('#sf-wbs-grid input[data-comp]').forEach(inp => {
     const v = inp.value; if (v === '' || v == null) return;
-    map[inp.dataset.comp] = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+    map[inp.dataset.comp] = Math.max(0, Math.min(100, Math.round((Number(v) || 0) * 10) / 10)); // 保留小數點 1 位
   });
   return map;
 }
