@@ -5936,7 +5936,7 @@ function appIsBillable(r){ return r.cost_owner==='需向客戶請款' || r.cost_
 // 費用歸屬是否已決定（有選請款或綠源吸收，或已有請款金額）；未決定＝不自動歸類、不可核准
 function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || Number(r.client_amount)>0; }
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function appChain(amt){ let c=[...SIGN_BASE]; if(amt>=1000000) c=c.concat(['協理','總經理','董事長']); else if(amt>=100000) c=c.concat(['協理','總經理']); return c; }
+function appChain(amt){ const n=Number(amt)||0; let c=[...SIGN_BASE]; if(n>=1000000) c=c.concat(['協理','總經理','董事長']); else if(n>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
 function appPendingWho(r){
   // 只有管理員手動指定(hold_who)才顯示卡在誰；沒選就不自動顯示
@@ -5971,10 +5971,13 @@ async function appSaveHoldNote(id){
   const r=appRequests.find(x=>x.id===id); if(r){ r.hold_note=note; r.hold_who=who; }
   await loadApprovalData(); renderApproval(); appViewReq(id);
 }
-function appTier(amt){ return amt>=1000000?'100萬以上':amt>=100000?'10萬~100萬':'10萬以下'; }
+function appTier(amt){ if(amt==null||Number(amt)<=0) return '待定'; const n=Number(amt); return n>=1000000?'100萬以上':n>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
+// 金額顯示：未填（null 或 ≤0）顯示「待定」，否則 NT$ 金額
+function appAmt(n){ return (n==null||Number(n)<=0) ? '待定' : ('NT$ '+appMoney(n)); }
 let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
-function appTotalValue(){ const e=document.getElementById('ar-total'); return e?Math.round(Number(String(e.value).replace(/[^\d.]/g,''))||0):0; }
+// 追加總額欄位值：空白＝null（待定），否則取整數
+function appTotalValue(){ const e=document.getElementById('ar-total'); if(!e) return null; const s=String(e.value).replace(/[^\d.]/g,''); return s==='' ? null : (Math.round(Number(s))||0); }
 // 申請單顯示狀態：直接採用資料庫實際儲存的狀態，不再依案場完工自動覆寫
 function appStatusKey(r){
   if(r.status==='approved') return 'approved';
@@ -6149,7 +6152,7 @@ function appBillableTableHTML(rows){
     const cb=appIsBillable(r) ? (Number(r.client_amount)||Number(r.total_amount)||0) : 0; // 非請款單顯示 —
     const cbCell=cb>0 ? `<span style="color:#dc2626;font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
     return `<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
   }).join('')}</tbody><tfoot><tr style="font-weight:700;border-top:1px solid var(--border)"><td colspan="3" style="text-align:right">合計</td><td style="text-align:right">${appMoney(addTot)}</td><td style="text-align:right;color:#dc2626">${appMoney(billTot)}</td><td></td></tr></tfoot></table>`;
 }
 function appReqMatchSite(r, s){
@@ -6360,7 +6363,7 @@ function appDashboardHTML(selYm){
            const stBadge=pending?`<span style="font-size:10px;font-weight:700;color:#fff;background:${STATUS_COLORS[st]};border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle">${appStatusText(r)}</span>`:'';
            const who=appPendingWho(r);
            return `<div onclick="appViewReq(${r.id})" style="cursor:pointer;padding:8px 0;border-top:1px solid var(--border)${pending?';background:#fff7ed':''}">
-           <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">NT$ ${appMoney(r.total_amount)}</span></div>
+           <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">${appAmt(r.total_amount)}</span></div>
            <div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5">${(Array.isArray(r.items)?r.items:[]).map(it=>appEsc(it.name)).join('<br>')||'—'}</div>
            ${who?`<div style="font-size:12px;color:#d97706;font-weight:600;margin-top:2px">⏳ 待 ${appEsc(who)} 簽核</div>`:''}
            ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}
@@ -6401,7 +6404,7 @@ function appFormHTML(){
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()"><option value="" selected>請選擇</option>${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
-    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="0" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
+    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="" placeholder="金額未定可留空（顯示待定）" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
     <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option value="" selected>請選擇</option><option>綠源自行吸收</option><option>需向客戶請款</option></select></div>
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
@@ -6470,7 +6473,7 @@ function appSiteSelectChange(){ const sel=document.getElementById('ar-site'), in
 // 取表單的工程名稱：自填者自動在名稱後標註【維運】
 function appSiteNameFromForm(){ const v=(document.getElementById('ar-site')?document.getElementById('ar-site').value:'').trim(); if(v==='__custom__'){ let c=(document.getElementById('ar-site-custom')?document.getElementById('ar-site-custom').value:'').trim(); if(c && !c.includes('【維運】')) c+='【維運】'; return c; } return v; }
 function appUpdateTotal(){
-  const el=document.getElementById('ar-total'); if(el && !arTotalManual) el.value = appMoney(appItemsTotal());
+  const el=document.getElementById('ar-total'); if(el && !arTotalManual){ const t=appItemsTotal(); el.value = t>0 ? appMoney(t) : ''; } // 明細有金額才自動帶入，否則留空（待定）
   document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
 }
 function appDraftFromForm(){
@@ -6498,7 +6501,8 @@ async function submitAppRequest(){
   if(!d.applicant){ err.textContent='請填寫申請人'; err.style.display='block'; return; }
   if(!d.items.length){ err.textContent='請至少新增一筆追加明細'; err.style.display='block'; return; }
   const itemsSum=d.items.reduce((s,it)=>s+(Number(it.amount)||0),0);
-  if(itemsSum!==d.total_amount){ err.textContent=`追加明細加總（NT$ ${appMoney(itemsSum)}）與追加款總額（NT$ ${appMoney(d.total_amount)}）不符，請修正`; err.style.display='block'; return; }
+  // 追加總額待定（留空）→ 允許送出，之後補金額再核准；有填金額才檢查與明細加總是否相符
+  if(d.total_amount!=null && itemsSum!==d.total_amount){ err.textContent=`追加明細加總（NT$ ${appMoney(itemsSum)}）與追加款總額（NT$ ${appMoney(d.total_amount)}）不符，請修正`; err.style.display='block'; return; }
   err.style.display='none';
   const {error}=await sb.from('app_request').insert(d);
   if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
@@ -6701,7 +6705,7 @@ function openAppSign(id){
   document.getElementById('app-sign-status-actions').innerHTML='';
   document.getElementById('app-sign-body').innerHTML=`
     <div style="font-size:13px;margin-bottom:4px">${appEsc(r.site_name)}</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">目前關卡：<b style="color:#d97706">${role}</b>・追加 NT$ ${appMoney(r.total_amount)}（${r.amount_tier}）</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">目前關卡：<b style="color:#d97706">${role}</b>・追加 ${appAmt(r.total_amount)}（${appTier(r.total_amount)}）</div>
     <div class="form-field"><label>簽核人 PIN（${role}）</label><input type="password" id="app-pin" placeholder="輸入您的 PIN"></div>
     <div class="form-field" style="margin-top:8px"><label>意見（選填）</label><input id="app-comment"></div>
     <div id="app-sign-err" style="color:var(--danger);font-size:12px;margin:8px 0;display:none"></div>
@@ -6719,6 +6723,10 @@ async function doAppSign(action){
   const err=document.getElementById('app-sign-err');
   const who=approvers.find(a=>a.role===role && a.active!==false && pin!=='' && String(a.pin)===pin);
   if(!who){ err.textContent='PIN 錯誤，或您不是此關卡（'+role+'）的簽核人'; err.style.display='block'; return; }
+  // 防呆：最後一關核准前，追加總額未填（待定）不可核准
+  if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && !(Number(r.total_amount)>0)){
+    err.textContent='追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'; err.style.display='block'; return;
+  }
   // 防呆：費用歸屬未決定時，最後一關不可核准（不能把狀態改為已核准）
   if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && !appCostDecided(r)){
     err.textContent='費用歸屬尚未決定，無法核准。請先編輯此申請單選擇「費用歸屬」再核准。'; err.style.display='block'; return;
@@ -6753,6 +6761,10 @@ document.addEventListener('click', (e)=>{
 async function appChangeStatus(id, status){
   if(!status) return;
   const cur=appRequests.find(x=>x.id===id);
+  // 防呆：追加總額未填（0 或空）時，不可核准
+  if(status==='approved' && cur && !(Number(cur.total_amount)>0)){
+    alert('追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'); return;
+  }
   // 防呆：費用歸屬未決定時，不可直接改為已核准（與正式簽核流程一致）
   if(status==='approved' && cur && !appCostDecided(cur)){
     alert('費用歸屬尚未決定，無法核准。請先編輯此申請單選擇「費用歸屬」再核准。'); return;
@@ -6794,7 +6806,7 @@ function appViewReq(id){
     <div style="background:#f8fafc;border-radius:10px;padding:13px 16px;margin-bottom:4px">
       <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px">
         <span style="font-size:13px;color:var(--muted)">追加總額</span>
-        <b style="font-size:20px;color:#0f172a">NT$ ${appMoney(r.total_amount)}</b>
+        <b style="font-size:20px;color:${(r.total_amount==null||Number(r.total_amount)<=0)?'#d97706':'#0f172a'}">${appAmt(r.total_amount)}</b>
       </div>
       <div style="font-size:12px;color:${appIsBillable(r)?'#dc2626':(appCostDecided(r)?'#16a34a':'#d97706')};font-weight:600;margin-top:3px">${appIsBillable(r)?'需向客戶請款 NT$ '+appMoney(r.client_amount):(appCostDecided(r)?'綠源自行吸收':'費用歸屬未決定')}</div>
       ${(Array.isArray(r.client_bills)&&r.client_bills.length>1)?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${r.client_bills.map(b=>appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、')}</div>`:''}
@@ -6843,7 +6855,7 @@ function appEditReq(id){
    <div class="form-grid">
     <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
     <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(r.total_amount)||0}"></div>
+    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${r.total_amount!=null&&Number(r.total_amount)>0?Number(r.total_amount):''}" placeholder="金額未定可留空（顯示待定）"></div>
     <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
     <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
     <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option value="" ${!appCostDecided(r)?'selected':''}>請選擇</option><option ${appIsBillable(r)?'selected':''}>需向客戶請款</option><option ${(appCostDecided(r)&&!appIsBillable(r))?'selected':''}>綠源自行吸收</option></select></div>
@@ -6899,7 +6911,8 @@ function appEditCostToggle(){ const bill=document.getElementById('e-cost').value
 async function appSaveEdit(id){
   const g=i=>{ const e=document.getElementById(i); return e?e.value:''; };
   const bill=g('e-cost')==='需向客戶請款';
-  const total=Number(g('e-total'))||0;
+  const _etv=String(g('e-total')).trim();
+  const total=_etv===''?null:(Number(_etv)||0); // 空白＝待定(null)
   const bills= bill ? editBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   const upd={
     apply_date:g('e-date')||null, site_name:g('e-site'), applicant:g('e-applicant'), apply_dept:g('e-dept'),
@@ -6909,6 +6922,13 @@ async function appSaveEdit(id){
     reason_text:g('e-reason'),
     items: editItems.filter(it=>it.name).map(it=>({ name:it.name, qty:(it.qty===''||it.qty==null)?'':(isNaN(Number(it.qty))?it.qty:Number(it.qty)), unit:it.unit||'', price:0, amount:Number(it.amount)||0 })),
   };
+  // 若仍跑單中且尚無人簽核，依新金額重建簽核關卡（例如由「待定」補上金額後，自動對到正確金額級距）
+  const _r=appRequests.find(x=>x.id===id);
+  const _signed=_r && Array.isArray(_r.sign_chain) && _r.sign_chain.some(s=>s.action);
+  if(_r && _r.status==='pending' && !_signed){
+    upd.sign_chain=appChain(total).map(role=>({role,approver:null,action:null,comment:'',signed_at:null}));
+    upd.cur_step=0;
+  }
   const {error}=await sb.from('app_request').update(upd).eq('id',id);
   if(error){ const e=document.getElementById('e-err'); e.textContent='儲存失敗：'+error.message; e.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
@@ -6958,10 +6978,10 @@ function appResultTableHTML(rows, compact, desc){
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
     return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
   return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th style="text-align:center">日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th style="text-align:right">金額</th><th style="text-align:right">對客戶請款</th><th>狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
