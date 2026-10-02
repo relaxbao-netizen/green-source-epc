@@ -6325,8 +6325,7 @@ function appDashboardHTML(selYm){
   // 各案場「追加金額 vs 需向客戶請款」比較：依案場合併不同 site_name 字串、排除完工
   const cmp={};
   appRequests.forEach(r=>{
-    if(r.status==='rejected') return;
-    if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; // 圖一依選擇月份
+    if(r.status==='rejected') return; // 此比較圖為累計(不分月份)
     const s=siteByAnyName(r.site_name);
     if(s && s.status==='done') return;
     const key = s ? (s.label||s.name) : (r.site_name||'未指定');
@@ -6344,7 +6343,7 @@ function appDashboardHTML(selYm){
          <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
          <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
        </div>
-       <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款（${mLabel}）</div>
+       <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款</div>
          ${appCompareChart(cmp)}</div>
      </div>
      <div class="card" style="padding:14px 16px">
