@@ -3606,7 +3606,7 @@ function openModal(id) {
           const behind = lag > 0 && !done;
           return `${ringChart(s.pct, pctColor, behind ? planP : null)}
         <div class="big-pct" style="color:${pctColor};margin-top:2px">${s.pct}%</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:1px">實際進度</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:1px">實際進度</div>
         <div style="font-size:13px;margin-top:8px;color:#334155">預計進度　<b style="color:#0f172a">${planP}%</b>${behind ? ` ・<span style="color:#dc2626;font-weight:600">落後 ${lag}%</span>` : ''}</div>`;
         })()}
       </div>
