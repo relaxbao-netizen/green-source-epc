@@ -6016,7 +6016,7 @@ function renderApproval(){
   const el = document.getElementById('approval-content');
   if(!el) return;
   if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
-  if(appSection==='dash') el.innerHTML = appDashboardHTML();
+  if(appSection==='dash') el.innerHTML = appDashboardHTML(appSelectedExportYm());
   else if(appSection==='new'){ arTotalManual=false; el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
   else if(appSection==='sign') el.innerHTML = appSignListHTML();
   else if(appSection==='query'){ el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); runAppQuery(); }
@@ -6240,16 +6240,11 @@ function appGoQueryMonthSite(name){
   const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected' && (r.site_name||'未指定')===name);
   appShowResultModal(`${k}　${name}（${rows.length}筆）`, appResultTableHTML(rows, true));
 }
-// 月份選擇改變時，更新「追加金額」卡片
+// 月份選擇改變時，整張儀表板（含圖一、追加明細、KPI）依選擇月份重繪
 function appMonthCardRefresh(){
-  const ym=appSelectedExportYm();
-  const amt=appRequests.filter(r=>r.status!=='rejected' && (r.apply_date||r.created_at||'').slice(0,7)===ym).reduce((s,r)=>s+Number(r.total_amount||0),0);
-  const a=document.getElementById('app-month-amt'); if(a) a.textContent='NT$ '+appMoney(amt);
-  const su=document.getElementById('app-month-sub'); if(su) su.textContent=ym;
-  // 已核准件數
-  const approved=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && r.status==='approved').length;
-  const ap=document.getElementById('app-month-approved'); if(ap) ap.textContent=approved;
-  const aps=document.getElementById('app-month-approved-sub'); if(aps) aps.textContent=ym;
+  if(appSection!=='dash') return;
+  const el=document.getElementById('approval-content');
+  if(el) el.innerHTML = appDashboardHTML(appSelectedExportYm());
 }
 function appExportMonth(){
   if(typeof XLSX==='undefined'){ alert('匯出元件未載入，請稍後再試'); return; }
@@ -6300,9 +6295,11 @@ function appExportMonth(){
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'工程物料申請控管單');
   XLSX.writeFile(wb, mNum+'月工程物料申請控管單.xlsx');
 }
-function appDashboardHTML(){
+function appDashboardHTML(selYm){
   const now = new Date();
-  const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const curYm = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const ym = (selYm && /^\d{4}-\d{2}$/.test(selYm)) ? selYm : curYm;        // 依上方月份選擇器
+  const mLabel = (ym===curYm) ? '本月' : (ym.slice(0,4)+'年'+(+ym.slice(5,7))+'月');
   const monthReqs = appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym);
   const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+Number(r.total_amount||0),0);
   const pending = appRequests.filter(r=>appStatusKey(r)==='pending').length;
@@ -6329,6 +6326,7 @@ function appDashboardHTML(){
   const cmp={};
   appRequests.forEach(r=>{
     if(r.status==='rejected') return;
+    if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; // 圖一依選擇月份
     const s=siteByAnyName(r.site_name);
     if(s && s.status==='done') return;
     const key = s ? (s.label||s.name) : (r.site_name||'未指定');
@@ -6346,7 +6344,7 @@ function appDashboardHTML(){
          <div class="card" style="padding:14px 16px;border-left:4px solid #d97706;cursor:pointer" onclick="appGoQueryPending()"><div style="font-size:12px;color:var(--muted)">跑單中件數</div><div style="font-size:24px;font-weight:800;margin-top:2px">${pending} 件</div></div>
          <div class="card" style="padding:14px 16px;border-left:4px solid #16a34a;cursor:pointer" onclick="appGoQueryMonthApproved()"><div style="font-size:12px;color:var(--muted)">已核准件數</div><div style="font-size:24px;font-weight:800;margin-top:2px"><span id="app-month-approved">${approved}</span> 件</div><div id="app-month-approved-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
        </div>
-       <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款</div>
+       <div class="card" style="padding:14px 16px"><div class="card-title">各案場追加金額 vs 需向客戶請款（${mLabel}）</div>
          ${appCompareChart(cmp)}</div>
      </div>
      <div class="card" style="padding:14px 16px">
@@ -6354,9 +6352,9 @@ function appDashboardHTML(){
          <div style="cursor:pointer;flex:1;min-width:120px" onclick="appGoQueryMonthAmount()"><div style="font-size:12px;color:var(--muted)">追加金額</div><div id="app-month-amt" style="font-size:24px;font-weight:800;margin-top:2px">NT$ ${appMoney(monthAmt)}</div><div id="app-month-sub" style="font-size:11px;color:var(--muted)">${ym}</div></div>
          <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="appExportMonth()">📥 匯出追加明細</button>
        </div>
-       <div class="card-title" style="margin-top:16px">本月追加明細</div>${(function(){
+       <div class="card-title" style="margin-top:16px">${mLabel}追加明細</div>${(function(){
          const rows=monthReqs.filter(r=>r.status!=='rejected').sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
-         if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">本月尚無追加</div>';
+         if(!rows.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">'+mLabel+'尚無追加</div>';
          return `<div style="max-height:360px;overflow-y:auto">${rows.map(r=>{
            const st=appStatusKey(r);
            const pending=st!=='approved'; // 尚未核准（跑單中）→ 明顯標示
