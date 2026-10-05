@@ -3580,6 +3580,14 @@ function openModal(id) {
       <td>${wbsStatusBadge(cat.catPct, cat.overdue)}</td>
     </tr>${subRows}`;
   }).join('');
+  // 總工期列：各項預計工期 / 實際工期 加總
+  const _totPlan = wbsData.reduce((a, c) => a + (c.planDays || 0), 0);
+  const _totAct = wbsData.reduce((a, c) => a + (c.actDays || 0), 0);
+  const wbsTotalRow = `<tr style="border-top:2px solid var(--border);font-weight:700">
+      <td style="color:var(--accent2)">總工期</td>
+      <td style="color:var(--accent2);font-size:12px">${_totPlan > 0 ? _totPlan + ' 天' : '—'}</td>
+      <td style="color:var(--accent2);font-size:12px">${_totAct > 0 ? _totAct + ' 天' : '—'}</td>
+      <td colspan="3"></td></tr>`;
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-grid">
@@ -3622,7 +3630,7 @@ function openModal(id) {
     <div class="wbs-title" style="margin-top:20px">WBS 施工項目</div>
     <table class="wbs-table">
       <thead><tr><th>施工項目</th><th>預計工期</th><th>實際工期</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
-      <tbody>${wbsRows}</tbody>
+      <tbody>${wbsRows}${wbsTotalRow}</tbody>
     </table>
     ${(() => {
       const recs = dispRecsForSite(s);
