@@ -3574,14 +3574,9 @@ function openModal(id) {
 
   const wbsData = wbsScheduleTree(s); // 由每項4日期算出 預計工期/實際工期/完成率
 
-  const _todayStr = _wdYmd(new Date());
-  // 工期格：滑鼠移上去顯示日期區間（幾號～幾號）
-  const dayRange = (v, start, end, suffix) => {
-    const t = (v != null && start && end) ? ` title="${appEsc(start)} ～ ${appEsc(end)}${suffix || ''}"` : '';
-    return `<td style="color:var(--muted);font-size:12px${t ? ';cursor:help' : ''}"${t}>${v != null ? v + ' 天' : '—'}</td>`;
-  };
-  const planCell = x => dayRange(x.planDays, x.ps, x.pe, '');                                  // 預計開始～預計完成
-  const actCell = x => dayRange(x.actDays, x.as, x.ae || _todayStr, x.ae ? '' : '（至今）');    // 實際開始～實際完成/今天
+  const dayCell = v => `<td style="color:var(--muted);font-size:12px">${v != null ? v + ' 天' : '—'}</td>`;
+  const planCell = x => dayCell(x.planDays);
+  const actCell = x => dayCell(x.actDays);
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = wbsItemColor(cat.catPct, cat.planPct);
     const subRows = cat.subs.map(sub => {
