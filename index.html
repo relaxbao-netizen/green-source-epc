@@ -501,8 +501,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .al-sub { font-size: 12px; color: #94a3b8; animation: alPulse 1.2s ease-in-out infinite; }
 @keyframes alPulse { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
 .wbs-table { width: 100%; border-collapse: collapse; }
-.wbs-table th { text-align: left; padding: 8px 10px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); }
-.wbs-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.wbs-table th { text-align: left; padding: 8px 6px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.wbs-table td { padding: 8px 6px; font-size: 13px; border-bottom: 1px solid var(--border); }
 .wbs-table tr:last-child td { border-bottom: none; }
 .wbs-mini-wrap { width: 100px; }
 .wbs-mini-bar { height: 5px; background: var(--border); border-radius: 3px; }
@@ -4897,9 +4897,9 @@ function renderWbsInputs() {
       cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td>${endCell(nm, 'pe')}<td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td>${endCell(nm, 'ae')}<td>${cIn(nm)}</td></tr>`; });
     }
   });
-  const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2)">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2)">—</td><td colspan="5"></td></tr>`;
+  const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2);white-space:nowrap">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td data-total-ad style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td></tr>`;
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:13%">施工項目</th><th>預計開始</th><th style="width:8%">預計工期</th><th style="width:13%">預計完成</th><th>實際開始</th><th style="width:8%">實際工期</th><th style="width:13%">實際完成</th><th style="width:12%">完成率%</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:13%">施工項目</th><th>預計開始</th><th style="width:9%">預計工期</th><th style="width:12%">預計完成</th><th>實際開始</th><th style="width:9%">實際工期</th><th style="width:12%">實際完成</th><th style="width:12%">完成率%</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
   updatePlannedEnd();
   updateActualStart();
   updateDerivedCells();
@@ -4927,6 +4927,14 @@ function updateDerivedCells() {
   });
   let totalPd = 0; Object.values(pd).forEach(v => totalPd += Math.max(0, Math.round(Number(v) || 0)));
   const tot = grid.querySelector('[data-total-pd]'); if (tot) tot.textContent = totalPd > 0 ? totalPd + ' 天' : '—';
+  // 實際工期總和：已填用該值，進行中(未填)用 實際開始→今天 的工作天
+  let totalAd = 0;
+  grid.querySelectorAll('input[data-ad]').forEach(i => {
+    const nm = i.dataset.ad, a = as[nm] ? as[nm].replace(/-/g, '/') : '';
+    if (!a) return;
+    totalAd += (i.value !== '' && i.value != null) ? Math.max(0, Math.round(Number(i.value) || 0)) : workdaysBetween(a, todayStr);
+  });
+  const totA = grid.querySelector('[data-total-ad]'); if (totA) totA.textContent = totalAd > 0 ? totalAd + ' 天' : '—';
   grid.querySelectorAll('input[data-ad]').forEach(inp => { if (inp.value) return; const a = as[inp.dataset.ad] ? as[inp.dataset.ad].replace(/-/g, '/') : ''; inp.placeholder = a ? String(workdaysBetween(a, todayStr)) : '天'; });
 }
 // 預計完工日期（唯讀）＝各工項最晚的「預計完成」日；無則維持原值
