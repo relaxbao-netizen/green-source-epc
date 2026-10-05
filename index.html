@@ -6062,7 +6062,7 @@ function appCompareChart(obj){
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
     const pnl=v.bill-v.add; // 以追加為基準：請款 > 追加 = 賺，請款 < 追加 = 賠
     const mark = pnl>0 ? ` <span style="color:#16a34a">賺 ${appMoney(pnl)}</span>`
-               : pnl<0 ? ` <span style="color:#dc2626">⚠️ 賠 ${appMoney(-pnl)}</span>` : '';
+               : pnl<0 ? ` <span style="color:#dc2626">⚠️ ${appMoney(-pnl)}</span>` : '';
     return `<div ${clk} style="cursor:pointer;margin:9px 0">
       <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
