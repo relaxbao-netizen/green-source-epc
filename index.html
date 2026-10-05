@@ -4867,23 +4867,40 @@ function renderWbsInputs() {
   const curC = collectWbsComp();
   const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
-  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${f === 'pe' ? ' oninput="updatePlannedEnd()"' : (f === 'as' ? ' oninput="updateActualStart()"' : '')} style="width:100%;box-sizing:border-box;font-size:12px">`;
+  const onin = f => f === 'pe' ? ' oninput="updatePlannedEnd();updatePlanDaysCells()"' : f === 'ps' ? ' oninput="updatePlanDaysCells()"' : f === 'as' ? ' oninput="updateActualStart()"' : '';
+  const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${onin(f)} style="width:100%;box-sizing:border-box;font-size:12px">`;
   const cIn = (nm) => `<input type="number" min="0" max="100" step="0.1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率（可到小數點 1 位），留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
+  // 預計工期格（自動＝預計開始→預計完成的工作天，排除週末與國定假日）
+  const pdCell = (nm) => { const o = dates[nm] || {}; const d = (o.ps && o.pe) ? workdaysBetween(o.ps, o.pe) : null; return `<td data-planday="${appEsc(nm)}" style="color:var(--muted);font-size:12px;text-align:center;white-space:nowrap">${d != null ? d + ' 天' : '—'}</td>`; };
   let rows = '';
   cats.forEach((cat, ci) => {
     const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${dIn(cat.name, 'pe')}</td><td>${dIn(cat.name, 'as')}</td><td>${dIn(cat.name, 'ae')}</td><td>${cIn(cat.name)}</td></tr>`;
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${dIn(cat.name, 'pe')}</td>${pdCell(cat.name)}<td>${dIn(cat.name, 'as')}</td><td>${dIn(cat.name, 'ae')}</td><td>${cIn(cat.name)}</td></tr>`;
     } else {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="5" style="color:var(--muted);font-size:12px">（填各子項日期）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td><td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td><td>${cIn(nm)}</td></tr>`; });
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="6" style="color:var(--muted);font-size:12px">（填各子項日期）</td></tr>`;
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${dIn(nm, 'pe')}</td>${pdCell(nm)}<td>${dIn(nm, 'as')}</td><td>${dIn(nm, 'ae')}</td><td>${cIn(nm)}</td></tr>`; });
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:20%">施工項目</th><th>預計開始</th><th>預計完成</th><th>實際開始</th><th>實際完成</th><th style="width:11%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
-     <div style="font-size:11px;color:var(--muted);margin-top:6px">完成率% 為選填：留空＝依日期自動計算；填了＝以此值覆寫（適用工期拖很久、自動估算不準時）。</div>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:17%">施工項目</th><th>預計開始</th><th>預計完成</th><th style="width:8%">預計工期</th><th>實際開始</th><th>實際完成</th><th style="width:9%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
+     <div style="font-size:11px;color:var(--muted);margin-top:6px">預計工期＝預計開始→完成的工作天（排除週末／國定假日，自動）。完成率% 為選填：留空＝依日期自動計算；填了＝以此值覆寫（適用工期拖很久、自動估算不準時）。</div>`;
   updatePlannedEnd();
   updateActualStart();
+  updatePlanDaysCells();
+}
+// 依目前 WBS 輸入的預計開始/完成，即時更新各列「預計工期」顯示
+function updatePlanDaysCells() {
+  const grid = document.getElementById('sf-wbs-grid'); if (!grid) return;
+  const ps = {}, pe = {};
+  grid.querySelectorAll('input[data-item][data-field="ps"]').forEach(i => ps[i.dataset.item] = i.value);
+  grid.querySelectorAll('input[data-item][data-field="pe"]').forEach(i => pe[i.dataset.item] = i.value);
+  grid.querySelectorAll('td[data-planday]').forEach(td => {
+    const nm = td.getAttribute('data-planday');
+    const a = ps[nm] ? ps[nm].replace(/-/g, '/') : '', b = pe[nm] ? pe[nm].replace(/-/g, '/') : '';
+    const d = (a && b) ? workdaysBetween(a, b) : null;
+    td.textContent = d != null ? d + ' 天' : '—';
+  });
 }
 // 預計完工日期（唯讀）＝各工項最晚的「預計完成」日；無則維持原值
 function updatePlannedEnd() {
