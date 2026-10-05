@@ -4896,8 +4896,7 @@ function renderWbsInputs() {
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:17%">施工項目</th><th>預計開始</th><th style="width:10%">預計工期</th><th>實際開始</th><th style="width:10%">實際工期</th><th style="width:9%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
-     <div style="font-size:11px;color:var(--muted);margin-top:6px">預計／實際工期＝你填的工作天數（完成日＝開始日＋工期）。實際工期填了＝該項已完成、留空＝進行中（灰字為已過天數）。完成率% 選填：留空＝依「實際開始→今天÷預計工期」自動算、填了＝覆寫。進度以各項工期加總（總工期）計算。</div>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:17%">施工項目</th><th>預計開始</th><th style="width:10%">預計工期</th><th>實際開始</th><th style="width:10%">實際工期</th><th style="width:9%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>`;
   updatePlannedEnd();
   updateActualStart();
 }
