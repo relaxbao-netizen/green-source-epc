@@ -2172,9 +2172,12 @@ function wbsScheduleTree(s) {
   const cats = wbsCatsFor(s.type, s.wbs_items);
   const dates = s.wbs_dates || {}, oldWbs = s.wbs || {}, oldDays = s.wbs_days || {}, ovrMap = s.wbs_comp || {};
   const leafCalc = (nm, defW) => wbsItemCalc(dates[nm], oldWbs[nm], (oldDays[nm] != null ? Number(oldDays[nm]) : null), defW, ovrMap[nm]);
+  const dOf = nm => dates[nm] || {};
+  const minD = arr => { let m = null; arr.forEach(v => { const d = _wdParse(v); if (d && (!m || d < m)) m = d; }); return m ? _wdYmd(m) : ''; };
+  const maxD = arr => { let m = null; arr.forEach(v => { const d = _wdParse(v); if (d && (!m || d > m)) m = d; }); return m ? _wdYmd(m) : ''; };
   return cats.map(cat => {
-    if (!cat.subs.length) { const c = leafCalc(cat.name, cat.weight); return { name: cat.name, subs: [], planDays: c.planDays, actDays: c.actDays, catPct: c.compPct, planPct: c.planPct, weight: c.weight, overdue: c.overdue }; }
-    const subs = cat.subs.map(sub => { const nm = typeof sub === 'string' ? sub : sub.name; const c = leafCalc(nm, wbsLeafDefaultDays(sub, cat)); return { name: nm, planDays: c.planDays, actDays: c.actDays, planPct: c.planPct, pct: c.compPct, weight: c.weight, overdue: c.overdue }; });
+    if (!cat.subs.length) { const c = leafCalc(cat.name, cat.weight); const o = dOf(cat.name); return { name: cat.name, subs: [], planDays: c.planDays, actDays: c.actDays, catPct: c.compPct, planPct: c.planPct, weight: c.weight, overdue: c.overdue, ps: o.ps || '', pe: o.pe || '', as: o.as || '', ae: o.ae || '' }; }
+    const subs = cat.subs.map(sub => { const nm = typeof sub === 'string' ? sub : sub.name; const c = leafCalc(nm, wbsLeafDefaultDays(sub, cat)); const o = dOf(nm); return { name: nm, planDays: c.planDays, actDays: c.actDays, planPct: c.planPct, pct: c.compPct, weight: c.weight, overdue: c.overdue, ps: o.ps || '', pe: o.pe || '', as: o.as || '', ae: o.ae || '' }; });
     const W = subs.reduce((a, x) => a + (x.weight || 0), 0);
     return {
       name: cat.name, subs,
@@ -2183,7 +2186,8 @@ function wbsScheduleTree(s) {
       catPct: W ? Math.round(subs.reduce((a, x) => a + x.pct * (x.weight || 0), 0) / W) : 0,
       planPct: W ? Math.round(subs.reduce((a, x) => a + x.planPct * (x.weight || 0), 0) / W) : 0,
       weight: W,
-      overdue: subs.reduce((a, x) => Math.max(a, x.overdue || 0), 0)
+      overdue: subs.reduce((a, x) => Math.max(a, x.overdue || 0), 0),
+      ps: minD(subs.map(x => x.ps)), pe: maxD(subs.map(x => x.pe)), as: minD(subs.map(x => x.as)), ae: maxD(subs.map(x => x.ae))
     };
   });
 }
@@ -3557,14 +3561,21 @@ function openModal(id) {
 
   const wbsData = wbsScheduleTree(s); // 由每項4日期算出 預計工期/實際工期/完成率
 
-  const dayCell = v => `<td style="color:var(--muted);font-size:12px">${v != null ? v + ' 天' : '—'}</td>`;
+  const _todayStr = _wdYmd(new Date());
+  // 工期格：滑鼠移上去顯示日期區間（幾號～幾號）
+  const dayRange = (v, start, end, suffix) => {
+    const t = (v != null && start && end) ? ` title="${appEsc(start)} ～ ${appEsc(end)}${suffix || ''}"` : '';
+    return `<td style="color:var(--muted);font-size:12px${t ? ';cursor:help' : ''}"${t}>${v != null ? v + ' 天' : '—'}</td>`;
+  };
+  const planCell = x => dayRange(x.planDays, x.ps, x.pe, '');                                  // 預計開始～預計完成
+  const actCell = x => dayRange(x.actDays, x.as, x.ae || _todayStr, x.ae ? '' : '（至今）');    // 實際開始～實際完成/今天
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = cat.catPct === 100 ? '#16a34a' : cat.catPct > 0 ? '#d97706' : '#94a3b8';
     const subRows = cat.subs.map(sub => {
       const sc = sub.pct === 100 ? '#16a34a' : sub.pct > 0 ? '#d97706' : '#94a3b8';
       return `<tr style="background:#fafafa" data-wbsrow="${appEsc(sub.name)}">
         <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${sub.name}</td>
-        ${dayCell(sub.planDays)}${dayCell(sub.actDays)}
+        ${planCell(sub)}${actCell(sub)}
         <td style="font-size:12px;font-weight:700;color:${sc}">${sub.pct}%</td>
         <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
           <div style="width:${sub.pct}%;height:100%;border-radius:3px;background:${sc}"></div></div></td>
@@ -3573,7 +3584,7 @@ function openModal(id) {
     }).join('');
     return `<tr style="border-top:1px solid var(--border)" data-wbsrow="${appEsc(cat.name)}">
       <td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci+1}.</span>${cat.name}</td>
-      ${dayCell(cat.planDays)}${dayCell(cat.actDays)}
+      ${planCell(cat)}${actCell(cat)}
       <td style="font-weight:700;color:${cc}">${cat.catPct}%</td>
       <td><div style="width:100px;height:5px;background:var(--border);border-radius:3px">
         <div style="width:${cat.catPct}%;height:100%;border-radius:3px;background:${cc}"></div></div></td>
