@@ -1138,7 +1138,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
         <button class="btn-danger" id="sf-delete-btn" style="display:none;margin-right:auto" onclick="deleteSiteFromForm()">刪除案場</button>
         <button class="btn-secondary" onclick="document.getElementById('site-form-overlay').classList.remove('open')">取消</button>
-        <button class="btn-primary" onclick="saveSiteForm()">儲存</button>
+        <button class="btn-primary" id="sf-save-btn" onclick="saveSiteForm()">儲存</button>
       </div>
     </div>
   </div>
@@ -3606,8 +3606,8 @@ function openModal(id) {
           const behind = lag > 0 && !done;
           return `${ringChart(s.pct, pctColor, behind ? planP : null)}
         <div class="big-pct" style="color:${pctColor};margin-top:2px">${s.pct}%</div>
-        <div style="font-size:13px;color:var(--muted);margin-top:1px">實際進度</div>
-        <div style="font-size:13px;margin-top:8px;color:#334155">預計進度　<b style="color:#0f172a">${planP}%</b>${behind ? ` ・<span style="color:#dc2626;font-weight:600">落後 ${lag}%</span>` : ''}</div>`;
+        <div style="font-size:13px;color:var(--muted);margin-top:6px">實際進度</div>
+        <div style="font-size:13px;margin-top:6px;color:#334155">預計進度　<b style="color:#0f172a">${planP}%</b>${behind ? ` ・<span style="color:#dc2626;font-weight:600">落後 ${lag}%</span>` : ''}</div>`;
         })()}
       </div>
     </div>
@@ -5066,9 +5066,14 @@ function openSiteForm(id) {
   document.getElementById('site-form-overlay').classList.add('open');
 }
 
+let _savingSite = false; // 防止儲存鈕連點造成重複送出／重複稽核紀錄
 async function saveSiteForm() {
+  if (_savingSite) return;            // 正在存檔中就忽略後續點擊
   const _sfSite = editingSiteId !== null ? siteById(editingSiteId) : null;
   if (_sfSite ? !canEditProgress(_sfSite) : !isAdmin()) { alert('無此權限。'); return; }
+  _savingSite = true;
+  const _saveBtn = document.getElementById('sf-save-btn'); if (_saveBtn) _saveBtn.disabled = true;
+  try {
   const errEl = document.getElementById('site-form-error');
   errEl.style.display = 'none';
   const val = fid => document.getElementById(fid).value.trim();
@@ -5123,6 +5128,10 @@ async function saveSiteForm() {
   document.getElementById('site-form-overlay').classList.remove('open');
   await loadFromCloud();
   rerenderAll();
+  } finally {
+    _savingSite = false;
+    const _b = document.getElementById('sf-save-btn'); if (_b) _b.disabled = false;
+  }
 }
 
 async function deleteSiteFromForm() {
@@ -6047,9 +6056,11 @@ function appCompareChart(obj){
   const bar=(val,color)=>`<div style="flex:1;background:#eef2f7;border-radius:5px;height:11px;overflow:hidden"><div style="height:100%;width:${val/max*100}%;background:${color}"></div></div>`;
   return entries.map(([k,v])=>{
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
-    const isLoss=(v.absorb||0)>v.bill; // 綠源自行吸收 > 需向客戶請款，以 ⚠️ 標示
+    const pnl=v.bill-v.add; // 以追加為基準：請款 > 追加 = 賺，請款 < 追加 = 賠
+    const mark = pnl>0 ? ` <span style="color:#16a34a">賺 ${appMoney(pnl)}</span>`
+               : pnl<0 ? ` <span style="color:#dc2626">⚠️ 賠 ${appMoney(-pnl)}</span>` : '';
     return `<div ${clk} style="cursor:pointer;margin:9px 0">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${isLoss?' ⚠️':''}</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#16a34a;width:36px">綠源</span>${bar(v.absorb||0,'#16a34a')}<b style="font-size:13px;width:84px;text-align:right;color:#16a34a">${appMoney(v.absorb||0)}</b></div>
       <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:600;color:#dc2626;width:36px">請款</span>${bar(v.bill,'#dc2626')}<b style="font-size:13px;width:84px;text-align:right;color:#dc2626">${appMoney(v.bill)}</b></div>
@@ -6414,7 +6425,7 @@ function appFormHTML(){
    <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-     <button class="btn-primary" onclick="submitAppRequest()">送出申請</button>
+     <button class="btn-primary" id="ar-submit-btn" onclick="submitAppRequest()">送出申請</button>
    </div>
    <div style="font-size:12px;color:var(--muted);margin-top:8px">※ 送出後自動下載申請單 Excel，並依金額自動套用簽核關卡：10萬以下至業務／10萬~100萬加協理、總經理／100萬以上再加董事長。</div>
   </div>`;
@@ -6494,7 +6505,9 @@ function appDraftFromForm(){
     cur_step:0, status:'pending',
   };
 }
+let _submittingApp = false; // 防止送出鈕連點造成重複建立申請單
 async function submitAppRequest(){
+  if(_submittingApp) return;
   const err=document.getElementById('ar-error');
   const d=appDraftFromForm();
   if(!/^\d{5}$/.test(d.serial_no)){ err.textContent='流水號格式需為 YY＋三碼（共 5 位數字）'; err.style.display='block'; return; }
@@ -6505,13 +6518,20 @@ async function submitAppRequest(){
   // 追加總額待定（留空）→ 允許送出，之後補金額再核准；有填金額才檢查與明細加總是否相符
   if(d.total_amount!=null && itemsSum!==d.total_amount){ err.textContent=`追加明細加總（NT$ ${appMoney(itemsSum)}）與追加款總額（NT$ ${appMoney(d.total_amount)}）不符，請修正`; err.style.display='block'; return; }
   err.style.display='none';
-  const {error}=await sb.from('app_request').insert(d);
-  if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
-  try { await appGenApplyExcel(d); } catch(e) { console.warn('產生申請單 Excel 失敗', e); } // 送出後自動下載 Excel
-  appItems=[];
-  await loadApprovalData();
-  alert('申請已送出，流水號 '+d.serial_no+'（申請單 Excel 已下載）');
-  showAppSection('sign');
+  _submittingApp = true;
+  const _btn=document.getElementById('ar-submit-btn'); if(_btn) _btn.disabled=true;
+  try {
+    const {error}=await sb.from('app_request').insert(d);
+    if(error){ err.textContent='送出失敗：'+error.message; err.style.display='block'; return; }
+    try { await appGenApplyExcel(d); } catch(e) { console.warn('產生申請單 Excel 失敗', e); } // 送出後自動下載 Excel
+    appItems=[];
+    await loadApprovalData();
+    alert('申請已送出，流水號 '+d.serial_no+'（申請單 Excel 已下載）');
+    showAppSection('sign');
+  } finally {
+    _submittingApp = false;
+    const _b=document.getElementById('ar-submit-btn'); if(_b) _b.disabled=false;
+  }
 }
 
 // ---------- 列印（申請單 / 簽呈） ----------
