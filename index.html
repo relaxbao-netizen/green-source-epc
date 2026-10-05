@@ -1100,7 +1100,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
 <!-- ===== SITE FORM MODAL（新增/編輯案場） ===== -->
 <div class="modal-overlay" id="site-form-overlay" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="kpi-list-box" style="width:940px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
+  <div class="kpi-list-box" style="width:840px;max-width:95vw;overflow-x:hidden" onclick="event.stopPropagation()">
     <div class="modal-header">
       <div class="modal-title" id="site-form-title">＋ 新增案場</div>
       <button class="modal-close" onclick="document.getElementById('site-form-overlay').classList.remove('open')">✕</button>
@@ -4874,42 +4874,42 @@ function renderWbsInputs() {
   const curC = collectWbsComp();
   const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
-  const onin = f => f === 'ps' ? ' oninput="updatePlannedEnd()"' : f === 'as' ? ' oninput="updateActualStart();updateActualDaysCells()"' : '';
+  const onin = f => f === 'ps' ? ' oninput="updatePlannedEnd()"' : f === 'as' ? ' oninput="updateActualStart();updateActualDaysHints()"' : '';
   const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${onin(f)} style="width:100%;box-sizing:border-box;font-size:12px">`;
   const cIn = (nm) => `<input type="number" min="0" max="100" step="0.1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率（可到小數點 1 位），留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
   // 預計工期輸入（天）：由此＋預計開始推算預計完成日
   const pdInit = (nm) => { const o = dates[nm] || {}; return (o.ps && o.pe) ? workdaysBetween(o.ps, o.pe) : ''; };
   const pdIn = (nm) => `<input type="number" min="0" step="1" data-pd="${appEsc(nm)}" value="${pdInit(nm)}" placeholder="天" oninput="updatePlannedEnd()" title="預計工期（工作天），由此＋預計開始推算預計完成日" style="width:100%;box-sizing:border-box;font-size:12px">`;
-  // 實際工期格（自動＝實際開始→今天的工作天，排除週末與國定假日）
-  const adCell = (nm) => { const o = dates[nm] || {}; const d = o.as ? workdaysBetween(o.as, o.ae || _wdYmd(new Date())) : null; return `<td data-actday="${appEsc(nm)}" style="color:var(--muted);font-size:12px;text-align:center;white-space:nowrap">${d != null ? d + ' 天' : '—'}</td>`; };
+  // 實際工期輸入（天）：填了＝此項已完成（實際完成日＝實際開始＋實際工期）；留空＝進行中（placeholder 顯示已過天數）
+  const todayStr = _wdYmd(new Date());
+  const adInit = (nm) => { const o = dates[nm] || {}; return (o.as && o.ae) ? workdaysBetween(o.as, o.ae) : ''; };
+  const adHint = (nm) => { const o = dates[nm] || {}; return (o.as && !o.ae) ? String(workdaysBetween(o.as, todayStr)) : '天'; };
+  const adIn = (nm) => `<input type="number" min="0" step="1" data-ad="${appEsc(nm)}" value="${adInit(nm)}" placeholder="${adHint(nm)}" title="實際工期（工作天）：填了＝此項已完成(實際完成日=實際開始+實際工期)，留空＝進行中(灰字為已過天數)" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
     const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${pdIn(cat.name)}</td><td>${dIn(cat.name, 'as')}</td>${adCell(cat.name)}<td>${cIn(cat.name)}</td></tr>`;
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${pdIn(cat.name)}</td><td>${dIn(cat.name, 'as')}</td><td>${adIn(cat.name)}</td><td>${cIn(cat.name)}</td></tr>`;
     } else {
       rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="5" style="color:var(--muted);font-size:12px">（填各子項）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td><td>${dIn(nm, 'as')}</td>${adCell(nm)}<td>${cIn(nm)}</td></tr>`; });
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td><td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td><td>${cIn(nm)}</td></tr>`; });
     }
   });
   document.getElementById('sf-wbs-grid').innerHTML =
     `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:17%">施工項目</th><th>預計開始</th><th style="width:10%">預計工期</th><th>實際開始</th><th style="width:10%">實際工期</th><th style="width:9%">完成率%</th></tr></thead><tbody>${rows}</tbody></table>
-     <div style="font-size:11px;color:var(--muted);margin-top:6px">預計工期＝你填的工作天數（系統推算預計完成日＝預計開始＋工期）。實際工期＝實際開始→今天的工作天（自動）。完成率% 選填：留空＝依「實際開始→今天÷預計工期」自動算、填了＝覆寫。進度以各項工期加總（總工期）計算。</div>`;
+     <div style="font-size:11px;color:var(--muted);margin-top:6px">預計／實際工期＝你填的工作天數（完成日＝開始日＋工期）。實際工期填了＝該項已完成、留空＝進行中（灰字為已過天數）。完成率% 選填：留空＝依「實際開始→今天÷預計工期」自動算、填了＝覆寫。進度以各項工期加總（總工期）計算。</div>`;
   updatePlannedEnd();
   updateActualStart();
-  updateActualDaysCells();
 }
-// 即時更新各列「實際工期」顯示（＝實際開始→實際完成(舊資料)或今天的工作天）
-function updateActualDaysCells() {
+// 實際開始改變時，更新各列「實際工期」輸入框的灰字提示（進行中＝已過天數）
+function updateActualDaysHints() {
   const grid = document.getElementById('sf-wbs-grid'); if (!grid) return;
   const as = {}; grid.querySelectorAll('input[data-item][data-field="as"]').forEach(i => as[i.dataset.item] = i.value);
   const todayStr = _wdYmd(new Date());
-  grid.querySelectorAll('td[data-actday]').forEach(td => {
-    const nm = td.getAttribute('data-actday');
-    const a = as[nm] ? as[nm].replace(/-/g, '/') : '';
-    const ae = (editingWbsDates && editingWbsDates[nm] && editingWbsDates[nm].ae) ? String(editingWbsDates[nm].ae).replace(/-/g, '/') : '';
-    const d = a ? workdaysBetween(a, ae || todayStr) : null;
-    td.textContent = d != null ? d + ' 天' : '—';
+  grid.querySelectorAll('input[data-ad]').forEach(inp => {
+    if (inp.value) return; // 已填實際工期則不動
+    const a = as[inp.dataset.ad] ? as[inp.dataset.ad].replace(/-/g, '/') : '';
+    inp.placeholder = a ? String(workdaysBetween(a, todayStr)) : '天';
   });
 }
 // 預計完工日期（唯讀）＝各工項最晚的「預計完成」日；無則維持原值
@@ -4937,24 +4937,23 @@ function collectWbsComp() {
   });
   return map;
 }
-// 收集各工項 → {name:{ps,pe,as,ae}}。輸入為 預計開始(ps)+預計工期(天)+實際開始(as)；
-// 預計完成(pe)＝ps＋工期(工作天)自動推算；實際完成(ae)保留既有（本表無此輸入，不覆寫舊的已完成標記）
+// 收集各工項 → {name:{ps,pe,as,ae}}。輸入為 預計開始(ps)+預計工期(pd)+實際開始(as)+實際工期(ad)；
+// 預計完成 pe＝ps＋pd、實際完成 ae＝as＋ad（皆工作天推算）。實際工期留空＝進行中(無 ae)。
 function collectWbsDates() {
   const grid = document.getElementById('sf-wbs-grid'); const map = {};
   if (!grid) return map;
-  const ps = {}, as = {}, pd = {};
+  const ps = {}, as = {}, pd = {}, ad = {};
   grid.querySelectorAll('input[data-item][data-field="ps"]').forEach(i => { if (i.value) ps[i.dataset.item] = i.value.replace(/-/g, '/'); });
   grid.querySelectorAll('input[data-item][data-field="as"]').forEach(i => { if (i.value) as[i.dataset.item] = i.value.replace(/-/g, '/'); });
   grid.querySelectorAll('input[data-pd]').forEach(i => { const v = i.value; if (v !== '' && v != null) pd[i.dataset.pd] = Math.max(0, Math.round(Number(v) || 0)); });
-  const prevAe = {}; if (editingWbsDates) Object.entries(editingWbsDates).forEach(([k, v]) => { if (v && v.ae) prevAe[k] = String(v.ae).replace(/-/g, '/'); });
-  // 只收 DOM 真有輸入(ps/as/pd)的工項；ae 僅附加在這些項上（不讓純 ae 的舊項污染「保留編輯」判斷）
-  const names = new Set([...Object.keys(ps), ...Object.keys(as), ...Object.keys(pd)]);
+  grid.querySelectorAll('input[data-ad]').forEach(i => { const v = i.value; if (v !== '' && v != null) ad[i.dataset.ad] = Math.max(0, Math.round(Number(v) || 0)); });
+  const names = new Set([...Object.keys(ps), ...Object.keys(as), ...Object.keys(pd), ...Object.keys(ad)]);
   names.forEach(nm => {
     const o = {};
     if (ps[nm]) o.ps = ps[nm];
-    if (ps[nm] && pd[nm] > 0) o.pe = addWorkdays(ps[nm], pd[nm]); // 預計完成＝開始＋工期
+    if (ps[nm] && pd[nm] > 0) o.pe = addWorkdays(ps[nm], pd[nm]); // 預計完成＝預計開始＋預計工期
     if (as[nm]) o.as = as[nm];
-    if (prevAe[nm]) o.ae = prevAe[nm];
+    if (as[nm] && ad[nm] > 0) o.ae = addWorkdays(as[nm], ad[nm]); // 實際完成＝實際開始＋實際工期（留空則無 ae＝進行中）
     if (Object.keys(o).length) map[nm] = o;
   });
   return map;
