@@ -4186,10 +4186,11 @@ async function renderTaiwanMap() {
     const baseAng = sx < W / 2 ? Math.PI : 0;
     const GAP = 34;                                        // 同地點多人橫向間距（px）
 
-    // 計算某方向/距離下，各頭貼相對案場的 px 位移
-    const offsetsFor = (ang, depth) => {
+    // 計算某方向/距離/垂直偏移下，各頭貼相對案場的 px 位移
+    // vy＝整組頭貼額外的垂直偏移（讓同一側擁擠的案場能上下錯開、避免重疊）
+    const offsetsFor = (ang, depth, vy = 0) => {
       const ux = Math.cos(ang), uy = Math.sin(ang);
-      const ancX = ux * depth, ancY = uy * depth;
+      const ancX = ux * depth, ancY = uy * depth + vy;
       const horizontal = Math.abs(uy) < 0.5;  // 偏水平 = 東/西案場：頭貼從線端往外延伸；否則置中
       const arr = list.map((sv, i) => ({
         mlx: horizontal ? ancX + ux * i * GAP : ancX + (i - (list.length - 1) / 2) * GAP,
@@ -4230,20 +4231,23 @@ async function renderTaiwanMap() {
       const forceLeft = /法蘭摩沙/.test(loc.label || '');   // 法蘭案場頭貼一律靠左
       const angs = forceLeft ? [Math.PI] : [0, Math.PI]; // 只考慮水平：右、左
       const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 136, 148, 160, 176, 192]; // 自動長度：由短到長，取剛好離陸者（內陸位置需更長才推得到海）
+      const VYS = [0, -38, 38, -76, 76, -114, 114, -152, 152]; // 垂直錯開候選：優先 0，擁擠時才上下讓位
       let bestScore = Infinity;
       for (const ang of angs) {
         for (const depth of DEPTHS) {
-          const o = offsetsFor(ang, depth);
+          for (const vy of VYS) {
+          const o = offsetsFor(ang, depth, vy);
           const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
           // 與其他已放置頭貼重疊的數量
-          const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 32)).length;
+          const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 36)).length;
           // 本候選白線與已放置白線交叉的數量（避免像連連看）
           const lineA = { x: baseX, y: baseY }, lineB = { x: baseX + o.ancX, y: baseY + o.ancY };
           const cross = placedLines.filter(L => segCross(lineA, lineB, L.a, L.b)).length;
-          // 分數：頭貼壓陸最重、白線交叉、頭貼重疊、其次線越短越好（剛好離陸即可）、再看側別與白線穿陸
+          // 分數：頭貼壓陸最重、頭貼重疊、白線交叉、線越短越好、垂直錯開次之（盡量少偏移）、側別與白線穿陸
           const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
-          const score = avatarLand * 100000 + cross * 50000 + overlap * 40000 + depth * 100 + dA * 20 + lineLand(ang, depth) * 20;
+          const score = avatarLand * 100000 + overlap * 70000 + cross * 50000 + depth * 100 + Math.abs(vy) * 55 + dA * 20 + lineLand(ang, depth) * 20;
           if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
+          }
         }
       }
     }
@@ -4259,7 +4263,7 @@ async function renderTaiwanMap() {
     line.className = 'sv-line';
     line.style.left = (sx / W * 100) + '%';
     line.style.top = (sy / H * 100) + '%';
-    line.style.height = chosen.depth + 'px';
+    line.style.height = Math.hypot(chosen.ancX, chosen.ancY) + 'px'; // 含垂直偏移後的實際線長
     line.style.transform = `translateX(-50%) rotate(${Math.atan2(-chosen.ancX, chosen.ancY)}rad)`;
     wrap.insertBefore(line, popup);
 
