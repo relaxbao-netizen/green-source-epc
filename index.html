@@ -4244,9 +4244,9 @@ async function renderTaiwanMap() {
           // 本候選白線與已放置白線交叉的數量（避免像連連看）
           const lineA = { x: baseX, y: baseY }, lineB = { x: baseX + o.ancX, y: baseY + o.ancY };
           const cross = placedLines.filter(L => segCross(lineA, lineB, L.a, L.b)).length;
-          // 分數：頭貼壓陸最重、超出框(破圖)次之、頭貼重疊、白線交叉、其次線越短越好、再看側別與白線穿陸
+          // 分數：頭貼重疊最優先避免（使用者要求），其次壓陸、超出框(破圖)、白線交叉、線越短越好、側別與白線穿陸
           const dA = Math.abs(((ang - baseAng + Math.PI) % (2 * Math.PI)) - Math.PI);
-          const score = avatarLand * 100000 + oob * 90000 + overlap * 70000 + cross * 50000 + depth * 100 + dA * 20 + lineLand(ang, depth) * 20;
+          const score = overlap * 220000 + avatarLand * 100000 + oob * 90000 + cross * 50000 + depth * 100 + dA * 20 + lineLand(ang, depth) * 20;
           if (score < bestScore) { bestScore = score; chosen = { ang, depth, ...o }; }
         }
       }
