@@ -5212,8 +5212,8 @@ function auditJumpFromIndex(i) {
     const s = m ? siteByAnyName(m[1].trim()) : null;
     if (s) {
       const names = summary.split('\n').slice(1)
-        .map(l => l.replace(/^·\s*/, '')).filter(l => l && !/整體進度/.test(l))
-        .map(l => l.replace(/\s+\d+%→.*$/, '').replace(/\s+(?:預計|實際)?工期\s+.*$/, '').trim()).filter(Boolean);
+        .map(l => l.replace(/^·\s*/, '').trim()).filter(l => l && !/整體進度/.test(l))
+        .map(l => l.split(/\s+/)[0]).filter(Boolean); // 取工項名（第一個詞；工項名無空白）
       document.getElementById('audit-overlay').classList.remove('open');
       openModal(s.id);
       setTimeout(() => flashWbsRows(names), 80);
