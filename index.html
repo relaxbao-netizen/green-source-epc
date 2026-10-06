@@ -4988,12 +4988,12 @@ function renderWbsInputs() {
   const aeIn = (nm) => `<input type="date" data-aeinput="${appEsc(nm)}" value="${(dates[nm] && dates[nm].ae) ? String(dates[nm].ae).replace(/\//g, '-') : ''}" oninput="syncActualFromEnd(this);updateDerivedCells()" title="實際完成日：與實際工期連動，填了＝此項已完成" style="width:100%;box-sizing:border-box;font-size:12px">`;
   let rows = '';
   cats.forEach((cat, ci) => {
-    const nameCell = `<td style="font-weight:700;word-break:break-word"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
+    const nameCell = `<td style="font-weight:700;white-space:nowrap"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
       rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${pdIn(cat.name)}</td>${peCell(cat.name)}<td>${dIn(cat.name, 'as')}</td><td>${adIn(cat.name)}</td><td>${aeIn(cat.name)}</td><td>${cIn(cat.name)}</td></tr>`;
     } else {
       rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="7" style="color:var(--muted);font-size:12px">（填各子項）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);word-break:break-word">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td>${peCell(nm)}<td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td><td>${aeIn(nm)}</td><td>${cIn(nm)}</td></tr>`; });
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);white-space:nowrap">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td>${peCell(nm)}<td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td><td>${aeIn(nm)}</td><td>${cIn(nm)}</td></tr>`; });
     }
   });
   const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2);white-space:nowrap">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td data-total-ad style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td></tr>`;
