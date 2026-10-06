@@ -3562,6 +3562,64 @@ function renderAdvanced() {
   }).join('');
 }
 
+// WBS 甘特圖：每工項一列，灰條＝預計(預計開始→完成)、彩色條＝實際(實際開始→完成/今天，顏色依進度)，紅線＝今天
+function wbsGanttHTML(s) {
+  const tree = wbsScheduleTree(s);
+  const rows = [];
+  tree.forEach(cat => {
+    if (cat.subs.length) cat.subs.forEach(x => rows.push({ name: x.name, ps: x.ps, pe: x.pe, as: x.as, ae: x.ae, pct: x.pct, planPct: x.planPct, indent: true }));
+    else rows.push({ name: cat.name, ps: cat.ps, pe: cat.pe, as: cat.as, ae: cat.ae, pct: cat.catPct, planPct: cat.planPct, indent: false });
+  });
+  const todayStr = _wdYmd(new Date());
+  const ds = [];
+  rows.forEach(r => [r.ps, r.pe, r.as, r.ae].forEach(d => { const p = _wdParse(d); if (p) ds.push(p.getTime()); }));
+  if (!ds.length) return ''; // 完全沒日期就不畫甘特圖
+  ds.push(_wdParse(todayStr).getTime());
+  const min = new Date(Math.min(...ds)), max = new Date(Math.max(...ds));
+  min.setDate(min.getDate() - 3); max.setDate(max.getDate() + 3);
+  const span = (max - min) || 1;
+  const xp = dStr => { const p = _wdParse(dStr); return p ? ((p - min) / span * 100) : null; };
+  let ticks = '', labels = '';
+  const t = new Date(min.getFullYear(), min.getMonth(), 1);
+  if (t < min) t.setMonth(t.getMonth() + 1);
+  while (t <= max) {
+    const x = (t - min) / span * 100;
+    ticks += `<div style="position:absolute;left:${x}%;top:0;bottom:0;width:1px;background:#eef2f7"></div>`;
+    labels += `<div style="position:absolute;left:${x}%;font-size:10px;color:#94a3b8;white-space:nowrap">${String(t.getFullYear()).slice(2)}/${t.getMonth() + 1}</div>`;
+    t.setMonth(t.getMonth() + 1);
+  }
+  const tx = (_wdParse(todayStr) - min) / span * 100;
+  const todayLine = `<div style="position:absolute;left:${tx}%;top:0;bottom:0;width:2px;background:#ef4444;opacity:.75"></div>`;
+  const LBL = 120;
+  const rowHtml = rows.map(r => {
+    const pL = xp(r.ps), pR = xp(r.pe);
+    const aStart = r.as, aEnd = r.ae || (r.as ? todayStr : '');
+    const aL = xp(aStart), aR = xp(aEnd);
+    const col = wbsItemColor(r.pct, r.planPct);
+    const planned = (pL != null && pR != null) ? `<div title="預計 ${appEsc(r.ps)} ～ ${appEsc(r.pe)}" style="position:absolute;left:${pL}%;width:${Math.max(0.6, pR - pL)}%;top:5px;height:7px;background:#cbd5e1;border-radius:4px"></div>` : '';
+    const actual = (aL != null && aR != null) ? `<div title="實際 ${appEsc(aStart)} ～ ${r.ae ? appEsc(r.ae) : '今天'}" style="position:absolute;left:${aL}%;width:${Math.max(0.6, aR - aL)}%;top:14px;height:7px;background:${col};border-radius:4px"></div>` : '';
+    return `<div style="display:flex;align-items:center;border-top:1px solid #f1f5f9">
+      <div style="width:${LBL}px;flex-shrink:0;font-size:12px;${r.indent ? 'padding-left:14px;color:var(--muted)' : 'font-weight:600'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${appEsc(r.name)}">${r.indent ? '└ ' : ''}${appEsc(r.name)}</div>
+      <div style="position:relative;flex:1;height:28px">${planned}${actual}</div>
+    </div>`;
+  }).join('');
+  return `<div class="wbs-title" style="margin-top:20px">WBS 甘特圖</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      <span style="display:inline-block;width:16px;height:6px;background:#cbd5e1;border-radius:3px;vertical-align:middle"></span> 預計
+      　<span style="display:inline-block;width:16px;height:6px;background:#16a34a;border-radius:3px;vertical-align:middle"></span> 實際（顏色依進度）
+      　<span style="display:inline-block;width:2px;height:12px;background:#ef4444;vertical-align:middle"></span> 今天
+    </div>
+    <div style="overflow-x:auto">
+      <div style="min-width:520px;position:relative">
+        <div style="display:flex;height:16px"><div style="width:${LBL}px;flex-shrink:0"></div><div style="position:relative;flex:1">${labels}</div></div>
+        <div style="position:relative">
+          <div style="position:absolute;left:${LBL}px;right:0;top:0;bottom:0;pointer-events:none">${ticks}${todayLine}</div>
+          ${rowHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
 // ===================== MODAL =====================
 function openModal(id) {
   const s = siteById(id);
@@ -3651,6 +3709,7 @@ function openModal(id) {
       <thead><tr><th>施工項目</th><th>預計工期</th><th>實際工期</th><th>完成率</th><th>進度條</th><th>狀態</th></tr></thead>
       <tbody>${wbsRows}${wbsTotalRow}</tbody>
     </table>
+    ${wbsGanttHTML(s)}
     ${(() => {
       const recs = dispRecsForSite(s);
       const by = {};
