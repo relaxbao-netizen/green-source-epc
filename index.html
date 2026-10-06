@@ -4997,7 +4997,7 @@ function renderWbsInputs() {
   });
   const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2);white-space:nowrap">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td data-total-ad style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td></tr>`;
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:13%">施工項目</th><th>預計開始</th><th style="width:9%">預計工期</th><th style="width:12%">預計完成</th><th>實際開始</th><th style="width:9%">實際工期</th><th style="width:12%">實際完成</th><th style="width:12%">完成率%</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:11%">施工項目</th><th>預計開始</th><th>預計工期</th><th>預計完成</th><th>實際開始</th><th>實際工期</th><th>實際完成</th><th>完成率%</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
   updatePlannedEnd();
   updateActualStart();
   updateDerivedCells();
