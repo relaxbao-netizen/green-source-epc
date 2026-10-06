@@ -2214,7 +2214,7 @@ function siteEndDate(s) {
   }
   return (s && s.end) || '';
 }
-// 案場實際開工日 = 各工項「實際開始日」中的最早者；無則用手動 start
+// 案場實際開工日 = 各工項「實際開始日」中的最早者；都沒填就回空字串（顯示 —，不退回舊的 s.start）
 function siteStartDate(s) {
   if (s && s.wbs_dates && typeof s.wbs_dates === 'object') {
     let earliest = null;
@@ -2224,7 +2224,7 @@ function siteStartDate(s) {
     });
     if (earliest) return _wdYmd(earliest);
   }
-  return (s && s.start) || '';
+  return '';
 }
 
 // 權重改由「工期(天)」推導：某葉節點權重 = 該葉工期 / 各葉工期總和。
