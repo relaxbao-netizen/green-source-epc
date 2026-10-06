@@ -6163,7 +6163,7 @@ function appCompareChart(obj){
   return entries.map(([k,v])=>{
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
     const pnl=v.bill-v.add; // 以追加為基準：請款 > 追加 = 賺，請款 < 追加 = 賠
-    const mark = pnl<0 ? ` <span style="color:#dc2626">⚠️ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加），賺錢不顯示
+    const mark = pnl<0 ? ` <span style="background:#fee2e2;color:#b91c1c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap">⚠️ 綠源吸收 NT$ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加）＝綠源要吸收的差額，賺錢不顯示
     return `<div ${clk} style="cursor:pointer;margin:9px 0">
       <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}</div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
