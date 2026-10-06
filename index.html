@@ -4617,8 +4617,22 @@ function rowToSite(r) {
   };
 }
 
+let _cloudOk = null; // null=未知、true=雲端資料、false=連不到雲端(用內建示範資料)
+// 連不到雲端時，畫面最上方顯示明顯紅色警告橫幅；正常連上則移除
+function renderCloudBanner() {
+  let el = document.getElementById('cloud-warn-banner');
+  if (_cloudOk === false) {
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cloud-warn-banner';
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;font-size:13px;font-weight:700;text-align:center;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      el.innerHTML = '⚠ 無法連線雲端資料庫，目前顯示的是「內建示範資料」，非即時真實資料。<span style="margin-left:10px;text-decoration:underline;cursor:pointer" onclick="location.reload()">重新整理</span>';
+      try { document.body.appendChild(el); } catch (e) {}
+    }
+  } else if (el) { el.remove(); }
+}
 async function loadFromCloud() {
-  if (!sb) return false;
+  if (!sb) { _cloudOk = false; renderCloudBanner(); return false; }
   try {
     const [siteRes, svRes, logAll] = await Promise.all([
       sb.from('sites').select('*').order('id'),
@@ -4632,9 +4646,11 @@ async function loadFromCloud() {
       supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', email: r.email || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任', left_date: r.left_date || '' }));
     }
     supLogs = (logRes && !logRes.error && logRes.data) ? logRes.data : [];
+    _cloudOk = true; renderCloudBanner();
     return true;
   } catch (e) {
     console.warn('雲端載入失敗，使用內建資料', e);
+    _cloudOk = false; renderCloudBanner();
     return false;
   }
 }
