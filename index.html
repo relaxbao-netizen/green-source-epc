@@ -6181,6 +6181,10 @@ function appTier(amt){ if(amt==null||Number(amt)<=0) return '待定'; const n=Nu
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
 // 金額顯示：未填（null 或 ≤0）顯示「待定」，否則 NT$ 金額
 function appAmt(n){ return (n==null||Number(n)<=0) ? '待定' : ('NT$ '+appMoney(n)); }
+// 明細金額加總
+function appItemsSum(r){ const its=Array.isArray(r&&r.items)?r.items:[]; return its.reduce((a,it)=>a+(Number(it.amount)||0),0); }
+// 有效追加總額：有填總額用總額；否則用明細加總(待定單補了明細金額也能顯示)；都沒有＝null(待定)
+function appEffTotal(r){ const n=Number(r&&r.total_amount)||0; if(n>0) return n; const s=appItemsSum(r); return s>0?s:null; }
 let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
 // 追加總額欄位值：空白＝null（待定），否則取整數
 function appTotalValue(){ const e=document.getElementById('ar-total'); if(!e) return null; const s=String(e.value).replace(/[^\d.]/g,''); return s==='' ? null : (Math.round(Number(s))||0); }
@@ -6571,7 +6575,7 @@ function appDashboardHTML(selYm){
            const stBadge=pending?`<span style="font-size:10px;font-weight:700;color:#fff;background:${STATUS_COLORS[st]};border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle">${appStatusText(r)}</span>`:'';
            const who=appPendingWho(r);
            return `<div onclick="appViewReq(${r.id})" style="cursor:pointer;padding:8px 0;border-top:1px solid var(--border)${pending?';background:#fff7ed':''}">
-           <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">${appAmt(r.total_amount)}</span></div>
+           <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">${appAmt(appEffTotal(r))}</span></div>
            <div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5">${(Array.isArray(r.items)?r.items:[]).map(it=>appEsc(it.name)).join('<br>')||'—'}</div>
            ${who?`<div style="font-size:12px;color:#d97706;font-weight:600;margin-top:2px">⏳ 待 ${appEsc(who)} 簽核</div>`:''}
            ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}
@@ -6686,7 +6690,9 @@ function appUpdateTotal(){
 }
 function appDraftFromForm(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
-  const total=appTotalValue(); // 以欄位（可手動）的總額為準
+  const _itemsSum=appItems.filter(it=>it.name).reduce((a,it)=>a+((Number(it.qty)||0)*(Number(it.price)||0)),0);
+  let total=appTotalValue(); // 以欄位（可手動）的總額為準
+  if((total==null||total<=0) && _itemsSum>0) total=_itemsSum; // 總額留空但明細有金額→用明細加總(不再是待定)
   const bill=g('ar-cost')==='需向客戶請款';
   const bills= bill ? appNewBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   return {
@@ -6922,7 +6928,7 @@ function openAppSign(id){
   document.getElementById('app-sign-status-actions').innerHTML='';
   document.getElementById('app-sign-body').innerHTML=`
     <div style="font-size:13px;margin-bottom:4px">${appEsc(r.site_name)}</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">目前關卡：<b style="color:#d97706">${role}</b>・追加 ${appAmt(r.total_amount)}（${appTier(r.total_amount)}）</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">目前關卡：<b style="color:#d97706">${role}</b>・追加 ${appAmt(appEffTotal(r))}（${appTier(appEffTotal(r))}）</div>
     <div class="form-field"><label>簽核人 PIN（${role}）</label><input type="password" id="app-pin" placeholder="輸入您的 PIN"></div>
     <div class="form-field" style="margin-top:8px"><label>意見（選填）</label><input id="app-comment"></div>
     <div id="app-sign-err" style="color:var(--danger);font-size:12px;margin:8px 0;display:none"></div>
@@ -6941,7 +6947,7 @@ async function doAppSign(action){
   const who=approvers.find(a=>a.role===role && a.active!==false && pin!=='' && String(a.pin)===pin);
   if(!who){ err.textContent='PIN 錯誤，或您不是此關卡（'+role+'）的簽核人'; err.style.display='block'; return; }
   // 防呆：最後一關核准前，追加總額未填（待定）不可核准
-  if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && !(Number(r.total_amount)>0)){
+  if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && !(Number(appEffTotal(r))>0)){
     err.textContent='追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'; err.style.display='block'; return;
   }
   // 防呆：費用歸屬未決定時，最後一關不可核准（不能把狀態改為已核准）
@@ -6979,7 +6985,7 @@ async function appChangeStatus(id, status){
   if(!status) return;
   const cur=appRequests.find(x=>x.id===id);
   // 防呆：追加總額未填（0 或空）時，不可核准
-  if(status==='approved' && cur && !(Number(cur.total_amount)>0)){
+  if(status==='approved' && cur && !(Number(appEffTotal(cur))>0)){
     alert('追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'); return;
   }
   // 防呆：費用歸屬未決定時，不可直接改為已核准（與正式簽核流程一致）
@@ -7023,7 +7029,7 @@ function appViewReq(id){
     <div style="background:#f8fafc;border-radius:10px;padding:13px 16px;margin-bottom:4px">
       <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 10px">
         <span style="font-size:13px;color:var(--muted)">追加總額</span>
-        <b style="font-size:20px;color:${(r.total_amount==null||Number(r.total_amount)<=0)?'#d97706':'#0f172a'}">${appAmt(r.total_amount)}</b>
+        <b style="font-size:20px;color:${(appEffTotal(r)==null)?'#d97706':'#0f172a'}">${appAmt(appEffTotal(r))}</b>
       </div>
       <div style="font-size:12px;color:${appIsBillable(r)?'#dc2626':(appCostDecided(r)?'#16a34a':'#d97706')};font-weight:600;margin-top:3px">${appIsBillable(r)?'需向客戶請款 NT$ '+appMoney(r.client_amount):(appCostDecided(r)?'綠源自行吸收':'費用歸屬未決定')}</div>
       ${(Array.isArray(r.client_bills)&&r.client_bills.length>1)?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${r.client_bills.map(b=>appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、')}</div>`:''}
@@ -7129,7 +7135,9 @@ async function appSaveEdit(id){
   const g=i=>{ const e=document.getElementById(i); return e?e.value:''; };
   const bill=g('e-cost')==='需向客戶請款';
   const _etv=String(g('e-total')).trim();
-  const total=_etv===''?null:(Number(_etv)||0); // 空白＝待定(null)
+  const _editItemsSum=editItems.filter(it=>it.name).reduce((a,it)=>a+(Number(it.amount)||0),0);
+  let total=_etv===''?null:(Number(_etv)||0); // 空白＝待定(null)
+  if((total==null||total<=0) && _editItemsSum>0) total=_editItemsSum; // 總額留空但明細有金額→用明細加總
   const bills= bill ? editBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   const upd={
     apply_date:g('e-date')||null, site_name:g('e-site'), applicant:g('e-applicant'), apply_dept:g('e-dept'),
