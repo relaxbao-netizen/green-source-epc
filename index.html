@@ -3740,7 +3740,7 @@ function openModal(id) {
     ${(() => {
       if (typeof appRequests === 'undefined') return '';
       const reqs = appRequests.filter(r => appReqMatchSite(r, s));
-      const total = reqs.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0);
+      const total = reqs.reduce((sum, r) => sum + (Number(appEffTotal(r)) || 0), 0);
       return `<div class="wbs-title" style="margin-top:20px">工程／物料申請累計追加總額</div>
         <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="appGoQuerySiteForSite(${s.id})">
           <span style="font-size:12px;color:var(--muted)">共 ${reqs.length} 筆申請</span>
@@ -6279,8 +6279,8 @@ function appQueryFilterPass(r, exclude){
   if(exclude!=='status'){ const st=g('q-status'); if(st && appStatusKey(r)!==st) return false; }
   if(exclude!=='billable'){ const bv=g('q-billable'); if(bv!=='' && (appIsBillable(r)?'1':'0')!==bv) return false; }
   const min=parseFloat(g('q-min')), max=parseFloat(g('q-max'));
-  if(exclude!=='min' && !isNaN(min) && Number(r.total_amount)<min) return false;
-  if(exclude!=='max' && !isNaN(max) && Number(r.total_amount)>max) return false;
+  if(exclude!=='min' && !isNaN(min) && (Number(appEffTotal(r))||0)<min) return false;
+  if(exclude!=='max' && !isNaN(max) && (Number(appEffTotal(r))||0)>max) return false;
   return true;
 }
 function appQueryRefreshOptions(){
@@ -6349,7 +6349,7 @@ function appGoQuerySite(name){
 // 點入案場 → 看該案場需向客戶請款的明細與累計金額
 function appGoQuerySiteBillable(name){
   const rows=appRequests.filter(r=>r.site_name===name && r.status!=='rejected' && appIsBillable(r));
-  const total=rows.reduce((s,r)=>s+(Number(r.client_amount)||Number(r.total_amount)||0),0);
+  const total=rows.reduce((s,r)=>s+(Number(r.client_amount)||Number(appEffTotal(r))||0),0);
   appShowResultModal(`${siteShortName(name)}　需向客戶請款 NT$ ${appMoney(total)}（${rows.length}筆）`, appBillableTableHTML(rows));
 }
 // 請款明細專用表：無工程名稱欄，金額後加「需向客戶請款」紅字欄
@@ -6358,13 +6358,13 @@ function appBillableTableHTML(rows){
   const sorted=[...rows].sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
   const badge=r=>`<span style="color:${STATUS_COLORS[appStatusKey(r)]}">${appStatusText(r)}</span>`;
   const valid=sorted.filter(r=>r.status!=='rejected');
-  const addTot=valid.reduce((a,r)=>a+Number(r.total_amount||0),0);
-  const billTot=valid.reduce((a,r)=>a+(appIsBillable(r)?(Number(r.client_amount)||Number(r.total_amount)||0):0),0);
+  const addTot=valid.reduce((a,r)=>a+(Number(appEffTotal(r))||0),0);
+  const billTot=valid.reduce((a,r)=>a+(appIsBillable(r)?(Number(r.client_amount)||Number(appEffTotal(r))||0):0),0);
   return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:16%;white-space:normal">流水號</th><th style="width:18%;white-space:normal">日期</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:18%;white-space:normal">需向客戶請款</th><th style="width:14%;white-space:normal">狀態</th></tr></thead><tbody>${sorted.map(r=>{
-    const cb=appIsBillable(r) ? (Number(r.client_amount)||Number(r.total_amount)||0) : 0; // 非請款單顯示 —
+    const cb=appIsBillable(r) ? (Number(r.client_amount)||Number(appEffTotal(r))||0) : 0; // 非請款單顯示 —
     const cbCell=cb>0 ? `<span style="color:#dc2626;font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
     return `<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${cbCell}</td><td>${badge(r)}</td></tr>`;
   }).join('')}</tbody><tfoot><tr style="font-weight:700;border-top:1px solid var(--border)"><td colspan="3" style="text-align:right">合計</td><td style="text-align:right">${appMoney(addTot)}</td><td style="text-align:right;color:#dc2626">${appMoney(billTot)}</td><td></td></tr></tfoot></table>`;
 }
 function appReqMatchSite(r, s){
@@ -6447,7 +6447,7 @@ function appGoQueryMonthAmount(){
 // 該月各案場追加金額（只含該月有追加、排除遭退回）
 function appMonthBySite(ym){
   const o={};
-  appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const k=r.site_name||'未指定'; o[k]=(o[k]||0)+Number(r.total_amount||0); });
+  appRequests.forEach(r=>{ if(r.status==='rejected') return; if((r.apply_date||r.created_at||'').slice(0,7)!==ym) return; const k=r.site_name||'未指定'; o[k]=(o[k]||0)+(Number(appEffTotal(r))||0); });
   return o;
 }
 function appGoQueryMonthSite(name){
@@ -6481,12 +6481,13 @@ function appExportMonth(){
     const startRow=aoa.length;
     const billable=appIsBillable(r);
     const cAmt=Number(r.client_amount||0);
-    totG+=Number(r.total_amount||0); if(billable) totH+=cAmt;
+    const _eff=Number(appEffTotal(r))||0;
+    totG+=_eff; if(billable) totH+=cAmt;
     items.forEach((it,i)=>{
       const qtyStr=(it.qty!=null&&it.qty!=='')?(it.qty+(it.unit||'')):(it.unit||'');
       aoa.push([ i===0?fmtD(r.apply_date):'', i===0?(r.site_name||''):'', i===0?(r.applicant||''):'',
         it.name||'', i===0?(r.reason_text||''):'', qtyStr,
-        i===0?Number(r.total_amount||0):'', i===0?(billable?'O':'X'):'', i===0?(cAmt||''):'',
+        i===0?_eff:'', i===0?(billable?'O':'X'):'', i===0?(cAmt||''):'',
         i===0?fmtD(r.invoice_date):'', i===0?fmtD(r.payment_date):'' ]);
     });
     const endRow=aoa.length-1;
@@ -6516,13 +6517,13 @@ function appDashboardHTML(selYm){
   const ym = (selYm && /^\d{4}-\d{2}$/.test(selYm)) ? selYm : curYm;        // 依上方月份選擇器
   const mLabel = (ym===curYm) ? '本月' : (ym.slice(0,4)+'年'+(+ym.slice(5,7))+'月');
   const monthReqs = appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym);
-  const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+Number(r.total_amount||0),0);
+  const monthAmt = monthReqs.filter(r=>r.status!=='rejected').reduce((s,r)=>s+(Number(appEffTotal(r))||0),0);
   const pending = appRequests.filter(r=>appStatusKey(r)==='pending').length;
   const approved = appRequests.filter(r=>(r.approved_date||'').slice(0,7)===ym && r.status==='approved').length;
   const bySite={}, byResp={}, byMonth={}, bySiteBillable={}; let billable=0, absorb=0;
   appRequests.forEach(r=>{
     if(r.status==='rejected') return; // 退回／取消不計入金額統計
-    const amt=Number(r.total_amount||0);
+    const amt=Number(appEffTotal(r))||0;
     bySite[r.site_name||'未指定']=(bySite[r.site_name||'未指定']||0)+amt;
     byResp[r.apply_dept||'未指定']=(byResp[r.apply_dept||'未指定']||0)+amt;
     const mk=(r.apply_date||r.created_at||'').slice(0,7); if(mk) byMonth[mk]=(byMonth[mk]||0)+amt;
@@ -6544,7 +6545,7 @@ function appDashboardHTML(selYm){
     const s=siteByAnyName(r.site_name);
     if(s && s.status==='done') return;
     const key = s ? (s.label||s.name) : (r.site_name||'未指定');
-    const amt=Number(r.total_amount||0);
+    const amt=Number(appEffTotal(r))||0;
     const bill=appIsBillable(r) ? (Number(r.client_amount)||amt) : 0;
     const absorb=(!appIsBillable(r) && appCostDecided(r)) ? amt : 0; // 綠源自行吸收
     if(!cmp[key]) cmp[key]={add:0,bill:0,absorb:0,id: s?s.id:null};
@@ -6754,12 +6755,12 @@ function appFormInner(r){
   <table style="margin-bottom:10px">
    <tr><td style="text-align:left;width:22%"><b>申請單位</b></td><td style="text-align:left">${appEsc(r.apply_dept)}</td><td style="text-align:left;width:22%"><b>流水號</b></td><td style="text-align:left">${appEsc(r.serial_no)}</td></tr>
    <tr><td style="text-align:left"><b>工程名稱</b></td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="text-align:left"><b>申請日期</b></td><td style="text-align:left">${appEsc(r.apply_date)}</td></tr>
-   <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(r.total_amount)}</td></tr>
+   <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(appEffTotal(r)||0)}</td></tr>
    <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appIsBillable(r)?'需向客戶請款（NT$ '+appMoney(r.client_amount)+'）':(appCostDecided(r)?'綠源自行吸收':'<span style=\'color:#d97706\'>未決定</span>')}</td></tr>
   </table>
   <h2>追加明細</h2>
   <table><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th></tr></thead>
-   <tbody>${rows}<tr><td colspan="4" style="text-align:right"><b>總計</b></td><td style="text-align:right"><b>${appMoney(r.total_amount)}</b></td></tr></tbody></table>
+   <tbody>${rows}<tr><td colspan="4" style="text-align:right"><b>總計</b></td><td style="text-align:right"><b>${appMoney(appEffTotal(r)||0)}</b></td></tr></tbody></table>
   <h2>原因說明</h2><div class="box">${appEsc(r.reason_text).replace(/\n/g,'<br>')}</div>`;
 }
 function appPrintForm(id){ const r=appRequests.find(x=>x.id===id); if(r) appOpenPrint('工程／物料申請單', appFormInner(r)); }
@@ -6788,7 +6789,7 @@ async function appBuildApplyXlsx(r){
   // 業務對客戶有無追加（費用歸屬未決定時兩格都不勾）
   const bill=appIsBillable(r);
   const decided=appCostDecided(r);
-  const billLine = `業務對客戶有無追加  ${B(bill)}有  ${B(decided && !bill)}無     追加金額 NTD：${bill?appMoney(r.client_amount||r.total_amount):''}　　　　業務：`;
+  const billLine = `業務對客戶有無追加  ${B(bill)}有  ${B(decided && !bill)}無     追加金額 NTD：${bill?appMoney(r.client_amount||appEffTotal(r)||0):''}　　　　業務：`;
   const applicant=(r.applicant||'').split(' ')[0];
   // sharedStrings 索引 → 新字串（索引取自範本；兩聯共用）
   const repl={
@@ -6796,7 +6797,7 @@ async function appBuildApplyXlsx(r){
     12:deptLine,
     17:dateLine,
     19:`工程名稱：${siteShortName(r.site_name)}`,
-    15:`追加款總額：${appMoney(r.total_amount)} 未稅`,
+    15:`追加款總額：${appMoney(appEffTotal(r)||0)} 未稅`,
     14:reasonLine,
     16:slots[0]||'',
     13:`責任單位：${r.responsibility||''}`,
@@ -6851,7 +6852,7 @@ async function appBuildApplyXlsx(r){
   const bytes = await zip.generateAsync({type:'uint8array', compression:'DEFLATE'});
   const itemNames=(Array.isArray(items)?items:[]).map(it=>((it&&it.name)||'').trim()).filter(Boolean);
   const first= itemNames.length ? itemNames.join('+') : (siteShortName(r.site_name)||'申請單');
-  const fname=`${r.serial_no||'申請單'}_${(r.apply_date||'').replace(/-/g,'')} - ${first} $${appMoney(r.total_amount)}.xlsx`.replace(/[\\/:*?"<>|]/g,'-');
+  const fname=`${r.serial_no||'申請單'}_${(r.apply_date||'').replace(/-/g,'')} - ${first} $${appMoney(appEffTotal(r)||0)}.xlsx`.replace(/[\\/:*?"<>|]/g,'-');
   return { bytes, fname };
 }
 // 產生並下載 Excel 申請單
@@ -6880,7 +6881,7 @@ function appRecipientEmails(r){
   if(site) pmList(site).forEach(n=>names.push(n));
   names.push('洪璽二 Second','林根玄 Aaron','許白龍 Pailung','陳采嶸 Gio','詹士緯 Jet');
   if(site&&site.sales) names.push(site.sales);
-  const amt=Number(r.total_amount)||0;
+  const amt=Number(appEffTotal(r))||0;
   if(amt>=10000) names.push('詹素真 Vera');
   if(amt>=100000) names.push('張丞廷 Tim');
   if(amt>=1000000) names.push('壽明驛 Eric');
@@ -6895,7 +6896,7 @@ function appMailSend(id){
   const body=[
     (r.site_name||'')+' 工程／物料申請單 '+r.serial_no,
     '申請單位：'+(r.apply_dept||''), '工程名稱：'+(r.site_name||''), '申請人：'+(r.applicant||''), '申請日期：'+(r.apply_date||''),
-    '追加款總額：NT$ '+appMoney(r.total_amount), costLine, '',
+    '追加款總額：NT$ '+appMoney(appEffTotal(r)||0), costLine, '',
     '追加明細：', itemLines||'（無明細）', '', '原因說明：', (r.reason_text||'—'),
   ].join('\n');
   let toList=appRecipientEmails(r);
@@ -6914,7 +6915,7 @@ function appSignListHTML(){
     const step=r.sign_chain[r.cur_step]; const role=step?step.role:'—';
     return `<div style="padding:12px 18px;border-bottom:1px solid var(--border);cursor:pointer" onclick="appViewReq(${r.id})">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>${appEsc(r.serial_no)}</b> <span>${appEsc(r.site_name)}</span>
-        <span style="margin-left:auto;font-size:12px;color:var(--muted)">NT$ ${appMoney(r.total_amount)}</span></div>
+        <span style="margin-left:auto;font-size:12px;color:var(--muted)">${appAmt(appEffTotal(r))}</span></div>
       <div style="font-size:12px;color:var(--muted);margin:4px 0">申請人 ${appEsc(r.applicant)}・${appEsc(r.apply_dept)}</div>
       ${(()=>{ const w=appPendingWho(r); return w?`<div style="font-size:12px;color:#d97706;font-weight:600">⏳ 待 ${appEsc(w)} 簽核</div>`:''; })()}
       ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:2px">📝 ${appEsc(r.hold_note)}</div>`:''}
@@ -7078,7 +7079,7 @@ function appEditReq(id){
    <div class="form-grid">
     <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
     <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${r.total_amount!=null&&Number(r.total_amount)>0?Number(r.total_amount):''}" placeholder="金額未定可留空（顯示待定）"></div>
+    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(appEffTotal(r))>0?Number(appEffTotal(r)):''}" placeholder="金額未定可留空（顯示待定）"></div>
     <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
     <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
     <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option value="" ${!appCostDecided(r)?'selected':''}>請選擇</option><option ${appIsBillable(r)?'selected':''}>需向客戶請款</option><option ${(appCostDecided(r)&&!appIsBillable(r))?'selected':''}>綠源自行吸收</option></select></div>
@@ -7203,10 +7204,10 @@ function appResultTableHTML(rows, compact, desc){
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return ''; return its.map(it=>appEsc(it.name)).join('<br>'); };
   if(compact){
     return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:14%;white-space:normal">流水號</th><th style="width:14%;white-space:normal">日期</th><th style="width:22%;white-space:normal">工程名稱</th><th style="width:16%;white-space:normal">申請人</th><th style="width:18%;white-space:normal">金額</th><th style="width:16%;white-space:normal">狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
+    <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
   return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th style="text-align:center">日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th style="text-align:right">金額</th><th style="text-align:right">對客戶請款</th><th>狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(r.total_amount==null||Number(r.total_amount)<=0)?'<span style="color:#d97706">待定</span>':appMoney(r.total_amount)}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
@@ -7220,8 +7221,8 @@ function runAppQuery(){
     if(resp && r.apply_dept!==resp) return false;
     if(st && appStatusKey(r)!==st) return false;
     if(bv!=='' && (appIsBillable(r)?'1':'0')!==bv) return false;
-    if(!isNaN(min) && Number(r.total_amount)<min) return false;
-    if(!isNaN(max) && Number(r.total_amount)>max) return false;
+    if(!isNaN(min) && (Number(appEffTotal(r))||0)<min) return false;
+    if(!isNaN(max) && (Number(appEffTotal(r))||0)>max) return false;
     return true;
   });
   const el=document.getElementById('q-result'); if(!el) return;
