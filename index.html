@@ -7125,10 +7125,17 @@ function appEditRenderItems(){
       <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
       <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" style="width:64px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
       <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value;updateEditTotal()" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
       <td><button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button></td>
     </tr>`).join(''):'')+
     `<tr><td colspan="5" onclick="appEditAddItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${editItems.length ? '' : '（尚無明細，點此新增）'}</td></tr></tbody></table>`;
+  updateEditTotal();
+}
+// 依明細金額加總自動更新編輯表單的「追加款總額」欄（明細有金額才覆寫；無金額則保留手填）
+function updateEditTotal(){
+  const el=document.getElementById('e-total'); if(!el) return;
+  const sum=editItems.filter(it=>it.name).reduce((a,it)=>a+(Number(it.amount)||0),0);
+  if(sum>0) el.value=sum;
 }
 function appEditAddItem(){ editItems.push({name:'',qty:'',unit:'',amount:0}); appEditRenderItems(); }
 function appEditCostToggle(){ const bill=document.getElementById('e-cost').value==='需向客戶請款'; const sec=document.getElementById('e-bill-sec'); if(sec) sec.style.display=bill?'':'none'; }
@@ -7138,7 +7145,7 @@ async function appSaveEdit(id){
   const _etv=String(g('e-total')).trim();
   const _editItemsSum=editItems.filter(it=>it.name).reduce((a,it)=>a+(Number(it.amount)||0),0);
   let total=_etv===''?null:(Number(_etv)||0); // 空白＝待定(null)
-  if((total==null||total<=0) && _editItemsSum>0) total=_editItemsSum; // 總額留空但明細有金額→用明細加總
+  if(_editItemsSum>0) total=_editItemsSum; // 明細有金額→以明細加總為準(改/刪明細會重算，不受欄位殘留值影響)
   const bills= bill ? editBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   const upd={
     apply_date:g('e-date')||null, site_name:g('e-site'), applicant:g('e-applicant'), apply_dept:g('e-dept'),
