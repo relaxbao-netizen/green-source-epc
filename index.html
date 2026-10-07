@@ -6183,8 +6183,9 @@ function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(
 function appAmt(n){ return (n==null||Number(n)<=0) ? '待定' : ('NT$ '+appMoney(n)); }
 // 明細金額加總
 function appItemsSum(r){ const its=Array.isArray(r&&r.items)?r.items:[]; return its.reduce((a,it)=>a+(Number(it.amount)||0),0); }
-// 有效追加總額：有填總額用總額；否則用明細加總(待定單補了明細金額也能顯示)；都沒有＝null(待定)
-function appEffTotal(r){ const n=Number(r&&r.total_amount)||0; if(n>0) return n; const s=appItemsSum(r); return s>0?s:null; }
+// 有效追加總額：明細有金額時「一律以明細加總為準」(明細才是真相，改/刪明細即時反映，不受舊 total_amount 影響)；
+// 明細都沒金額時才用手填總額；都沒有＝null(待定)
+function appEffTotal(r){ const s=appItemsSum(r); if(s>0) return s; const n=Number(r&&r.total_amount)||0; return n>0?n:null; }
 let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
 // 追加總額欄位值：空白＝null（待定），否則取整數
 function appTotalValue(){ const e=document.getElementById('ar-total'); if(!e) return null; const s=String(e.value).replace(/[^\d.]/g,''); return s==='' ? null : (Math.round(Number(s))||0); }
