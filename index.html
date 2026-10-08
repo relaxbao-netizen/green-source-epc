@@ -5754,13 +5754,17 @@ function uniBatchRender() {
   const el = document.getElementById('uf-batch-rows'); if (!el) return;
   const ist = 'width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-family:inherit;font-size:13px';
   el.innerHTML = uniBatchRows.map((r, i) => `<div style="display:grid;grid-template-columns:1fr 84px 64px 30px;gap:6px;align-items:center;margin-bottom:6px">
-    <input list="uf-name-dl" placeholder="姓名" value="${appEsc(r.name)}" oninput="uniBatchRows[${i}].name=this.value" style="${ist}">
+    <input list="uf-name-dl" placeholder="姓名" value="${appEsc(r.name)}" oninput="uniBatchRows[${i}].name=this.value;uniBatchCount()" style="${ist}">
     <select oninput="uniBatchRows[${i}].size=this.value" style="${ist}">${UNIFORM_SIZES.map(s => `<option ${r.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
     <input type="number" min="1" value="${Number(r.qty) || 1}" oninput="uniBatchRows[${i}].qty=this.value" style="${ist};text-align:center">
     <button onclick="uniBatchDelRow(${i})" title="刪除此列" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button>
   </div>`).join('');
-  const sv = document.getElementById('uf-batch-save');
-  if (sv) { const n = uniBatchRows.filter(r => (r.name || '').trim()).length; sv.textContent = n > 0 ? `儲存 ${n} 筆` : '儲存'; }
+  uniBatchCount();
+}
+function uniBatchCount() {
+  const sv = document.getElementById('uf-batch-save'); if (!sv) return;
+  const n = uniBatchRows.filter(r => (r.name || '').trim()).length;
+  sv.textContent = n > 0 ? `儲存 ${n} 筆` : '儲存';
 }
 function uniBatchAddRow() { uniBatchRows.push({ name: '', size: UNIFORM_SIZES[0], qty: 1 }); uniBatchRender(); }
 function uniBatchDelRow(i) { uniBatchRows.splice(i, 1); if (!uniBatchRows.length) uniBatchRows.push({ name: '', size: UNIFORM_SIZES[0], qty: 1 }); uniBatchRender(); }
