@@ -5669,16 +5669,20 @@ function uniformShowSize(size) {
   appShowResultModal(`${size} 制服領取（${total} 件・${rows.length} 筆）`, body);
 }
 let editingUniformId = null;
-function openUniformForm(id) {
-  if (!isAdmin()) { alert('僅管理員可編輯制服領取。'); return; }
-  editingUniformId = id || null;
-  const u = (id ? uniforms.find(x => x.id === id) : null) || {};
-  // 姓名建議清單：工地主任＋簽核人員＋既有領取者
-  const names = [...new Set([
+// 姓名建議清單：工地主任＋簽核人員＋既有領取者
+function uniformNameList() {
+  return [...new Set([
     ...(typeof supervisors !== 'undefined' ? supervisors : []).map(s => s.name),
     ...(typeof approvers !== 'undefined' ? approvers : []).map(a => a.name),
     ...uniforms.map(x => uniformDisplayName(x.name))   // 舊短名先對照成系統全名再去重，避免重複
   ].filter(Boolean).map(n => String(n).trim()).filter(Boolean))].sort();
+}
+function openUniformForm(id) {
+  if (!isAdmin()) { alert('僅管理員可編輯制服領取。'); return; }
+  if (!id) { openUniformBatchForm(); return; }   // 新增 → 批次多人表單
+  editingUniformId = id || null;
+  const u = (id ? uniforms.find(x => x.id === id) : null) || {};
+  const names = uniformNameList();
   document.getElementById('uniform-form-title').textContent = id ? '✏️ 編輯領取' : '＋ 新增領取';
   const curName = u.name ? uniformDisplayName(u.name) : '';
   const nameOther = !!(curName && !names.includes(curName)); // 現有名字不在清單＝自行輸入
@@ -5720,6 +5724,61 @@ async function saveUniform() {
     if (editingUniformId) { await sb.from('uniforms').update(rec).eq('id', editingUniformId); }
     else { await sb.from('uniforms').insert(rec); }
   } catch (e) { err.textContent = '儲存失敗：' + e.message; err.style.display = 'block'; return; }
+  document.getElementById('uniform-form-overlay').classList.remove('open');
+  await loadUniforms(); renderUniforms(); refreshUniformDetailIfOpen();
+}
+// ---------- 批次新增（多人一起輸入） ----------
+let uniBatchRows = [];
+function openUniformBatchForm() {
+  if (!isAdmin()) { alert('僅管理員可編輯制服領取。'); return; }
+  editingUniformId = null;
+  uniBatchRows = [{ name: '', size: UNIFORM_SIZES[0], qty: 1 }, { name: '', size: UNIFORM_SIZES[0], qty: 1 }, { name: '', size: UNIFORM_SIZES[0], qty: 1 }];
+  const names = uniformNameList();
+  document.getElementById('uniform-form-title').textContent = '＋ 新增領取（多人）';
+  document.getElementById('uniform-form-body').innerHTML = `
+    <div class="form-field"><label>領取日期 *（這批共用）</label><input id="uf-batch-date" type="date" value="${localDate(new Date()).slice(0, 10)}"></div>
+    <datalist id="uf-name-dl">${names.map(n => `<option value="${appEsc(n)}"></option>`).join('')}</datalist>
+    <div style="display:grid;grid-template-columns:1fr 84px 64px 30px;gap:6px;align-items:center;margin:10px 0 4px;font-size:12px;color:var(--muted)">
+      <div>姓名（可下拉或直接打字）</div><div style="text-align:center">尺寸</div><div style="text-align:center">數量</div><div></div></div>
+    <div id="uf-batch-rows"></div>
+    <button class="btn-secondary" style="margin-top:6px;padding:5px 12px;font-size:13px" onclick="uniBatchAddRow()">＋ 新增一列</button>
+    <div id="uf-err" style="color:var(--danger);font-size:12px;margin-top:8px;display:none"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+      <button class="btn-secondary" onclick="document.getElementById('uniform-form-overlay').classList.remove('open')">取消</button>
+      <button class="btn-primary" id="uf-batch-save" onclick="saveUniformBatch()">儲存</button>
+    </div>`;
+  uniBatchRender();
+  document.getElementById('uniform-form-overlay').classList.add('open');
+}
+function uniBatchRender() {
+  const el = document.getElementById('uf-batch-rows'); if (!el) return;
+  const ist = 'width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-family:inherit;font-size:13px';
+  el.innerHTML = uniBatchRows.map((r, i) => `<div style="display:grid;grid-template-columns:1fr 84px 64px 30px;gap:6px;align-items:center;margin-bottom:6px">
+    <input list="uf-name-dl" placeholder="姓名" value="${appEsc(r.name)}" oninput="uniBatchRows[${i}].name=this.value" style="${ist}">
+    <select oninput="uniBatchRows[${i}].size=this.value" style="${ist}">${UNIFORM_SIZES.map(s => `<option ${r.size === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+    <input type="number" min="1" value="${Number(r.qty) || 1}" oninput="uniBatchRows[${i}].qty=this.value" style="${ist};text-align:center">
+    <button onclick="uniBatchDelRow(${i})" title="刪除此列" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button>
+  </div>`).join('');
+  const sv = document.getElementById('uf-batch-save');
+  if (sv) { const n = uniBatchRows.filter(r => (r.name || '').trim()).length; sv.textContent = n > 0 ? `儲存 ${n} 筆` : '儲存'; }
+}
+function uniBatchAddRow() { uniBatchRows.push({ name: '', size: UNIFORM_SIZES[0], qty: 1 }); uniBatchRender(); }
+function uniBatchDelRow(i) { uniBatchRows.splice(i, 1); if (!uniBatchRows.length) uniBatchRows.push({ name: '', size: UNIFORM_SIZES[0], qty: 1 }); uniBatchRender(); }
+async function saveUniformBatch() {
+  if (!isAdmin()) { alert('僅管理員可編輯。'); return; }
+  const err = document.getElementById('uf-err');
+  const date = (document.getElementById('uf-batch-date') || {}).value || '';
+  if (!date) { err.textContent = '請選擇領取日期'; err.style.display = 'block'; return; }
+  const rows = uniBatchRows.map(r => ({ name: (r.name || '').trim(), size: r.size, qty: Number(r.qty) || 0 })).filter(r => r.name);
+  if (!rows.length) { err.textContent = '請至少輸入一位姓名'; err.style.display = 'block'; return; }
+  const bad = rows.find(r => !r.qty || r.qty < 1);
+  if (bad) { err.textContent = `「${bad.name}」的數量需至少 1`; err.style.display = 'block'; return; }
+  if (!sb) { err.textContent = '未連上雲端'; err.style.display = 'block'; return; }
+  const now = new Date().toISOString();
+  const recs = rows.map(r => ({ name: r.name, size: r.size, qty: r.qty, date, updated: now }));
+  const sv = document.getElementById('uf-batch-save'); if (sv) sv.disabled = true;
+  try { await sb.from('uniforms').insert(recs); }
+  catch (e) { err.textContent = '儲存失敗：' + e.message; err.style.display = 'block'; if (sv) sv.disabled = false; return; }
   document.getElementById('uniform-form-overlay').classList.remove('open');
   await loadUniforms(); renderUniforms(); refreshUniformDetailIfOpen();
 }
