@@ -6177,15 +6177,15 @@ async function appSaveHoldNote(id){
   const r=appRequests.find(x=>x.id===id); if(r){ r.hold_note=note; r.hold_who=who; }
   await loadApprovalData(); renderApproval(); appViewReq(id);
 }
-function appTier(amt){ if(amt==null||Number(amt)<=0) return '待定'; const n=Number(amt); return n>=1000000?'100萬以上':n>=100000?'10萬~100萬':'10萬以下'; }
+function appTier(amt){ if(amt==null) return '待定'; const n=Number(amt)||0; return n>=1000000?'100萬以上':n>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
-// 金額顯示：未填（null 或 ≤0）顯示「待定」，否則 NT$ 金額
-function appAmt(n){ return (n==null||Number(n)<=0) ? '待定' : ('NT$ '+appMoney(n)); }
+// 金額顯示：只有「沒填」（null）才顯示「待定」；填 0 是真正的金額「NT$ 0」
+function appAmt(n){ return (n==null) ? '待定' : ('NT$ '+appMoney(n)); }
 // 明細金額加總
 function appItemsSum(r){ const its=Array.isArray(r&&r.items)?r.items:[]; return its.reduce((a,it)=>a+(Number(it.amount)||0),0); }
 // 有效追加總額：明細有金額時「一律以明細加總為準」(明細才是真相，改/刪明細即時反映，不受舊 total_amount 影響)；
 // 明細都沒金額時才用手填總額；都沒有＝null(待定)
-function appEffTotal(r){ const s=appItemsSum(r); if(s>0) return s; const n=Number(r&&r.total_amount)||0; return n>0?n:null; }
+function appEffTotal(r){ const s=appItemsSum(r); if(s>0) return s; const t=(r&&r.total_amount); if(t==null||t==='') return null; const n=Number(t); return isNaN(n)?null:n; }
 let arTotalManual = false; // 使用者是否手動改過追加款總額（改過就不再自動以明細加總覆蓋）
 // 追加總額欄位值：空白＝null（待定），否則取整數
 function appTotalValue(){ const e=document.getElementById('ar-total'); if(!e) return null; const s=String(e.value).replace(/[^\d.]/g,''); return s==='' ? null : (Math.round(Number(s))||0); }
@@ -6693,8 +6693,8 @@ function appUpdateTotal(){
 function appDraftFromForm(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
   const _itemsSum=appItems.filter(it=>it.name).reduce((a,it)=>a+((Number(it.qty)||0)*(Number(it.price)||0)),0);
-  let total=appTotalValue(); // 以欄位（可手動）的總額為準
-  if((total==null||total<=0) && _itemsSum>0) total=_itemsSum; // 總額留空但明細有金額→用明細加總(不再是待定)
+  let total=appTotalValue(); // 以欄位（可手動）的總額為準（空白＝待定null；填 0＝真正的 0）
+  if(total==null && _itemsSum>0) total=_itemsSum; // 總額留空但明細有金額→用明細加總(不再是待定)
   const bill=g('ar-cost')==='需向客戶請款';
   const bills= bill ? appNewBills.filter(b=>(b.vendor&&b.vendor.trim())||Number(b.amount)>0).map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null})) : [];
   return {
@@ -6949,7 +6949,7 @@ async function doAppSign(action){
   const who=approvers.find(a=>a.role===role && a.active!==false && pin!=='' && String(a.pin)===pin);
   if(!who){ err.textContent='PIN 錯誤，或您不是此關卡（'+role+'）的簽核人'; err.style.display='block'; return; }
   // 防呆：最後一關核准前，追加總額未填（待定）不可核准
-  if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && !(Number(appEffTotal(r))>0)){
+  if(action==='approve' && (r.cur_step+1 >= r.sign_chain.length) && appEffTotal(r)==null){
     err.textContent='追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'; err.style.display='block'; return;
   }
   // 防呆：費用歸屬未決定時，最後一關不可核准（不能把狀態改為已核准）
@@ -6987,7 +6987,7 @@ async function appChangeStatus(id, status){
   if(!status) return;
   const cur=appRequests.find(x=>x.id===id);
   // 防呆：追加總額未填（0 或空）時，不可核准
-  if(status==='approved' && cur && !(Number(appEffTotal(cur))>0)){
+  if(status==='approved' && cur && appEffTotal(cur)==null){
     alert('追加總額尚未填寫（目前為待定），無法核准。請先編輯此申請單填入金額再核准。'); return;
   }
   // 防呆：費用歸屬未決定時，不可直接改為已核准（與正式簽核流程一致）
@@ -7080,7 +7080,7 @@ function appEditReq(id){
    <div class="form-grid">
     <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
     <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${Number(appEffTotal(r))>0?Number(appEffTotal(r)):''}" placeholder="金額未定可留空（顯示待定）"></div>
+    <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${appEffTotal(r)==null?'':Number(appEffTotal(r))}" placeholder="金額未定可留空（顯示待定）；填 0＝NT$ 0"></div>
     <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
     <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
     <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option value="" ${!appCostDecided(r)?'selected':''}>請選擇</option><option ${appIsBillable(r)?'selected':''}>需向客戶請款</option><option ${(appCostDecided(r)&&!appIsBillable(r))?'selected':''}>綠源自行吸收</option></select></div>
