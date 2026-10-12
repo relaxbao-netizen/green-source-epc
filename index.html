@@ -3578,6 +3578,9 @@ function wbsGanttHTML(s) {
   ds.push(_wdParse(todayStr).getTime());
   const min = new Date(Math.min(...ds)), max = new Date(Math.max(...ds));
   min.setDate(min.getDate() - 3); max.setDate(max.getDate() + 3);
+  // 右側多留約 18% 空間給「逾期 N 天」標籤，避免最右的橫條與文字重疊
+  const _span0 = (max - min) || 1;
+  max.setTime(min.getTime() + _span0 / 0.82);
   const span = (max - min) || 1;
   const xp = dStr => { const p = _wdParse(dStr); return p ? ((p - min) / span * 100) : null; };
   let ticks = '', labels = '';
@@ -3620,9 +3623,7 @@ function wbsGanttHTML(s) {
     }
     // 逾期天數寫在膠囊尾端旁邊；靠右邊的長橫條則貼著右緣，避免超出畫面
     const odLabel = late
-      ? ((aR != null && aR <= 78)
-          ? `<div style="position:absolute;left:${aR}%;top:50%;transform:translateY(-50%);padding-left:5px;font-size:11px;font-weight:600;color:#dc2626;white-space:nowrap">逾期 ${odDays} 天</div>`
-          : `<div style="position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:600;color:#dc2626;white-space:nowrap">逾期 ${odDays} 天</div>`)
+      ? `<div style="position:absolute;left:${aR}%;top:50%;transform:translateY(-50%);padding-left:5px;font-size:11px;font-weight:600;color:#dc2626;white-space:nowrap">逾期 ${odDays} 天</div>`
       : '';
     return `<div style="display:flex;align-items:center;border-top:1px solid #f1f5f9">
       <div style="width:${LBL}px;flex-shrink:0;font-size:12px;${r.indent ? 'padding-left:14px;color:var(--muted)' : 'font-weight:600'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${appEsc(r.name)}">${r.indent ? '└ ' : ''}${appEsc(r.name)}</div>
