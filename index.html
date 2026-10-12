@@ -2486,12 +2486,12 @@ function drawDailyLog() {
   html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(f)}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
-      const d = i + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
+      const d = i + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
       return `<th style="${off ? 'background:#f1f5f9;' : ''}min-width:22px">${d}</th>`;
     }).join('');
     const body = frows.map((r, i) => {
       const cells = Array.from({ length: days }, (_, k) => {
-        const d = k + 1, off = [0, 6].includes(new Date(y, m - 1, d).getDay());
+        const d = k + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
         const v = effMark(r, d);
         const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
         const bg = off ? 'background:#f1f5f9;' : '';
