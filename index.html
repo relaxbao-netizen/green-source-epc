@@ -3756,6 +3756,9 @@ function openModal(id) {
   editBtn.onclick = () => { closeModalDirect(); openSiteForm(s.id); };
 
   document.getElementById('modal-overlay').classList.add('open');
+  // 每次打開都回到最上面，不停留在上次捲動位置
+  const _mb = document.getElementById('modal-body'); if (_mb) _mb.scrollTop = 0;
+  const _mbox = document.querySelector('#modal-overlay .modal-box'); if (_mbox) _mbox.scrollTop = 0;
   renderSiteWeather(s);
 }
 
