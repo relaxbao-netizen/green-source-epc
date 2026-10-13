@@ -2847,7 +2847,7 @@ function renderRushList() {
       });
     });
   });
-  items.sort((a, b) => b.gap - a.gap); // 落後最多排前面
+  items.sort((a, b) => String(a.site).localeCompare(String(b.site), 'zh-Hant') || (b.gap - a.gap)); // 先按案場分組，同案場內落後最多排前面
   if (!items.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">目前沒有需要趕工的工項 🎉</div>'; return; }
   const N = 10;
   el.innerHTML = items.slice(0, N).map(it => {
