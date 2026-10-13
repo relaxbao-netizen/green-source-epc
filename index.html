@@ -3665,7 +3665,8 @@ function wbsGanttHTML(s) {
     const odLabel = late
       ? `<div style="position:absolute;left:${aR}%;top:50%;transform:translateY(-50%);padding-left:5px;font-size:11px;font-weight:600;color:#dc2626;white-space:nowrap">逾期 ${odDays} 天</div>`
       : '';
-    return `<div style="display:flex;align-items:center;border-top:1px solid #f1f5f9">
+    const rush = Number(r.pct) < 100 && ((Number(r.planPct) || 0) - Number(r.pct || 0)) > 5; // 需要趕工（落後>5%）→ 整列趕工底色
+    return `<div style="display:flex;align-items:center;border-top:1px solid #f1f5f9${rush ? ';background:#fff4e5' : ''}">
       <div style="width:${LBL}px;flex-shrink:0;font-size:12px;${r.indent ? 'padding-left:14px;color:var(--muted)' : 'font-weight:600'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${appEsc(r.name)}">${r.indent ? '└ ' : ''}${appEsc(r.name)}</div>
       <div style="position:relative;flex:1;height:28px;overflow:visible">${planned}${actual}${odLabel}</div>
     </div>`;
@@ -3701,11 +3702,13 @@ function openModal(id) {
   const dayCell = v => `<td style="color:var(--muted);font-size:12px">${v != null ? v + ' 天' : '—'}</td>`;
   const planCell = x => dayCell(x.planDays);
   const actCell = x => dayCell(x.actDays);
+  // 需要趕工（＝落後>5%，與首頁「需要趕工」卡同標準）→ 整列同一個趕工底色；準時/完成不上色
+  const rushBg = (pct, planPct) => { if (pct >= 100) return null; return ((Number(planPct) || 0) - pct) > 5 ? '#fff4e5' : null; };
   const wbsRows = wbsData.map((cat, ci) => {
     const cc = wbsItemColor(cat.catPct, cat.planPct);
     const subRows = cat.subs.map(sub => {
       const sc = wbsItemColor(sub.pct, sub.planPct);
-      return `<tr style="background:#fafafa" data-wbsrow="${appEsc(sub.name)}">
+      return `<tr style="background:${rushBg(sub.pct, sub.planPct) || '#fafafa'}" data-wbsrow="${appEsc(sub.name)}">
         <td style="padding-left:28px;font-size:12px;color:var(--muted)">└ ${sub.name}</td>
         ${planCell(sub)}${actCell(sub)}
         <td style="font-size:12px;font-weight:700;color:${sc}">${sub.pct}%</td>
@@ -3714,7 +3717,7 @@ function openModal(id) {
         <td>${wbsStatusBadge(sub.pct, sub.overdue, sub.planPct)}</td>
       </tr>`;
     }).join('');
-    return `<tr style="border-top:1px solid var(--border)" data-wbsrow="${appEsc(cat.name)}">
+    return `<tr style="border-top:1px solid var(--border)${rushBg(cat.catPct, cat.planPct) ? `;background:${rushBg(cat.catPct, cat.planPct)}` : ''}" data-wbsrow="${appEsc(cat.name)}">
       <td style="font-weight:700"><span style="color:var(--accent2);margin-right:6px">${ci+1}.</span>${cat.name}</td>
       ${planCell(cat)}${actCell(cat)}
       <td style="font-weight:700;color:${cc}">${cat.catPct}%</td>
