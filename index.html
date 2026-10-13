@@ -6674,7 +6674,7 @@ function appDashboardHTML(selYm){
            <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><span><b>${appEsc(siteShortName(r.site_name))}</b>${stBadge}</span><span style="font-weight:700;white-space:nowrap">${appAmt(appEffTotal(r))}</span></div>
            <div style="font-size:12px;color:var(--muted);margin-top:2px;line-height:1.5">${(Array.isArray(r.items)?r.items:[]).map(it=>appEsc(it.name)).join('<br>')||'—'}</div>
            ${who?`<div style="font-size:12px;color:#d97706;font-weight:600;margin-top:2px">⏳ 待 ${appEsc(who)} 簽核</div>`:''}
-           ${r.hold_note?`<div style="font-size:12px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}
+           ${(pending && r.hold_note)?`<div style="font-size:12px;color:var(--muted);margin-top:1px">📝 ${appEsc(r.hold_note)}</div>`:''}
          </div>`;}).join('')}</div>`;
        })()}
      </div>
