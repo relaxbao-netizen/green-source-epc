@@ -772,6 +772,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="card">
         <div id="home-progress-list"></div>
       </div>
+      <!-- 需要趕工的工項（逾期／落後中） -->
+      <div class="card">
+        <div class="card-title">🏃 需要趕工的工項</div>
+        <div id="home-rush-list"></div>
+      </div>
       <!-- 底部左右兩欄：課程園地入口｜證照回訓提醒（各佔畫面 1/3） -->
       <div class="side-bottom-row">
         <div class="card course-entry" style="grid-column:span 3" onclick="showPage('course')">
@@ -2798,6 +2803,7 @@ function renderHome() {
     + (started.length && notStarted.length ? '<div class="gauge-break"></div>' : '')
     + notStarted.map(gaugeHTML).join('');
   animateGauges();   // 刷新頁面時掃針動畫（由 0% 掃到各案場實際進度）
+  renderRushList();       // 首頁「需要趕工的工項」卡
   renderCertReminder();   // 首頁證照回訓提醒卡
   renderInsReminder();    // 首頁保險到期提醒卡
 
@@ -2820,6 +2826,35 @@ function renderHome() {
       <span class="hr-count-sm" style="color:${barColor}">${n}案</span>
     </div>`;
   }).join('');
+}
+
+// 首頁「需要趕工的工項」：掃所有進行中案場的 WBS 工項，列出逾期或落後>5% 者（依嚴重度排序）
+function renderRushList() {
+  const el = document.getElementById('home-rush-list'); if (!el) return;
+  const items = [];
+  sites.filter(s => s.status !== 'done' && s.status !== 'pending').forEach(s => {
+    const tree = wbsScheduleTree(s) || [];
+    tree.forEach(cat => {
+      const leafs = cat.subs.length ? cat.subs : [cat];
+      leafs.forEach(x => {
+        const pct = (x.pct != null) ? x.pct : x.catPct;
+        const planPct = Number(x.planPct) || 0;
+        const gap = Math.round(planPct - (Number(pct) || 0)); // 今日應達 − 實際完成 ＝ 落後百分比
+        if (pct >= 100) return;              // 已完成不列
+        if (gap > 5) items.push({ siteId: s.id, site: siteShortName(s.label || s.name), name: x.name, gap });
+      });
+    });
+  });
+  items.sort((a, b) => b.gap - a.gap); // 落後最多排前面
+  if (!items.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">目前沒有需要趕工的工項 🎉</div>'; return; }
+  const N = 10;
+  el.innerHTML = items.slice(0, N).map(it => {
+    const badge = `<span style="background:${it.gap > 15 ? '#fee2e2' : '#fef3c7'};color:${it.gap > 15 ? '#dc2626' : '#d97706'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap">落後 ${it.gap}%</span>`;
+    return `<div onclick="openModal(${it.siteId})" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${appEsc(it.name)}</div><div style="font-size:11px;color:var(--muted)">${appEsc(it.site)}</div></div>
+      ${badge}
+    </div>`;
+  }).join('') + (items.length > N ? `<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px 0">…還有 ${items.length - N} 項</div>` : '');
 }
 
 // ===================== PROGRESS TABLE =====================
