@@ -2841,7 +2841,7 @@ function renderRushList() {
         const planPct = Number(x.planPct) || 0;
         const gap = Math.round(planPct - (Number(pct) || 0)); // 今日應達 − 實際完成 ＝ 落後百分比
         if (pct >= 100) return;              // 已完成不列
-        if (gap > 5) items.push({ siteId: s.id, site: siteShortName(s.label || s.name), name: x.name, gap });
+        if (gap > 5) items.push({ siteId: s.id, site: siteShortName(s.label || s.name), name: x.name, gap, pct: Math.round(Number(pct) || 0), planPct: Math.round(planPct) });
       });
     });
   });
@@ -2849,10 +2849,10 @@ function renderRushList() {
   if (!items.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">目前沒有需要趕工的工項 🎉</div>'; return; }
   const N = 10;
   el.innerHTML = items.slice(0, N).map(it => {
-    const badge = `<span style="background:${it.gap > 15 ? '#fee2e2' : '#fef3c7'};color:${it.gap > 15 ? '#dc2626' : '#d97706'};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap">落後 ${it.gap}%</span>`;
+    const lagCol = it.gap > 15 ? '#dc2626' : '#d97706'; // 落後>15% 紅、5~15% 橘
     return `<div onclick="openModal(${it.siteId})" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
-      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${appEsc(it.name)}</div><div style="font-size:11px;color:var(--muted)">${appEsc(it.site)}</div></div>
-      ${badge}
+      <div style="flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>${appEsc(it.site)}（${appEsc(it.name)}）</b><span style="color:var(--muted)">　目前完成 ${it.pct}%，今日應達 ${it.planPct}%</span></div>
+      <b style="color:${lagCol};font-size:12px;white-space:nowrap">落後 ${it.gap}%</b>
     </div>`;
   }).join('') + (items.length > N ? `<div style="font-size:11px;color:var(--muted);text-align:center;padding:6px 0">…還有 ${items.length - N} 項</div>` : '');
 }
