@@ -2828,6 +2828,8 @@ function renderHome() {
   }).join('');
 }
 
+// 點「需要趕工」某項 → 開該案場詳情，並捲到／黃色閃爍該工項列（與操作紀錄跳轉一致）
+function rushJump(siteId, name) { openModal(siteId); setTimeout(() => flashWbsRows([name]), 120); }
 // 首頁「需要趕工的工項」：掃所有進行中案場的 WBS 工項，列出逾期或落後>5% 者（依嚴重度排序）
 function renderRushList() {
   const el = document.getElementById('home-rush-list'); if (!el) return;
@@ -2852,7 +2854,8 @@ function renderRushList() {
     const lagCol = it.gap > 15 ? '#dc2626' : '#d97706'; // 落後>15% 紅、5~15% 橘
     const lagDays = it.planDays > 0 ? Math.max(1, Math.round(it.gap / 100 * it.planDays)) : 0; // 落後相當於幾個工作天
     const lagTxt = lagDays > 0 ? `<b style="color:${lagCol};font-size:12px"> ・須趕工 ${lagDays} 天</b>` : '';
-    return `<div onclick="openModal(${it.siteId})" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
+    const jsName = String(it.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    return `<div onclick="rushJump(${it.siteId},'${jsName}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border)">
       <div style="flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b>${appEsc(it.site)}（${appEsc(it.name)}）</b><span style="color:var(--muted)">　目前完成 ${it.pct}%，今日應達 ${it.planPct}%</span></div>
       <div style="white-space:nowrap"><b style="color:${lagCol};font-size:12px">落後 ${it.gap}%</b>${lagTxt}</div>
     </div>`;
