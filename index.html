@@ -106,6 +106,16 @@ nav > * { flex-shrink: 0; }
 /* 課程園地(1/3)｜工程規範書(1/6)｜最右欄(1/6)。用 grid 精準 2:1:1，minmax(0,…) 防內容撐寬 */
 .side-bottom-row { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 16px; align-items: start; }
 .side-right-col { min-width: 0; display: flex; flex-direction: column; gap: 16px; }   /* 最右欄：證照卡＋保險卡上下疊 */
+/* 首頁底部磁磚（Bento）：週報 ｜ 快速入口 ｜ 證照(上)/保險(下) 各 1/3 */
+.bot { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; margin-top: 16px; grid-template-areas: "weekly link cert" "weekly link ins"; align-items: start; }
+.bot .bot-weekly { grid-area: weekly; }
+.bot .bot-link { grid-area: link; }
+.bot .bot-cert { grid-area: cert; }
+.bot .bot-ins { grid-area: ins; }
+.entry-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.entry-mini .mini { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; }
+.entry-mini .mini .card-title { font-size: 13px; margin-bottom: 0; }
+.entry-mini .mini img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); margin-top: 6px; display: block; }
 .weekly-entry { display: flex; flex-direction: column; }
 .weekly-sub { font-size: 12px; color: var(--muted); }
 .course-entry, .doc-entry { cursor: pointer; transition: box-shadow .15s, transform .15s; text-decoration: none; color: inherit; }
@@ -583,6 +593,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   .main-grid { grid-template-columns: 1fr; }
   .side-bottom-row { grid-template-columns: 1fr; }   /* 單欄時全部上下堆疊、各滿寬 */
   .side-bottom-row > * { grid-column: auto !important; }
+  .bot { grid-template-columns: 1fr; grid-template-areas: "weekly" "link" "cert" "ins"; }
   .side-spacer { display: none; }                 /* 單欄時不需要中間空白 */
   .hr-grid { grid-template-columns: 1fr; }
   .region-kpi-row { grid-template-columns: repeat(2,1fr); }
@@ -777,29 +788,35 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
         <div class="card-title">需要趕工的工項</div>
         <div id="home-rush-list"></div>
       </div>
-      <!-- 底部左右兩欄：課程園地入口｜證照回訓提醒（各佔畫面 1/3） -->
-      <div class="side-bottom-row">
-        <div class="card course-entry" style="grid-column:span 3" onclick="showPage('course')">
-          <div class="card-title">現場工程師養成計畫 10 堂課</div>
-          <img class="course-cover" src="courses/course-cover.jpg" alt="現場工程師養成計畫大綱">
+    </div>
+  </div>
+
+  <!-- 底部磁磚：週報 ｜ 快速入口(課程＋規範書) ｜ 證照(上)/保險(下) -->
+  <div class="bot">
+    <a class="card doc-entry weekly-entry bot-weekly" href="weekly/工程部週報 20261008_1410.pdf" target="_blank" rel="noopener">
+      <div class="card-title">最新工程部週報（2026/10/08）</div>
+      <img class="course-cover" src="weekly/weekly-cover.jpg" alt="工程部週報封面">
+    </a>
+    <div class="card bot-link">
+      <div class="card-title">快速入口</div>
+      <div class="entry-mini">
+        <div class="mini course-entry" onclick="showPage('course')" title="現場工程師養成計畫">
+          <div class="card-title">現場工程師養成計畫</div>
+          <img src="courses/course-cover.jpg" alt="現場工程師養成計畫大綱">
         </div>
-        <a class="card doc-entry weekly-entry" style="grid-column:span 3" href="weekly/工程部週報 20261008_1410.pdf" target="_blank" rel="noopener">
-          <div class="card-title">最新工程部週報（2026/10/08）</div>
-          <img class="course-cover" src="weekly/weekly-cover.jpg" alt="工程部週報封面">
-        </a>
-        <a class="card doc-entry" style="grid-column:span 2" href="courses/太陽能工程規範書-綠源V1.44.pdf" target="_blank" rel="noopener">
+        <a class="mini doc-entry" href="courses/太陽能工程規範書-綠源V1.44.pdf" target="_blank" rel="noopener" title="工程規範書">
           <div class="card-title">工程規範書</div>
-          <img class="doc-cover" src="courses/spec-cover.jpg" alt="太陽光電發電系統工程規範書">
+          <img src="courses/spec-cover.jpg" alt="太陽光電發電系統工程規範書">
         </a>
-        <div class="card home-cert-card" style="grid-column:span 2;cursor:pointer" onclick="goCertTable(event)" title="點此前往證照到期表格">
-          <div class="card-title">證照回訓提醒</div>
-          <div id="home-cert-list"></div>
-        </div>
-        <div class="card home-ins-card" style="grid-column:span 2;cursor:pointer" onclick="goInsTable(event)" title="點此前往案場保險到期表格">
-          <div class="card-title">保險到期提醒</div>
-          <div id="home-ins-list"></div>
-        </div>
       </div>
+    </div>
+    <div class="card home-cert-card bot-cert" style="cursor:pointer" onclick="goCertTable(event)" title="點此前往證照到期表格">
+      <div class="card-title">證照回訓提醒</div>
+      <div id="home-cert-list"></div>
+    </div>
+    <div class="card home-ins-card bot-ins" style="cursor:pointer" onclick="goInsTable(event)" title="點此前往案場保險到期表格">
+      <div class="card-title">保險到期提醒</div>
+      <div id="home-ins-list"></div>
     </div>
   </div>
 </div>
