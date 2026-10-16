@@ -112,6 +112,8 @@ nav > * { flex-shrink: 0; }
 .bot .bot-link { grid-area: link; }
 .bot .bot-cert { grid-area: cert; }
 .bot .bot-ins { grid-area: ins; }
+/* 養成計畫／週報：只佔內容高度(標題+16:9封面)，不要被拉伸填滿整欄高度造成下方留白 */
+.bot .course-entry, .bot .weekly-entry { align-self: start; }
 .entry-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .entry-mini .mini { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; }
 .entry-mini .mini .card-title { font-size: 13px; margin-bottom: 0; }
@@ -793,23 +795,16 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 
   <!-- 底部磁磚：週報 ｜ 快速入口(課程＋規範書) ｜ 證照(上)/保險(下) -->
   <div class="bot">
-    <a class="card doc-entry weekly-entry bot-weekly" href="weekly/工程部週報 20261008_1410.pdf" target="_blank" rel="noopener">
+    <!-- col1：現場工程師養成計畫（與週報左右交換後移到左邊） -->
+    <div class="card course-entry bot-weekly" style="cursor:pointer" onclick="showPage('course')">
+      <div class="card-title">現場工程師養成計畫 10 堂課</div>
+      <img class="course-cover" src="courses/course-cover.jpg" alt="現場工程師養成計畫大綱">
+    </div>
+    <!-- col2：最新工程部週報 -->
+    <a class="card doc-entry weekly-entry bot-link" href="weekly/工程部週報 20261008_1410.pdf" target="_blank" rel="noopener">
       <div class="card-title">最新工程部週報（2026/10/08）</div>
       <img class="course-cover" src="weekly/weekly-cover.jpg" alt="工程部週報封面">
     </a>
-    <div class="card bot-link">
-      <div class="card-title">快速入口</div>
-      <div class="entry-mini">
-        <div class="mini course-entry" onclick="showPage('course')" title="現場工程師養成計畫">
-          <div class="card-title">現場工程師養成計畫</div>
-          <img src="courses/course-cover.jpg" alt="現場工程師養成計畫大綱">
-        </div>
-        <a class="mini doc-entry" href="courses/太陽能工程規範書-綠源V1.44.pdf" target="_blank" rel="noopener" title="工程規範書">
-          <div class="card-title">工程規範書</div>
-          <img src="courses/spec-cover.jpg" alt="太陽光電發電系統工程規範書">
-        </a>
-      </div>
-    </div>
     <div class="card home-cert-card bot-cert" style="cursor:pointer" onclick="goCertTable(event)" title="點此前往證照到期表格">
       <div class="card-title">證照回訓提醒</div>
       <div id="home-cert-list"></div>
