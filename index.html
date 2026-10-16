@@ -112,8 +112,8 @@ nav > * { flex-shrink: 0; }
 .bot .bot-link { grid-area: link; }
 .bot .bot-cert { grid-area: cert; }
 .bot .bot-ins { grid-area: ins; }
-/* 養成計畫／週報：只佔內容高度(標題+16:9封面)，不要被拉伸填滿整欄高度造成下方留白 */
-.bot .course-entry, .bot .weekly-entry { align-self: start; }
+/* 底排各卡只佔內容高度，不要被拉伸填滿整欄高度造成下方留白 */
+.bot .course-entry, .bot .weekly-entry, .bot .home-cert-card, .bot .home-ins-card { align-self: start; }
 .entry-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .entry-mini .mini { display: block; text-decoration: none; color: inherit; cursor: pointer; min-width: 0; }
 .entry-mini .mini .card-title { font-size: 13px; margin-bottom: 0; }
@@ -1899,7 +1899,7 @@ function renderInsReminder() {
   const el = document.getElementById('home-ins-list');
   if (!el) return;
   const items = insAlerts();
-  if (!items.length) { el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前無到期保險</div>`; return; }
+  if (!items.length) { el.innerHTML = `<div style="padding:6px 4px;color:#16a34a;font-weight:600">✅ 目前無到期保險</div>`; return; }
   el.innerHTML = items.map(({ site, key, label, st }) => `
     <div class="cert-alert-row" onclick="goInsCell(${site.id},'${key}')" style="cursor:pointer">
       <span class="cert-dot" style="background:${CERT_COLORS[st.level]}"></span>
@@ -2751,7 +2751,7 @@ function renderCertReminder() {
   if (!el) return;
   const items = certAlerts();
   if (!items.length) {
-    el.innerHTML = `<div style="padding:14px 4px;color:#16a34a;font-weight:600">✅ 目前無到期證照</div>`;
+    el.innerHTML = `<div style="padding:6px 4px;color:#16a34a;font-weight:600">✅ 目前無到期證照</div>`;
     return;
   }
   el.innerHTML = items.map(({ name, key, cert, st }) => {
