@@ -6394,8 +6394,22 @@ function renderApproval(){
   if(appSection==='dash') el.innerHTML = appDashboardHTML(appSelectedExportYm());
   else if(appSection==='new'){ arTotalManual=false; el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
   else if(appSection==='sign') el.innerHTML = appSignListHTML();
-  else if(appSection==='query'){ el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); runAppQuery(); }
+  else if(appSection==='query'){ const _qf=appCaptureQueryFilters(); el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); appRestoreQueryFilters(_qf); runAppQuery(); }
   else if(appSection==='people') el.innerHTML = appPeopleHTML();
+}
+
+// 查詢頁重繪（例如存檔後）時保留使用者原本選的篩選條件，不要跳回預設
+function appCaptureQueryFilters(){
+  const ids=['q-serial','q-year','q-site','q-resp','q-applicant','q-status','q-billable'];
+  const o={}; let any=false;
+  ids.forEach(id=>{ const e=document.getElementById(id); if(e){ o[id]=e.value; any=true; } });
+  return any?o:null;
+}
+function appRestoreQueryFilters(o){
+  if(!o) return; // 首次進入查詢頁（無既有欄位）→ 用預設
+  Object.keys(o).forEach(id=>{ const e=document.getElementById(id); if(!e) return; const v=o[id];
+    if(e.tagName==='SELECT'){ if([...e.options].some(op=>op.value===v)) e.value=v; } else e.value=v;
+  });
 }
 
 // ---------- Dashboard ----------
