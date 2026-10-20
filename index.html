@@ -6298,8 +6298,10 @@ let _signReqId = null;
 
 function appMoney(n){ return Number(n||0).toLocaleString('en-US'); }
 function appIsBillable(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || Number(r.client_amount)>0; }
-// 費用歸屬是否已決定（有選請款或綠源吸收，或已有請款金額）；未決定＝不自動歸類、不可核准
-function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || Number(r.client_amount)>0; }
+// 費用歸屬是否已決定（有選請款、綠源吸收、原本含在成本，或已有請款金額）；未決定＝不自動歸類、不可核准
+function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || r.cost_owner==='已含於原成本' || Number(r.client_amount)>0; }
+// 已含於原成本：已決定、非對客戶請款、也不算綠源「額外」吸收（不計入綠源吸收統計）
+function appCostIncluded(r){ return r && r.cost_owner==='已含於原成本'; }
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ const n=Number(amt)||0; let c=[...SIGN_BASE]; if(n>=1000000) c=c.concat(['協理','總經理','董事長']); else if(n>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
@@ -6437,7 +6439,7 @@ function appQueryFilterPass(r, exclude){
   if(exclude!=='resp'){ const d=g('q-resp'); if(d && r.apply_dept!==d) return false; }
   if(exclude!=='applicant'){ const a=g('q-applicant'); if(a && r.applicant!==a) return false; }
   if(exclude!=='status'){ const st=g('q-status'); if(st && appStatusKey(r)!==st) return false; }
-  if(exclude!=='billable'){ const bv=g('q-billable'); if(bv!=='' && (appIsBillable(r)?'1':'0')!==bv) return false; }
+  if(exclude!=='billable'){ const bv=g('q-billable'); if(bv!==''){ const bk=appIsBillable(r)?'1':(appCostIncluded(r)?'2':'0'); if(bk!==bv) return false; } }
   const min=parseFloat(g('q-min')), max=parseFloat(g('q-max'));
   if(exclude!=='min' && !isNaN(min) && (Number(appEffTotal(r))||0)<min) return false;
   if(exclude!=='max' && !isNaN(max) && (Number(appEffTotal(r))||0)>max) return false;
@@ -6689,7 +6691,7 @@ function appDashboardHTML(selYm){
     byResp[r.apply_dept||'未指定']=(byResp[r.apply_dept||'未指定']||0)+amt;
     const mk=(r.apply_date||r.created_at||'').slice(0,7); if(mk) byMonth[mk]=(byMonth[mk]||0)+amt;
     if(appIsBillable(r)){ const bs=siteByAnyName(r.site_name); if(!(bs && bs.status==='done')){ const cb=Number(r.client_amount)||amt; bySiteBillable[r.site_name||'未指定']=(bySiteBillable[r.site_name||'未指定']||0)+cb; } } // 各案場累計需向客戶請款（完工案場不列）
-    if(mk===ym){ if(appIsBillable(r)) billable+=(Number(r.client_amount)||amt); else if(appCostDecided(r)) absorb+=amt; } // 費用歸屬未決定者不計入綠源吸收
+    if(mk===ym){ if(appIsBillable(r)) billable+=(Number(r.client_amount)||amt); else if(appCostDecided(r)&&!appCostIncluded(r)) absorb+=amt; } // 未決定、原本含在成本者不計入綠源吸收
   });
   // 未完工案場一律列出（無追加金額者顯示 0）；已有對應記錄則不重複
   sites.filter(s=>s.status!=='done').forEach(s=>{
@@ -6708,7 +6710,7 @@ function appDashboardHTML(selYm){
     const key = s ? (s.label||s.name) : (r.site_name||'未指定');
     const amt=Number(appEffTotal(r))||0;
     const bill=appIsBillable(r) ? (Number(r.client_amount)||amt) : 0;
-    const absorb=(!appIsBillable(r) && appCostDecided(r)) ? amt : 0; // 綠源自行吸收
+    const absorb=(!appIsBillable(r) && appCostDecided(r) && !appCostIncluded(r)) ? amt : 0; // 綠源自行吸收（不含「原本含在成本」）
     if(!cmp[key]) cmp[key]={add:0,bill:0,absorb:0,id: s?s.id:null};
     cmp[key].add+=amt; cmp[key].bill+=bill; cmp[key].absorb+=absorb;
   });
@@ -6779,7 +6781,7 @@ function appFormHTML(){
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()"><option value="" selected>請選擇</option>${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
     <div class="form-field"><label>追加款總額</label><input id="ar-total" value="" placeholder="金額未定可留空（顯示待定）" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
-    <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option value="" selected>請選擇</option><option>綠源自行吸收</option><option>需向客戶請款</option></select></div>
+    <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option value="" selected>請選擇</option><option>綠源自行吸收</option><option>需向客戶請款</option><option>已含於原成本</option></select></div>
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
@@ -6917,7 +6919,7 @@ function appFormInner(r){
    <tr><td style="text-align:left;width:22%"><b>申請單位</b></td><td style="text-align:left">${appEsc(r.apply_dept)}</td><td style="text-align:left;width:22%"><b>流水號</b></td><td style="text-align:left">${appEsc(r.serial_no)}</td></tr>
    <tr><td style="text-align:left"><b>工程名稱</b></td><td style="text-align:left">${appEsc(r.site_name)}</td><td style="text-align:left"><b>申請日期</b></td><td style="text-align:left">${appEsc(r.apply_date)}</td></tr>
    <tr><td style="text-align:left"><b>申請人</b></td><td style="text-align:left">${appEsc(r.applicant)}</td><td style="text-align:left"><b>追加款總額</b></td><td style="text-align:left">NT$ ${appMoney(appEffTotal(r)||0)}</td></tr>
-   <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appIsBillable(r)?'需向客戶請款（NT$ '+appMoney(r.client_amount)+'）':(appCostDecided(r)?'綠源自行吸收':'<span style=\'color:#d97706\'>未決定</span>')}</td></tr>
+   <tr><td style="text-align:left"><b>申請原因</b></td><td style="text-align:left">${appEsc(r.reason_category)}</td><td style="text-align:left"><b>費用歸屬</b></td><td style="text-align:left">${appIsBillable(r)?'需向客戶請款（NT$ '+appMoney(r.client_amount)+'）':(appCostIncluded(r)?'已含於原成本':(appCostDecided(r)?'綠源自行吸收':'<span style=\'color:#d97706\'>未決定</span>'))}</td></tr>
   </table>
   <h2>追加明細</h2>
   <table><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th></tr></thead>
@@ -7052,7 +7054,7 @@ function appRecipientEmails(r){
 }
 function appMailSend(id){
   const r=appRequests.find(x=>x.id===id); if(!r) return;
-  const costLine=appIsBillable(r)?'費用歸屬：需向客戶請款（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'NT$ '+appMoney(r.client_amount))+'）':(appCostDecided(r)?'費用歸屬：綠源自行吸收':'費用歸屬：未決定');
+  const costLine=appIsBillable(r)?'費用歸屬：需向客戶請款（'+((Array.isArray(r.client_bills)&&r.client_bills.length>1)?r.client_bills.map(b=>'對'+(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、'):'NT$ '+appMoney(r.client_amount))+'）':(appCostIncluded(r)?'費用歸屬：已含於原成本':(appCostDecided(r)?'費用歸屬：綠源自行吸收':'費用歸屬：未決定'));
   const itemLines=(r.items||[]).map(it=>it.name+'\t'+((it.qty!=null&&it.qty!=='')?it.qty:'')+(it.unit||'')).join('\n');
   const body=[
     (r.site_name||'')+' 工程／物料申請單 '+r.serial_no,
@@ -7205,7 +7207,7 @@ function appViewReq(id){
         <span style="font-size:13px;color:var(--muted)">追加總額</span>
         <b style="font-size:20px;color:${(appEffTotal(r)==null)?'#d97706':'#0f172a'}">${appAmt(appEffTotal(r))}</b>
       </div>
-      <div style="font-size:12px;color:${appIsBillable(r)?'#dc2626':(appCostDecided(r)?'#16a34a':'#d97706')};font-weight:600;margin-top:3px">${appIsBillable(r)?'需向客戶請款 NT$ '+appMoney(r.client_amount):(appCostDecided(r)?'綠源自行吸收':'費用歸屬未決定')}</div>
+      <div style="font-size:12px;color:${appIsBillable(r)?'#dc2626':(appCostIncluded(r)?'#64748b':(appCostDecided(r)?'#16a34a':'#d97706'))};font-weight:600;margin-top:3px">${appIsBillable(r)?'需向客戶請款 NT$ '+appMoney(r.client_amount):(appCostIncluded(r)?'已含於原成本':(appCostDecided(r)?'綠源自行吸收':'費用歸屬未決定'))}</div>
       ${(Array.isArray(r.client_bills)&&r.client_bills.length>1)?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${r.client_bills.map(b=>appEsc(b.vendor||'客戶')+' NT$ '+appMoney(b.amount)).join('、')}</div>`:''}
       ${(()=>{ const dated=(Array.isArray(r.client_bills)?r.client_bills:[]).filter(b=>b.invoice_date||b.payment_date); if(!dated.length) return ''; return `<div style="font-size:12px;color:var(--muted);margin-top:4px">${dated.map(b=>appEsc(b.vendor||'客戶')+'（開票 '+(appEsc(b.invoice_date)||'—')+' / 收款 '+(appEsc(b.payment_date)||'—')+'）').join('<br>')}</div>`; })()}
       ${(!(Array.isArray(r.client_bills)&&r.client_bills.length) && (r.invoice_date||r.payment_date))?`<div style="font-size:12px;color:var(--muted);margin-top:4px">開票時間：${appEsc(r.invoice_date)||'—'}　收款時間：${appEsc(r.payment_date)||'—'}</div>`:''}
@@ -7258,7 +7260,7 @@ function appEditReq(id){
     <div class="form-field"><label>追加款總額</label><input type="number" id="e-total" value="${appEffTotal(r)==null?'':Number(appEffTotal(r))}" placeholder="金額未定可留空（顯示待定）；填 0＝NT$ 0"></div>
     <div class="form-field"><label>申請單位</label><select id="e-dept">${deptList.map(d=>`<option ${d===r.apply_dept?'selected':''}>${appEsc(d)}</option>`).join('')}</select></div>
     <div class="form-field"><label>申請人</label><select id="e-applicant">${nameDir.map(n=>`<option ${n===r.applicant?'selected':''}>${appEsc(n)}</option>`).join('')}</select></div>
-    <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option value="" ${!appCostDecided(r)?'selected':''}>請選擇</option><option ${appIsBillable(r)?'selected':''}>需向客戶請款</option><option ${(appCostDecided(r)&&!appIsBillable(r))?'selected':''}>綠源自行吸收</option></select></div>
+    <div class="form-field"><label>費用歸屬</label><select id="e-cost" onchange="appEditCostToggle()"><option value="" ${!appCostDecided(r)?'selected':''}>請選擇</option><option ${appIsBillable(r)?'selected':''}>需向客戶請款</option><option ${(appCostDecided(r)&&!appIsBillable(r)&&!appCostIncluded(r))?'selected':''}>綠源自行吸收</option><option ${appCostIncluded(r)?'selected':''}>已含於原成本</option></select></div>
    </div>
    <div id="e-bill-sec"><div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="e-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="e-bills"></div></div>
    <div style="margin-top:10px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
@@ -7379,7 +7381,7 @@ function appQueryHTML(){
     <div class="form-field"><label>申請單位</label><select id="q-resp" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
     <div class="form-field"><label>申請人</label><select id="q-applicant" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
     <div class="form-field"><label>簽核狀態</label><select id="q-status" onchange="appQueryOnChange()"><option value="">全部</option></select></div>
-    <div class="form-field"><label>是否對客戶請款</label><select id="q-billable" onchange="appQueryOnChange()"><option value="">全部</option><option value="1">需向客戶請款</option><option value="0">綠源自行吸收</option></select></div>
+    <div class="form-field"><label>是否對客戶請款</label><select id="q-billable" onchange="appQueryOnChange()"><option value="">全部</option><option value="1">需向客戶請款</option><option value="0">綠源自行吸收</option><option value="2">已含於原成本</option></select></div>
    </div>
    <div id="q-result" style="margin-top:12px"></div>
   </div>`;
