@@ -5314,8 +5314,8 @@ function openSiteForm(id) {
   const chosenPm = s ? pmList(s) : [];
   chosenPm.forEach(n => { if (!pms.includes(n)) pms.push(n); });
   document.getElementById('sf-pm').innerHTML = pms.map(p => `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:400;white-space:nowrap"><input type="checkbox" class="sf-pm-cb" value="${appEsc(p)}"${chosenPm.includes(p) ? ' checked' : ''}>${appEsc(p)}</label>`).join('');
-  // 案場業務下拉：列出角色為「業務」的人員；編輯舊案時保留原業務名
-  const salesNames = approvers.filter(a => a.role === '業務' && !a.left_date).map(a => a.name);
+  // 案場業務下拉：列出業務部(GSBU)全員（角色「業務」或部門 GSBU，含業務主管 Gio）；編輯舊案時保留原業務名
+  const salesNames = approvers.filter(a => (a.role === '業務' || a.dept === 'GSBU') && !a.left_date).map(a => a.name);
   if (s && s.sales && !salesNames.includes(s.sales)) salesNames.push(s.sales);
   document.getElementById('sf-sales').innerHTML = '<option value="">未指定</option>' + salesNames.map(n => `<option>${n}</option>`).join('');
 
