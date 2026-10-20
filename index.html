@@ -7133,6 +7133,18 @@ document.addEventListener('click', (e)=>{
   const m=document.getElementById('app-status-menu');
   if(m && m.style.display==='block' && !m.contains(e.target)) m.style.display='none';
 });
+// 防誤關：只有「在視窗背景按下、也在背景放開」才算點背景要關閉；
+// 若是在框內選取文字、拖到外面才放開（瀏覽器會判定成點背景）則不關閉，避免辛苦填的內容被清掉。
+let _mdOnBackdrop=false;
+document.addEventListener('mousedown', (e)=>{
+  _mdOnBackdrop = !!(e.target && e.target.classList && e.target.classList.contains('modal-overlay'));
+}, true);
+document.addEventListener('click', (e)=>{
+  if(e.target && e.target.classList && e.target.classList.contains('modal-overlay') && !_mdOnBackdrop){
+    e.stopImmediatePropagation();  // 攔在各視窗 onclick 關閉邏輯之前，不讓它關
+    e.preventDefault();
+  }
+}, true);
 async function appChangeStatus(id, status){
   if(!status) return;
   const cur=appRequests.find(x=>x.id===id);
