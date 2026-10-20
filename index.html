@@ -428,6 +428,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 }
 .form-field input:focus, .form-field select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
 .form-field input:disabled { background: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+#app-sign-body input:disabled, #app-sign-body select:disabled, #app-sign-body textarea:disabled { background: #f1f5f9; color: #94a3b8; -webkit-text-fill-color: #94a3b8; cursor: not-allowed; opacity: 1; }
 .btn-primary { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 .btn-primary:hover { filter: brightness(1.1); }
 .btn-secondary { background: var(--surface); color: var(--muted); border: 1px solid var(--border); padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
@@ -1346,14 +1347,16 @@ function isProgressManager() {
 function canEditProgress(site) { return isAdmin() || isProgressManager() || isSiteSupervisor(site); }
 // 能否完整編輯此案場（改名稱/日期/主任…）：僅管理員
 function canEditSiteFull() { return isAdmin(); }
-// 需對客戶請款的追加單：這些人(業務／請款相關)可編輯，不論是否本人填
+// 需對客戶請款的追加單：這些人(業務／請款相關)只能填寫／修改「開票時間、收款時間」，不能改其他欄位
 const BILLABLE_EDIT_EMAILS = ['ivy.chen@greensource-tech.com', 'fiona.chen@greensource-tech.com', 'ken.wang@greensource-tech.com'];
 function isBillableEditor() {
   if (!isLoggedIn()) return false;
   return BILLABLE_EDIT_EMAILS.includes(String(currentUser.email || '').toLowerCase());
 }
-// 能否編輯此申請單：管理員、申請人本人，或（需對客戶請款的單）請款編輯白名單
-function canEditReq(r) { return isAdmin() || isMyRequest(r) || (isBillableEditor() && appIsBillable(r)); }
+// 能否只編輯此單的開票／收款時間：請款編輯白名單，且此單需對客戶請款
+function canEditBillDates(r) { return isBillableEditor() && appIsBillable(r); }
+// 能否編輯此申請單（完整）：管理員或申請人本人
+function canEditReq(r) { return isAdmin() || isMyRequest(r); }
 
 // ---- Google Identity Services 登入 ----
 function decodeJwt(token) {
@@ -6288,6 +6291,7 @@ let appRequests = [];
 let appItems = [];
 let editItems = [];
 let editBills = [];
+let appEditDateOnly = false; // 編輯視窗是否為「只開放開票／收款時間」模式（請款編輯白名單）
 let appSection = 'dash';
 let editingApproverId = null;
 let _signReqId = null;
@@ -7223,7 +7227,7 @@ function appViewReq(id){
     ${secLabel('原因說明')}
     <div style="font-size:13px;line-height:1.7;background:#f8fafc;border-radius:8px;padding:11px 14px">${appEsc(r.reason_text)||'—'}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
-      ${canEditReq(r) ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
+      ${(canEditReq(r) || canEditBillDates(r)) ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
       <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
       ${isAdmin() ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
     </div>`;
@@ -7233,7 +7237,9 @@ function appViewReq(id){
 // ---------- 編輯申請 ----------
 function appEditReq(id){
   const r=appRequests.find(x=>x.id===id); if(!r) return;
-  if (!canEditReq(r)) { alert('只能編輯自己填的申請單。'); return; }
+  if (!canEditReq(r) && !canEditBillDates(r)) { alert('只能編輯自己填的申請單。'); return; }
+  // 請款編輯白名單（非管理員／非本人）：同一個編輯視窗，但只開放開票／收款時間，其餘反灰
+  appEditDateOnly = !canEditReq(r) && canEditBillDates(r);
   editItems=(r.items||[]).map(it=>({name:it.name||'',qty:(it.qty??''),unit:it.unit||'',amount:Number(it.amount)||0}));
   editBills=(Array.isArray(r.client_bills)&&r.client_bills.length)
     ? r.client_bills.map(b=>({vendor:b.vendor||'',amount:Number(b.amount)||0,invoice_date:b.invoice_date||'',payment_date:b.payment_date||''}))
@@ -7245,6 +7251,7 @@ function appEditReq(id){
   document.getElementById('app-sign-title').textContent='✏️ 編輯 '+r.serial_no;
   document.getElementById('app-sign-status-actions').innerHTML='';
   document.getElementById('app-sign-body').innerHTML=`
+   ${appEditDateOnly?`<div style="font-size:12px;color:var(--muted);background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:10px">您僅可填寫／修改「開票時間、收款時間」，其他欄位已鎖定。</div>`:''}
    <div class="form-grid">
     <div class="form-field"><label>日期</label><input type="date" id="e-date" value="${(r.apply_date||'').slice(0,10)}"></div>
     <div class="form-field"><label>工程名稱</label><select id="e-site">${siteOpts.map(s=>`<option ${s===r.site_name?'selected':''}>${appEsc(s)}</option>`).join('')}</select></div>
@@ -7263,41 +7270,44 @@ function appEditReq(id){
      <button class="btn-primary" onclick="appSaveEdit(${id})">儲存</button>
    </div>`;
   appEditRenderItems(); appEditBillsRender(); appEditCostToggle();
+  if(appEditDateOnly) appEditApplyLock();
   document.getElementById('app-sign-overlay').classList.add('open');
 }
 function appEditBillsSum(){ return editBills.reduce((s,b)=>s+(Number(b.amount)||0),0); }
 function appEditBillsRender(){
   const el=document.getElementById('e-bills'); if(!el) return;
+  const lock=appEditDateOnly; // 只開放開票／收款時間時：廠商、金額鎖定，不可新增／刪除廠商
   const fld=(lbl,inner)=>`<div><div style="font-size:11px;color:var(--muted)">${lbl}</div>${inner}</div>`;
   const ist='width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:6px;padding:4px';
   el.innerHTML = editBills.length ? editBills.map((b,i)=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:6px">
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-      <input placeholder="請款廠商" value="${appEsc(b.vendor)}" oninput="editBills[${i}].vendor=this.value" style="flex:1;${ist}">
-      <button onclick="editBills.splice(${i},1);appEditBillsRender()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>
+      <input placeholder="請款廠商" value="${appEsc(b.vendor)}" oninput="editBills[${i}].vendor=this.value" ${lock?'disabled':''} style="flex:1;${ist}">
+      ${lock?'':`<button onclick="editBills.splice(${i},1);appEditBillsRender()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>`}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-      ${fld('金額',`<input type="number" value="${Number(b.amount)||0}" oninput="editBills[${i}].amount=this.value;appEditBillsSum2()" style="${ist}">`)}
+      ${fld('金額',`<input type="number" value="${Number(b.amount)||0}" oninput="editBills[${i}].amount=this.value;appEditBillsSum2()" ${lock?'disabled':''} style="${ist}">`)}
       ${fld('開票時間',`<input type="date" value="${b.invoice_date||''}" oninput="editBills[${i}].invoice_date=this.value" style="${ist}">`)}
       ${fld('收款時間',`<input type="date" value="${b.payment_date||''}" oninput="editBills[${i}].payment_date=this.value" style="${ist}">`)}
     </div>
   </div>`).join('') : '';
-  // 最後固定一列可點擊的「＋ 廠商」（取代原右上按鈕）
-  el.innerHTML += `<div onclick="appEditAddBill()" style="border:1px dashed var(--border);border-radius:8px;padding:8px;margin-bottom:6px;text-align:center;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer">＋ 新增廠商${editBills.length ? '' : '（尚無請款對象，點此新增）'}</div>`;
+  // 最後固定一列可點擊的「＋ 廠商」（取代原右上按鈕）；僅開放時間模式不顯示
+  if(!lock) el.innerHTML += `<div onclick="appEditAddBill()" style="border:1px dashed var(--border);border-radius:8px;padding:8px;margin-bottom:6px;text-align:center;color:var(--accent);font-weight:600;font-size:13px;cursor:pointer">＋ 新增廠商${editBills.length ? '' : '（尚無請款對象，點此新增）'}</div>`;
   appEditBillsSum2();
 }
 function appEditBillsSum2(){ const el=document.getElementById('e-bill-sum'); if(el) el.textContent='合計 NT$ '+appMoney(appEditBillsSum()); }
 function appEditAddBill(){ editBills.push({vendor:'',amount:0,invoice_date:'',payment_date:''}); appEditBillsRender(); }
 function appEditRenderItems(){
   const el=document.getElementById('e-items'); if(!el) return;
+  const lock=appEditDateOnly; const dis=lock?'disabled':'';
   el.innerHTML='<table class="prog-table" style="width:100%;min-width:0"><thead><tr><th>品項</th><th>數量</th><th>單位</th><th>金額</th><th></th></tr></thead><tbody>'+
     (editItems.length?editItems.map((it,i)=>`<tr>
-      <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" style="width:64px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value;updateEditTotal()" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button></td>
+      <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" ${dis} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" ${dis} style="width:64px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" ${dis} style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value;updateEditTotal()" ${dis} style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td>${lock?'':`<button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>`}</td>
     </tr>`).join(''):'')+
-    `<tr><td colspan="5" onclick="appEditAddItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${editItems.length ? '' : '（尚無明細，點此新增）'}</td></tr></tbody></table>`;
+    (lock?'':`<tr><td colspan="5" onclick="appEditAddItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${editItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`)+`</tbody></table>`;
   updateEditTotal();
 }
 // 依明細金額加總自動更新編輯表單的「追加款總額」欄（明細有金額才覆寫；無金額則保留手填）
@@ -7310,6 +7320,17 @@ function appEditAddItem(){ editItems.push({name:'',qty:'',unit:'',amount:0}); ap
 function appEditCostToggle(){ const bill=document.getElementById('e-cost').value==='需向客戶請款'; const sec=document.getElementById('e-bill-sec'); if(sec) sec.style.display=bill?'':'none'; }
 async function appSaveEdit(id){
   const g=i=>{ const e=document.getElementById(i); return e?e.value:''; };
+  // 只開放開票／收款時間模式：僅寫回日期，其餘欄位一律不動
+  if(appEditDateOnly){
+    const _r=appRequests.find(x=>x.id===id);
+    if(!_r || !canEditBillDates(_r)){ alert('您只能填寫需對客戶請款單的開票／收款時間。'); return; }
+    const bills2=editBills.map(b=>({vendor:(b.vendor||'').trim(),amount:Number(b.amount)||0,invoice_date:b.invoice_date||null,payment_date:b.payment_date||null}));
+    const upd2={ client_bills:bills2, invoice_date: bills2.length===1?bills2[0].invoice_date:null, payment_date: bills2.length===1?bills2[0].payment_date:null };
+    const {error:err2}=await sb.from('app_request').update(upd2).eq('id',id);
+    if(err2){ const e=document.getElementById('e-err'); if(e){e.textContent='儲存失敗：'+err2.message; e.style.display='block';} return; }
+    document.getElementById('app-sign-overlay').classList.remove('open');
+    await loadApprovalData(); renderApproval(); return;
+  }
   const bill=g('e-cost')==='需向客戶請款';
   const _etv=String(g('e-total')).trim();
   const _editItemsSum=editItems.filter(it=>it.name).reduce((a,it)=>a+(Number(it.amount)||0),0);
@@ -7335,6 +7356,11 @@ async function appSaveEdit(id){
   if(error){ const e=document.getElementById('e-err'); e.textContent='儲存失敗：'+error.message; e.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
   await loadApprovalData(); renderApproval();
+}
+
+// 只開放開票／收款時間模式：鎖定上半部欄位與原因說明（廠商/明細由各自 render 處理）
+function appEditApplyLock(){
+  ['e-date','e-site','e-total','e-dept','e-applicant','e-cost','e-reason'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=true; });
 }
 
 // ---------- 查詢中心 ----------
