@@ -6431,22 +6431,23 @@ function appCompareChart(obj){
   const entries=Object.entries(obj).filter(([,v])=>v.add>0||v.bill>0).sort((a,b)=>Math.max(b[1].add,b[1].bill)-Math.max(a[1].add,a[1].bill));
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
   const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill,v.absorb||0,v.incl||0)));
-  const bar=(val,color)=>`<div style="flex:1;background:#eef2f7;border-radius:5px;height:11px;overflow:hidden"><div style="height:100%;width:${val/max*100}%;background:${color}"></div></div>`;
-  const line=(label,val,color)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:${color};width:44px">${label}</span>${bar(val||0,color)}<b style="font-size:13px;width:84px;text-align:right;color:${color==='#3b82f6'?'#0f172a':color}">${appMoney(val||0)}</b></div>`;
-  return entries.map(([k,v])=>{
+  // 每條長條前直接寫上名稱（不另設圖例）
+  const line=(label,val,color)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px"><span style="font-size:12px;font-weight:600;color:${color};width:44px;flex:none">${label}</span><div style="flex:1;background:#eef2f7;border-radius:5px;height:9px;overflow:hidden"><div style="height:100%;width:${(val||0)/max*100}%;background:${color}"></div></div><b style="font-size:12px;width:84px;text-align:right;color:${color==='#3b82f6'?'#0f172a':color}">${appMoney(val||0)}</b></div>`;
+  const rows=entries.map(([k,v])=>{
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
     const net=v.add-(v.incl||0); // 扣掉「已含於原成本」才是可能需綠源吸收的差額
     const pnl=v.bill-net; // 請款 > (追加−原成本) = 賺，反之 = 賠
-    const mark = pnl<0 ? ` <span style="background:#fee2e2;color:#b91c1c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap">⚠️ 綠源吸收 NT$ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加−原成本）＝綠源要吸收的差額，賺錢不顯示
-    const exBtn=`<button onclick="event.stopPropagation();appExportSite(${v.id!=null?v.id:'null'},'${appEsc(k).replace(/'/g,"\\'")}')" title="匯出此案場所有追加申請細項" style="margin-left:8px;border:1px solid var(--border);background:#fff;border-radius:8px;padding:1px 9px;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer">📊 結案統計</button>`;
-    return `<div ${clk} style="cursor:pointer;margin:9px 0">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}${exBtn}</div>
+    const mark = pnl<0 ? ` <span style="background:#fee2e2;color:#b91c1c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap">⚠️ NT$ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加−原成本）＝綠源要吸收的差額，賺錢不顯示
+    const exBtn=`<button onclick="event.stopPropagation();appExportSite(${v.id!=null?v.id:'null'},'${appEsc(k).replace(/'/g,"\\'")}')" title="匯出此案場結案統計 Excel" style="flex:none;border:1px solid var(--border);background:#fff;border-radius:7px;padding:3px 8px;font-size:13px;cursor:pointer;line-height:1">📊</button>`;
+    return `<div ${clk} style="cursor:pointer;margin:12px 0">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px"><span style="font-size:13px;font-weight:600">${appEsc(k)}${mark}</span>${exBtn}</div>
       ${line('追加',v.add,'#3b82f6')}
       ${line('綠源',v.absorb,'#16a34a')}
       ${(v.incl>0)?line('原成本',v.incl,'#7c3aed'):''}
       ${line('請款',v.bill,'#dc2626')}
     </div>`;
   }).join('');
+  return rows;
 }
 const STATUS_LABELS={pending:'跑單中',approved:'已核准',rejected:'遭退回'};
 const STATUS_COLORS={pending:'#d97706',approved:'#16a34a',rejected:'#dc2626'};
@@ -6467,14 +6468,15 @@ function appQueryFilterPass(r, exclude){
 function appQueryRefreshOptions(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
   const curY=String(new Date().getFullYear());
-  // 年度
+  // 年度（選項依其他已選條件連動）
   {
     const rows=appRequests.filter(r=>appQueryFilterPass(r,'year'));
     let years=[...new Set(rows.map(r=>(r.apply_date||r.created_at||'').slice(0,4) || ('20'+String(r.serial_no||'').slice(0,2))).filter(y=>/^\d{4}$/.test(y)))].sort((a,b)=>b-a);
     if(!years.includes(curY)) years.unshift(curY);
     const sel=document.getElementById('q-year'); const prev=g('q-year');
+    if(prev && !years.includes(prev)) years.push(prev); // 保留使用者已選值：此組合下暫無資料也不清空（結果顯示 0 筆而非跳回全部）
     sel.innerHTML='<option value="">全部年度</option>'+years.map(y=>`<option value="${y}">${y} 年</option>`).join('');
-    sel.value=years.includes(prev)?prev:'';
+    sel.value=prev||'';
   }
   // 工程名稱
   {
@@ -6484,8 +6486,9 @@ function appQueryRefreshOptions(){
     const siteRank=n=>{ const i=orderedSites.findIndex(s=>appReqMatchSite({site_name:n},s)); return i<0?9999:i; };
     const names=[...new Set(rows.map(r=>siteShortName(r.site_name)).filter(Boolean))].sort((a,b)=>(siteRank(a)-siteRank(b))||a.localeCompare(b));   // 依正式短標籤歸併同案場的不同寫法
     const sel=document.getElementById('q-site'); const prev=g('q-site');
-    sel.innerHTML='<option value="">全部</option>'+names.map(n=>`<option>${appEsc(n)}</option>`).join('');
-    sel.value=names.includes(prev)?prev:'';
+    const list=(prev&&!names.includes(prev))?[...names,prev]:names; // 保留已選的工程名稱
+    sel.innerHTML='<option value="">全部</option>'+list.map(n=>`<option>${appEsc(n)}</option>`).join('');
+    sel.value=prev||'';
   }
   // 申請單位
   {
@@ -6493,16 +6496,18 @@ function appQueryRefreshOptions(){
     const depts=new Set(rows.map(r=>r.apply_dept).filter(Boolean));
     const ordered=[...APP_DEPTS.filter(d=>depts.has(d)), ...[...depts].filter(d=>!APP_DEPTS.includes(d)).sort()];
     const sel=document.getElementById('q-resp'); const prev=g('q-resp');
-    sel.innerHTML='<option value="">全部</option>'+ordered.map(d=>`<option>${d}</option>`).join('');
-    sel.value=ordered.includes(prev)?prev:'';
+    const list=(prev&&!ordered.includes(prev))?[...ordered,prev]:ordered; // 保留已選的申請單位
+    sel.innerHTML='<option value="">全部</option>'+list.map(d=>`<option>${d}</option>`).join('');
+    sel.value=prev||'';
   }
   // 申請人
   {
     const rows=appRequests.filter(r=>appQueryFilterPass(r,'applicant'));
     const names=[...new Set(rows.map(r=>r.applicant).filter(Boolean))].sort();
     const sel=document.getElementById('q-applicant'); const prev=g('q-applicant');
-    sel.innerHTML='<option value="">全部</option>'+names.map(n=>`<option>${appEsc(n)}</option>`).join('');
-    sel.value=names.includes(prev)?prev:'';
+    const list=(prev&&!names.includes(prev))?[...names,prev]:names; // 保留已選的申請人
+    sel.innerHTML='<option value="">全部</option>'+list.map(n=>`<option>${appEsc(n)}</option>`).join('');
+    sel.value=prev||'';
   }
   // 簽核狀態
   {
@@ -6510,8 +6515,9 @@ function appQueryRefreshOptions(){
     const keys=new Set(rows.map(r=>appStatusKey(r)).filter(Boolean));
     const order=['pending','approved','rejected'].filter(k=>keys.has(k));
     const sel=document.getElementById('q-status'); const prev=g('q-status');
-    sel.innerHTML='<option value="">全部</option>'+order.map(k=>`<option value="${k}">${STATUS_LABELS[k]}</option>`).join('');
-    sel.value=order.includes(prev)?prev:'';
+    const list=(prev&&!order.includes(prev))?[...order,prev]:order; // 保留已選的簽核狀態
+    sel.innerHTML='<option value="">全部</option>'+list.map(k=>`<option value="${k}">${STATUS_LABELS[k]||k}</option>`).join('');
+    sel.value=prev||'';
   }
   // 是否對客戶請款（固定選項，僅還原選取值）
   {
@@ -6520,6 +6526,7 @@ function appQueryRefreshOptions(){
   }
 }
 function appQueryOnChange(){
+  // 下拉選項彼此連動：選了一個條件，其他下拉只保留「在此條件下仍有資料」的選項
   appQueryRefreshOptions();
   runAppQuery();
 }
@@ -6703,7 +6710,7 @@ function appExportSite(siteId, name){
   if(!reqs.length){ alert(title+' 目前沒有追加申請可匯出'); return; }
   const fmtD=d=>{ const m=String(d||'').slice(0,10).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}/${+m[3]}`:''; };
   const costText=r=> appIsBillable(r)?'需向客戶請款':(appCostIncluded(r)?'已含於原成本':(appCostDecided(r)?'綠源自行吸收':'未決定'));
-  const headers=['日期','流水號','申請人','費用歸屬','追加明細','數量','原因','追加款金額','對客戶請款金額','開票時間','收款時間'];
+  const headers=['日期','流水號','申請人','費用歸屬','追加明細','數量','原因','追加款金額','對客戶請款金額','已含於原成本','開票時間','收款時間'];
   const NC=headers.length;
   const aoa=[[title+'　追加申請結案統計', ...Array(NC-1).fill('')], headers];
   const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}}];
@@ -6718,30 +6725,32 @@ function appExportSite(siteId, name){
       const qtyStr=(it.qty!=null&&it.qty!=='')?(it.qty+(it.unit||'')):(it.unit||'');
       aoa.push([ i===0?fmtD(r.apply_date):'', i===0?(r.serial_no||''):'', i===0?(r.applicant||''):'', i===0?costText(r):'',
         it.name||'', qtyStr, i===0?(r.reason_text||''):'',
-        i===0?_eff:'', i===0?(billable?(cAmt||''):''):'',
+        i===0?_eff:'', i===0?(billable?(cAmt||''):''):'', i===0?(appCostIncluded(r)?_eff:''):'',
         i===0?fmtD(r.invoice_date):'', i===0?fmtD(r.payment_date):'' ]);
     });
     const endRow=aoa.length-1;
-    if(endRow>startRow) [0,1,2,3,6,7,8,9,10].forEach(c=>merges.push({s:{r:startRow,c},e:{r:endRow,c}}));
+    if(endRow>startRow) [0,1,2,3,6,7,8,9,10,11].forEach(c=>merges.push({s:{r:startRow,c},e:{r:endRow,c}}));
   });
-  const totalRow=aoa.length;
-  aoa.push(['','','','','','','追加款總計',totAdd,totBill,'','']);
-  aoa.push(['','','','','','','需向客戶請款',totBill,'','','']);
-  aoa.push(['','','','','','','綠源自行吸收',totAbsorb,'','','']);
-  aoa.push(['','','','','','','已含於原成本',totIncl,'','','']);
-  const sumRows=[totalRow,totalRow+1,totalRow+2,totalRow+3];
+  const dataEnd=aoa.length-1;                 // 最後一列資料
+  // 統計列：緊接資料下方一列，各金額欄各自加總（原因欄放「追加款總計」標題）
+  const sumRow=Array(NC).fill(''); sumRow[6]='總計'; sumRow[7]=totAdd; sumRow[8]=totBill; sumRow[9]=totIncl;
+  const sumR=aoa.length; aoa.push(sumRow);
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges']=merges;
-  ws['!cols']=[{wch:11},{wch:9},{wch:10},{wch:13},{wch:34},{wch:9},{wch:36},{wch:13},{wch:15},{wch:12},{wch:12}];
+  ws['!cols']=[{wch:11},{wch:9},{wch:10},{wch:13},{wch:34},{wch:9},{wch:36},{wch:14},{wch:15},{wch:15},{wch:12},{wch:12}];
   const bd={style:'thin',color:{rgb:'CBD5E1'}}; const allB={top:bd,bottom:bd,left:bd,right:bd};
-  const range=XLSX.utils.decode_range(ws['!ref']);
-  for(let R=range.s.r;R<=range.e.r;R++) for(let C=range.s.c;C<=range.e.c;C++){
+  // 資料區(標題列+表頭+明細)
+  for(let R=0;R<=dataEnd;R++) for(let C=0;C<NC;C++){
     const ref=XLSX.utils.encode_cell({r:R,c:C}); if(!ws[ref]) ws[ref]={t:'s',v:''};
     const left=(C===4||C===6);
     ws[ref].s={border:allB, alignment:{vertical:'center',horizontal:left?'left':'center',wrapText:true}};
     if(R===0) ws[ref].s={border:allB, font:{bold:true,sz:14}, alignment:{horizontal:'center',vertical:'center'}};
     else if(R===1) ws[ref].s={border:allB, font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'059669'}}, alignment:{horizontal:'center',vertical:'center'}};
-    else if(sumRows.includes(R)) ws[ref].s={border:allB, font:{bold:true}, alignment:{horizontal:C>=7?'right':'right',vertical:'center'}};
+  }
+  // 統計列：原因欄標題靠右、三個金額欄各自加總、淺底強調
+  for(let C=6;C<=9;C++){
+    const ref=XLSX.utils.encode_cell({r:sumR,c:C}); if(!ws[ref]) ws[ref]={t:(C===6?'s':'n'),v:(C===6?'':0)};
+    ws[ref].s={border:allB, font:{bold:true}, fill:{fgColor:{rgb:'EEF2F7'}}, alignment:{horizontal:'right',vertical:'center'}};
   }
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'結案統計');
   XLSX.writeFile(wb, title+'_追加申請結案統計.xlsx');
@@ -7486,21 +7495,8 @@ function appResultTableHTML(rows, compact, desc){
     <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
-  const g=id=>{ const e=document.getElementById(id); return e?e.value.trim():''; };
-  const year=g('q-year'), serial=g('q-serial'), site=g('q-site'), app=g('q-applicant'), resp=g('q-resp'), st=g('q-status'), bv=g('q-billable');
-  const min=parseFloat(g('q-min')), max=parseFloat(g('q-max'));
-  const rows=appRequests.filter(r=>{
-    if(year){ const ry=(r.apply_date||r.created_at||'').slice(0,4) || ('20'+String(r.serial_no||'').slice(0,2)); if(ry!==year) return false; }
-    if(serial && !(r.serial_no||'').includes(serial)) return false;
-    if(site && !(r.site_name||'').includes(site)) return false;
-    if(app && !(r.applicant||'').includes(app)) return false;
-    if(resp && r.apply_dept!==resp) return false;
-    if(st && appStatusKey(r)!==st) return false;
-    if(bv!=='' && (appIsBillable(r)?'1':'0')!==bv) return false;
-    if(!isNaN(min) && (Number(appEffTotal(r))||0)<min) return false;
-    if(!isNaN(max) && (Number(appEffTotal(r))||0)>max) return false;
-    return true;
-  });
+  // 統一用 appQueryFilterPass（與下拉選項同一套邏輯），避免兩份篩選程式分歧
+  const rows=appRequests.filter(r=>appQueryFilterPass(r));
   const el=document.getElementById('q-result'); if(!el) return;
   el.innerHTML=appResultTableHTML(rows, false, true); // 查詢中心：流水號降冪（大→小）
 }
