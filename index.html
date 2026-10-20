@@ -3837,7 +3837,8 @@ function openModal(id) {
         <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="appGoQuerySiteForSite(${s.id})">
           <span style="font-size:12px;color:var(--muted)">共 ${reqs.length} 筆申請</span>
           <span style="font-size:20px;font-weight:800">NT$ ${total.toLocaleString('en-US')}</span>
-        </div>`;
+        </div>
+        ${reqs.length?`<div style="text-align:right;margin-top:8px"><button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appExportSite(${s.id})">📊 匯出結案統計 Excel</button></div>`:''}`;
     })()}
   `;
 
@@ -6429,17 +6430,21 @@ function appBarChart(obj, color, clickFn, limit){
 function appCompareChart(obj){
   const entries=Object.entries(obj).filter(([,v])=>v.add>0||v.bill>0).sort((a,b)=>Math.max(b[1].add,b[1].bill)-Math.max(a[1].add,a[1].bill));
   if(!entries.length) return '<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無資料</div>';
-  const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill,v.absorb||0)));
+  const max=Math.max(1,...entries.map(([,v])=>Math.max(v.add,v.bill,v.absorb||0,v.incl||0)));
   const bar=(val,color)=>`<div style="flex:1;background:#eef2f7;border-radius:5px;height:11px;overflow:hidden"><div style="height:100%;width:${val/max*100}%;background:${color}"></div></div>`;
+  const line=(label,val,color)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:${color};width:44px">${label}</span>${bar(val||0,color)}<b style="font-size:13px;width:84px;text-align:right;color:${color==='#3b82f6'?'#0f172a':color}">${appMoney(val||0)}</b></div>`;
   return entries.map(([k,v])=>{
     const clk = v.id!=null ? `onclick="appGoQuerySiteForSite(${v.id})"` : `onclick="appGoQuerySite('${appEsc(k).replace(/'/g,"\\'")}')"`;
-    const pnl=v.bill-v.add; // 以追加為基準：請款 > 追加 = 賺，請款 < 追加 = 賠
-    const mark = pnl<0 ? ` <span style="background:#fee2e2;color:#b91c1c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap">⚠️ 綠源吸收 NT$ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加）＝綠源要吸收的差額，賺錢不顯示
+    const net=v.add-(v.incl||0); // 扣掉「已含於原成本」才是可能需綠源吸收的差額
+    const pnl=v.bill-net; // 請款 > (追加−原成本) = 賺，反之 = 賠
+    const mark = pnl<0 ? ` <span style="background:#fee2e2;color:#b91c1c;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap">⚠️ 綠源吸收 NT$ ${appMoney(-pnl)}</span>` : ''; // 只標賠錢（請款<追加−原成本）＝綠源要吸收的差額，賺錢不顯示
+    const exBtn=`<button onclick="event.stopPropagation();appExportSite(${v.id!=null?v.id:'null'},'${appEsc(k).replace(/'/g,"\\'")}')" title="匯出此案場所有追加申請細項" style="margin-left:8px;border:1px solid var(--border);background:#fff;border-radius:8px;padding:1px 9px;font-size:11px;font-weight:600;color:var(--accent);cursor:pointer">📊 結案統計</button>`;
     return `<div ${clk} style="cursor:pointer;margin:9px 0">
-      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}</div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#3b82f6;width:36px">追加</span>${bar(v.add,'#3b82f6')}<b style="font-size:13px;width:84px;text-align:right">${appMoney(v.add)}</b></div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:13px;font-weight:600;color:#16a34a;width:36px">綠源</span>${bar(v.absorb||0,'#16a34a')}<b style="font-size:13px;width:84px;text-align:right;color:#16a34a">${appMoney(v.absorb||0)}</b></div>
-      <div style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;font-weight:600;color:#dc2626;width:36px">請款</span>${bar(v.bill,'#dc2626')}<b style="font-size:13px;width:84px;text-align:right;color:#dc2626">${appMoney(v.bill)}</b></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:3px">${appEsc(k)}${mark}${exBtn}</div>
+      ${line('追加',v.add,'#3b82f6')}
+      ${line('綠源',v.absorb,'#16a34a')}
+      ${(v.incl>0)?line('原成本',v.incl,'#7c3aed'):''}
+      ${line('請款',v.bill,'#dc2626')}
     </div>`;
   }).join('');
 }
@@ -6453,7 +6458,7 @@ function appQueryFilterPass(r, exclude){
   if(exclude!=='resp'){ const d=g('q-resp'); if(d && r.apply_dept!==d) return false; }
   if(exclude!=='applicant'){ const a=g('q-applicant'); if(a && r.applicant!==a) return false; }
   if(exclude!=='status'){ const st=g('q-status'); if(st && appStatusKey(r)!==st) return false; }
-  if(exclude!=='billable'){ const bv=g('q-billable'); if(bv!==''){ const bk=appIsBillable(r)?'1':(appCostIncluded(r)?'2':'0'); if(bk!==bv) return false; } }
+  if(exclude!=='billable'){ const bv=g('q-billable'); if(bv!==''){ const bk=appIsBillable(r)?'1':(appCostIncluded(r)?'2':(appCostDecided(r)?'0':'')); if(bk!==bv) return false; } }
   const min=parseFloat(g('q-min')), max=parseFloat(g('q-max'));
   if(exclude!=='min' && !isNaN(min) && (Number(appEffTotal(r))||0)<min) return false;
   if(exclude!=='max' && !isNaN(max) && (Number(appEffTotal(r))||0)>max) return false;
@@ -6511,7 +6516,7 @@ function appQueryRefreshOptions(){
   // 是否對客戶請款（固定選項，僅還原選取值）
   {
     const sel=document.getElementById('q-billable'); const prev=g('q-billable');
-    if(sel) sel.value=['','1','0'].includes(prev)?prev:'';
+    if(sel) sel.value=['','1','0','2'].includes(prev)?prev:'';
   }
 }
 function appQueryOnChange(){
@@ -6688,6 +6693,59 @@ function appExportMonth(){
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'工程物料申請控管單');
   XLSX.writeFile(wb, mNum+'月工程物料申請控管單.xlsx');
 }
+// 單一案場「結案統計」：把該案場所有追加申請細項彙整成一份 Excel
+function appExportSite(siteId, name){
+  if(typeof XLSX==='undefined'){ alert('匯出元件未載入，請稍後再試'); return; }
+  const s = (siteId!=null) ? sites.find(x=>x.id===siteId) : null;
+  const title = s ? (s.label||s.name) : (name||'未指定');
+  const reqs = appRequests.filter(r=> r.status!=='rejected' && (s ? appReqMatchSite(r,s) : ((r.site_name||'未指定')===name)))
+    .sort((a,b)=>String(a.serial_no||'').localeCompare(String(b.serial_no||''),undefined,{numeric:true}));
+  if(!reqs.length){ alert(title+' 目前沒有追加申請可匯出'); return; }
+  const fmtD=d=>{ const m=String(d||'').slice(0,10).match(/(\d{4})-(\d{2})-(\d{2})/); return m?`${+m[1]}/${+m[2]}/${+m[3]}`:''; };
+  const costText=r=> appIsBillable(r)?'需向客戶請款':(appCostIncluded(r)?'已含於原成本':(appCostDecided(r)?'綠源自行吸收':'未決定'));
+  const headers=['日期','流水號','申請人','費用歸屬','追加明細','數量','原因','追加款金額','對客戶請款金額','開票時間','收款時間'];
+  const NC=headers.length;
+  const aoa=[[title+'　追加申請結案統計', ...Array(NC-1).fill('')], headers];
+  const merges=[{s:{r:0,c:0},e:{r:0,c:NC-1}}];
+  let totAdd=0, totBill=0, totAbsorb=0, totIncl=0;
+  reqs.forEach(r=>{
+    const items=(r.items&&r.items.length)?r.items:[{name:'',qty:'',unit:''}];
+    const startRow=aoa.length;
+    const _eff=Number(appEffTotal(r))||0; const billable=appIsBillable(r); const cAmt=Number(r.client_amount||0);
+    totAdd+=_eff;
+    if(billable) totBill+=cAmt; else if(appCostIncluded(r)) totIncl+=_eff; else if(appCostDecided(r)) totAbsorb+=_eff;
+    items.forEach((it,i)=>{
+      const qtyStr=(it.qty!=null&&it.qty!=='')?(it.qty+(it.unit||'')):(it.unit||'');
+      aoa.push([ i===0?fmtD(r.apply_date):'', i===0?(r.serial_no||''):'', i===0?(r.applicant||''):'', i===0?costText(r):'',
+        it.name||'', qtyStr, i===0?(r.reason_text||''):'',
+        i===0?_eff:'', i===0?(billable?(cAmt||''):''):'',
+        i===0?fmtD(r.invoice_date):'', i===0?fmtD(r.payment_date):'' ]);
+    });
+    const endRow=aoa.length-1;
+    if(endRow>startRow) [0,1,2,3,6,7,8,9,10].forEach(c=>merges.push({s:{r:startRow,c},e:{r:endRow,c}}));
+  });
+  const totalRow=aoa.length;
+  aoa.push(['','','','','','','追加款總計',totAdd,totBill,'','']);
+  aoa.push(['','','','','','','需向客戶請款',totBill,'','','']);
+  aoa.push(['','','','','','','綠源自行吸收',totAbsorb,'','','']);
+  aoa.push(['','','','','','','已含於原成本',totIncl,'','','']);
+  const sumRows=[totalRow,totalRow+1,totalRow+2,totalRow+3];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges']=merges;
+  ws['!cols']=[{wch:11},{wch:9},{wch:10},{wch:13},{wch:34},{wch:9},{wch:36},{wch:13},{wch:15},{wch:12},{wch:12}];
+  const bd={style:'thin',color:{rgb:'CBD5E1'}}; const allB={top:bd,bottom:bd,left:bd,right:bd};
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  for(let R=range.s.r;R<=range.e.r;R++) for(let C=range.s.c;C<=range.e.c;C++){
+    const ref=XLSX.utils.encode_cell({r:R,c:C}); if(!ws[ref]) ws[ref]={t:'s',v:''};
+    const left=(C===4||C===6);
+    ws[ref].s={border:allB, alignment:{vertical:'center',horizontal:left?'left':'center',wrapText:true}};
+    if(R===0) ws[ref].s={border:allB, font:{bold:true,sz:14}, alignment:{horizontal:'center',vertical:'center'}};
+    else if(R===1) ws[ref].s={border:allB, font:{bold:true,color:{rgb:'FFFFFF'}}, fill:{fgColor:{rgb:'059669'}}, alignment:{horizontal:'center',vertical:'center'}};
+    else if(sumRows.includes(R)) ws[ref].s={border:allB, font:{bold:true}, alignment:{horizontal:C>=7?'right':'right',vertical:'center'}};
+  }
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'結案統計');
+  XLSX.writeFile(wb, title+'_追加申請結案統計.xlsx');
+}
 function appDashboardHTML(selYm){
   const now = new Date();
   const curYm = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
@@ -6725,8 +6783,9 @@ function appDashboardHTML(selYm){
     const amt=Number(appEffTotal(r))||0;
     const bill=appIsBillable(r) ? (Number(r.client_amount)||amt) : 0;
     const absorb=(!appIsBillable(r) && appCostDecided(r) && !appCostIncluded(r)) ? amt : 0; // 綠源自行吸收（不含「原本含在成本」）
-    if(!cmp[key]) cmp[key]={add:0,bill:0,absorb:0,id: s?s.id:null};
-    cmp[key].add+=amt; cmp[key].bill+=bill; cmp[key].absorb+=absorb;
+    const incl=appCostIncluded(r) ? amt : 0; // 已含於原成本
+    if(!cmp[key]) cmp[key]={add:0,bill:0,absorb:0,incl:0,id: s?s.id:null};
+    cmp[key].add+=amt; cmp[key].bill+=bill; cmp[key].absorb+=absorb; cmp[key].incl+=incl;
   });
   const card=(label,val,sub,color,click)=>`<div class="card" style="padding:14px 16px;border-left:4px solid ${color}${click?';cursor:pointer':''}"${click?` onclick="${click}"`:''}><div style="font-size:12px;color:var(--muted)">${label}</div><div style="font-size:24px;font-weight:800;margin-top:2px">${val}</div><div style="font-size:11px;color:var(--muted)">${sub}</div></div>`;
   return `
