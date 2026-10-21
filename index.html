@@ -5472,11 +5472,12 @@ let equipPhotos = [];        // equipment_photo 記錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
 let _equipPhotoIdx = null;   // 照片 Modal 當前器具索引
 
-// 重複名稱加 #1/#2 以利辨識
+// 重複名稱加 #1/#2 以利辨識（已刪除／移除的器具不計入，帳上只剩 1 筆就不加 #）
 function equipDisplayName(i) {
   const raw = EQUIPMENT[i];
   const name = raw.replace('（壞）', '');  // 故障已用徽章標示，名稱不再顯示（壞）
-  const dupIdx = EQUIPMENT.map((n, k) => n === raw ? k : -1).filter(k => k >= 0);
+  const isRemoved = k => (typeof equipRemovedRuntime !== 'undefined') && equipRemovedRuntime.has(k);
+  const dupIdx = EQUIPMENT.map((n, k) => (n === raw && (k === i || !isRemoved(k))) ? k : -1).filter(k => k >= 0);
   if (dupIdx.length > 1) return `${name} #${dupIdx.indexOf(i) + 1}`;
   return name;
 }
