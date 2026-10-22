@@ -2874,7 +2874,7 @@ function renderRushList() {
   el.innerHTML = items.slice(0, N).map(it => {
     const lagCol = it.gap > 15 ? '#dc2626' : '#d97706'; // 落後>15% 紅、5~15% 橘
     const lagDays = it.planDays > 0 ? Math.max(1, Math.round(it.gap / 100 * it.planDays)) : 0; // 落後相當於幾個工作天
-    const lagTxt = lagDays > 0 ? `<b style="color:${lagCol};font-size:12px"> ・須趕工 ${lagDays} 天</b>` : '';
+    const lagTxt = lagDays > 0 ? `<b style="color:${lagCol};font-size:12px" title="落後 ${it.gap}% × 預計工期 ${it.planDays} 工作天 ≈ ${lagDays} 天（工作天，扣除週末與國定假日）"> ・須趕工 ${lagDays} 天</b>` : '';
     const rowBg = it.gap > 15 ? '#fee2e2' : '#fff4e5'; // 整列警示底色：落後>15% 淺紅、5~15% 淺橘
     const jsName = String(it.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     return `<div onclick="rushJump(${it.siteId},'${jsName}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:4px;background:${rowBg};border-radius:8px">
