@@ -5386,6 +5386,13 @@ async function saveSiteForm() {
   row.wbs_items = (editingWbsItems && editingWbsItems.length) ? editingWbsItems : null; // 自訂工項（無則用範本）
   const existing = editingSiteId !== null ? siteById(editingSiteId) : null;
   const _dates = collectWbsDates();
+  // 標記「人工改過」的工項(m:true)：之後 ezTeamWork 每日自動同步會跳過這些項、不覆蓋；
+  // 但 ezTeamWork 一旦填了「實際完成日」，同步仍會一律抄回並解除此鎖。
+  (function(){
+    const orig = (existing && existing.wbs_dates && typeof existing.wbs_dates === 'object') ? existing.wbs_dates : {};
+    const same = (a, b) => { a = a || {}; b = b || {}; return ['ps','pe','as','ae'].every(f => (a[f] || '') === (b[f] || '')); };
+    Object.keys(_dates).forEach(nm => { if ((orig[nm] && orig[nm].m) || !same(_dates[nm], orig[nm])) _dates[nm].m = true; });
+  })();
   row.wbs_dates = (_dates && Object.keys(_dates).length) ? _dates : null;
   const _comp = collectWbsComp();
   row.wbs_comp = (_comp && Object.keys(_comp).length) ? _comp : null; // 手動完成率覆寫（選填）
