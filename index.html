@@ -4120,6 +4120,9 @@ function buildRainReportHTML(logs, site) {
       <span style="font-weight:400;color:var(--muted);font-size:12px;margin-left:6px">${locDisplay}</span></div>`;
     const info = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">開工：${s.start || '—'}　|　圖例：晴 ☀️　雨 🌧️　陰 ☁️</div>`;
 
+    // 未設定開工日 → 沒有統計起算點（避免把開工前/尚未施工的天氣也算進去），只提示
+    if (!s.start) return `<div>${head}${info}<div style="color:var(--muted);font-size:13px;padding:4px 0">尚未設定開工日，無施工晴雨統計（請先在案場設定開工日）。</div></div>`;
+
     // 只統計「開工～完工」期間：開工前不算；完工案場完工日之後不算
     const startCut = s.start ? s.start.replace(/\//g, '-') : null;
     const endCut = (s.status === 'done') ? (s.end ? s.end.replace(/\//g, '-') : '0000-00-00') : null;
