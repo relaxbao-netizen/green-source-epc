@@ -200,7 +200,7 @@ nav > * { flex-shrink: 0; }
 @keyframes mascotBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
 @keyframes mascotWave { 0%,100%{transform:rotate(-120deg)} 50%{transform:rotate(-155deg)} }
 #mascot-bubble {
-  position: absolute; right: 2px; bottom: 80px; width: 236px; max-width: 72vw;
+  position: absolute; right: 2px; bottom: 90px; width: 256px; max-width: 76vw;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 10px 28px rgba(0,0,0,.18); padding: 12px 14px; font-size: 13px; line-height: 1.7;
   opacity: 0; transform: translateY(8px) scale(.96); transform-origin: 90% 100%;
@@ -216,6 +216,19 @@ nav > * { flex-shrink: 0; }
 #mascot-bubble .mb-rush-nm { flex:1; min-width:0; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #mascot-bubble .mb-chev { font-size:16px; font-weight:700; color:var(--muted); line-height:1; }
 #mascot-bubble .mb-tip { margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); color:var(--muted); font-size:12px; }
+/* 線上問答 */
+#mascot-content { max-height:300px; overflow-y:auto; }
+#mascot-bubble .mb-ask { display:flex; gap:6px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+#mascot-bubble #mascot-q { flex:1; min-width:0; border:1px solid var(--border); border-radius:8px; padding:7px 9px; font-size:12px; font-family:inherit; outline:none; background:var(--surface); color:var(--text); }
+#mascot-bubble #mascot-q:focus { border-color:var(--accent); }
+#mascot-bubble .mb-ask-btn { flex-shrink:0; border:none; border-radius:8px; padding:0 14px; font-size:13px; font-weight:700; color:#fff; background:var(--accent); cursor:pointer; font-family:inherit; }
+#mascot-bubble .mb-back { font-size:12px; color:var(--accent); font-weight:700; cursor:pointer; margin-bottom:6px; }
+#mascot-bubble .mb-q { font-size:12px; font-weight:800; color:var(--text); background:var(--surface2); border-radius:8px; padding:6px 9px; margin-bottom:6px; }
+#mascot-bubble .mb-a { font-size:12.5px; line-height:1.75; color:var(--text); }
+#mascot-bubble .mb-hr { border:none; border-top:1px solid var(--border); margin:6px 0; }
+#mascot-bubble .mb-exs { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+#mascot-bubble .mb-ex { font-size:11px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:3px 9px; cursor:pointer; color:var(--text); }
+#mascot-bubble .mb-ex:hover { background:#eef2f7; border-color:var(--accent); }
 @media (max-width:640px){ #mascot{ right:12px; bottom:12px; width:64px; height:72px; } }
 /* 工地主任今日位置頭貼（放島外，白線指向案場） */
 .sv-mark {
@@ -1297,9 +1310,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <!-- 👷 工地小人：點一下看今日戰情速報（全分頁顯示，固定右下角） -->
-<div id="mascot" title="點我看今日戰情速報" onclick="toggleMascot(event)">
-  <div id="mascot-bubble"></div>
-  <svg id="mascot-svg" width="66" height="74" viewBox="0 0 66 74" xmlns="http://www.w3.org/2000/svg" aria-label="工地小人">
+<div id="mascot" title="點我看今日戰情速報｜可直接問我問題">
+  <div id="mascot-bubble" onclick="event.stopPropagation()"></div>
+  <svg id="mascot-svg" onclick="toggleMascot(event)" width="66" height="74" viewBox="0 0 66 74" xmlns="http://www.w3.org/2000/svg" aria-label="工地小人">
     <ellipse cx="33" cy="70" rx="17" ry="3.2" fill="rgba(0,0,0,.10)"/>
     <!-- 身體/背心 -->
     <rect x="21" y="38" width="24" height="25" rx="6" fill="#059669"/>
@@ -7875,20 +7888,30 @@ function toggleMascot(e) {
   if (e) e.stopPropagation();
   const m = document.getElementById('mascot'); if (!m) return;
   if (m.classList.contains('open')) { m.classList.remove('open'); return; }
-  const items = mascotRushItems();
   const h = new Date().getHours();
   const hi = h < 11 ? '早安' : h < 18 ? '午安' : '晚安';
   const who = (currentUser && currentUser.name) ? '，' + appEsc(String(currentUser.name).split('@')[0].split('_')[0]) : '';
+  document.getElementById('mascot-bubble').innerHTML =
+    `<div class="mb-title">👷 ${hi}${who}！</div>
+     <div id="mascot-content">${mascotReportBody()}</div>
+     <div class="mb-ask">
+       <input id="mascot-q" type="text" autocomplete="off" placeholder="問我…例如：哪些案場落後？"
+         onkeydown="if(event.key==='Enter'){event.preventDefault();mascotAsk()}">
+       <button class="mb-ask-btn" onclick="mascotAsk()" title="送出問題">問</button>
+     </div>`;
+  m.classList.add('open');
+}
+// 今日速報內容（需趕工案場清單 ＋ 隨機工地小語）
+function mascotReportBody() {
+  const items = mascotRushItems();
   let body;
   if (items.length) {
-    // 依案場彙整（同案場只列一次，最嚴重的排前面）
     const bySite = new Map();
     items.forEach(it => {
       const cur = bySite.get(it.siteId);
       if (!cur || it.gap > cur.gap) bySite.set(it.siteId, { siteId: it.siteId, site: it.site, gap: it.gap });
     });
-    const siteList = [...bySite.values()].sort((a, b) => b.gap - a.gap);
-    const rows = siteList.map(s =>
+    const rows = [...bySite.values()].sort((a, b) => b.gap - a.gap).map(s =>
       `<div class="mb-rush" onclick="mascotGo(${s.siteId})">
         <span class="mb-rush-nm">${appEsc(s.site)}</span>
         <span class="mb-chev">›</span></div>`).join('');
@@ -7897,9 +7920,106 @@ function toggleMascot(e) {
     body = `<div style="margin:8px 0 2px;color:var(--success);font-weight:700;text-align:center">✅ 全部符合工期，繼續保持！</div>`;
   }
   const tip = MASCOT_TIPS[Math.floor(Math.random() * MASCOT_TIPS.length)];
-  document.getElementById('mascot-bubble').innerHTML =
-    `<div class="mb-title">👷 ${hi}${who}！</div>${body}<div class="mb-tip">${tip}</div>`;
-  m.classList.add('open');
+  return body + `<div class="mb-tip">${tip}</div>`;
+}
+function mascotShowReport() {
+  const c = document.getElementById('mascot-content'); if (c) c.innerHTML = mascotReportBody();
+  const inp = document.getElementById('mascot-q'); if (inp) inp.value = '';
+}
+// 線上問答：讀戰情室現有資料即時回答
+function mascotAsk() {
+  const inp = document.getElementById('mascot-q'); if (!inp) return;
+  const q = (inp.value || '').trim(); if (!q) return;
+  const ans = mascotAnswer(q);
+  const c = document.getElementById('mascot-content');
+  if (c) c.innerHTML =
+    `<div class="mb-back" onclick="mascotShowReport()">← 今日速報</div>
+     <div class="mb-q">${appEsc(q)}</div>
+     <div class="mb-a">${ans}</div>`;
+  inp.value = '';
+}
+function mascotExample(q) { const inp = document.getElementById('mascot-q'); if (inp) { inp.value = q; mascotAsk(); } }
+function mascotHelpHTML(unknown) {
+  const head = unknown ? '我不太確定你的問題 🤔 這些我可以馬上回答：' : '直接打字問我吧，例如：';
+  const ex = ['哪些案場落後？', '需要趕工的工項？', '誰超載？', '證照快到期的有誰？', '光電/儲能總容量？', '現在有幾個案場？'];
+  return head + '<div class="mb-exs">' + ex.map(e => `<span class="mb-ex" onclick="mascotExample('${e.replace(/'/g, "\\'")}')">${e}</span>`).join('') + '</div>';
+}
+function mascotAnswer(q) {
+  const S = (typeof sites !== 'undefined' ? sites : []);
+  const has = (...kw) => kw.some(k => q.includes(k));
+  const nm = s => s.label || s.name;
+  const sc = (typeof statusDotColor !== 'undefined') ? statusDotColor : { pending:'#64748b', normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
+  // 幫助
+  if (has('你會', '能問', '可以問', '怎麼用', '幫助', '會什麼', 'help')) return mascotHelpHTML(false);
+  // 施工日誌（導向分頁，避免誤判）
+  if (has('日誌', '日報')) return '施工日誌／工具箱會議的逐日繳交狀況，請點上方導覽列的「📋 施工日誌」分頁查看。';
+  // 證照 / 回訓
+  if (has('證照', '回訓') || (has('到期') && !has('保險'))) {
+    const items = (typeof certAlerts === 'function') ? certAlerts() : [];
+    if (!items.length) return '✅ 目前沒有即將到期或逾期的證照。';
+    return '證照提醒：<br>' + items.slice(0, 8).map(it => `• ${appEsc(it.name)}（${appEsc(it.cert)}）<b style="color:var(--danger)">${it.st.level === 'expired' ? '已逾期 ' : '剩 '}${it.st.durText}</b>`).join('<br>');
+  }
+  // 保險
+  if (has('保險')) {
+    const items = (typeof insAlerts === 'function') ? insAlerts() : [];
+    if (!items.length) return '✅ 目前沒有即將到期的保險。';
+    return '保險提醒：<br>' + items.slice(0, 8).map(it => `• ${appEsc(nm(it.site))}（${appEsc(it.label)}）<b style="color:var(--danger)">${it.st.level === 'expired' ? '已逾期 ' : '剩 '}${it.st.durText}</b>`).join('<br>');
+  }
+  // 容量
+  if (has('容量', '光電', '儲能', '裝置', 'kw', 'KW', '發電')) {
+    const pv = S.filter(s => s.type.includes('太陽能') || s.type === 'PV');
+    const st = S.filter(s => s.type.includes('儲能'));
+    const kw = pv.reduce((a, s) => a + (s.mw || 0), 0), kwh = st.reduce((a, s) => a + (s.mwh || 0), 0);
+    return `目前設置容量：<br>• 光電 <b>${fmtCap(kw, 'kWp')}</b>（${pv.length} 案）<br>• 儲能 <b>${fmtCap(kwh, 'kWh')}</b>（${st.length} 案）`;
+  }
+  // 超載 / 人力
+  if (has('超載', '人力', '負荷', '最忙', '帶幾', '帶案', '案量')) {
+    const svs = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload);
+    const over = svs.filter(sv => activeSitesOf(sv).length > 3);
+    const head = over.length ? `目前有 ${over.length} 位主任超載（帶案 >3）：<br>` : '目前沒有主任超載。各主任帶案：<br>';
+    return head + svs.map(sv => { const n = activeSitesOf(sv).length; return `• ${appEsc(sv.name)}：${n} 案${n > 3 ? ' <b style="color:var(--danger)">超載</b>' : ''}`; }).join('<br>');
+  }
+  // 特定案場（名稱比對）
+  const norm = x => String(x || '').replace(/\s/g, '');
+  const qn = norm(q);
+  const matched = S.filter(s => [s.label, s.name, (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s))].filter(Boolean).some(n => norm(n).length >= 2 && qn.includes(norm(n))));
+  if (matched.length) {
+    return matched.slice(0, 3).map(s => {
+      if (s.status === 'done') return `<b>${appEsc(nm(s))}</b>：已完工 ✅`;
+      if (s.status === 'pending') return `<b>${appEsc(nm(s))}</b>：尚未開工（待開工）`;
+      const rush = mascotRushItems().filter(it => it.siteId === s.id);
+      let r = `<b>${appEsc(nm(s))}</b>：狀態 <b style="color:${sc[s.status]}">${statusText[s.status]}</b>、完成 ${Math.round(s.pct || 0)}%`;
+      if (rush.length) r += `<br>需趕工 ${rush.length} 項：` + rush.map(x => appEsc(x.name)).join('、');
+      return r;
+    }).join('<hr class="mb-hr">');
+  }
+  // 趕工
+  if (has('趕工')) {
+    const items = mascotRushItems();
+    if (!items.length) return '✅ 目前沒有需要趕工的工項。';
+    return `需要趕工 ${items.length} 項：<br>` + items.slice(0, 10).map(it => `• ${appEsc(it.site)}（${appEsc(it.name)}）<b style="color:${it.gap > 15 ? 'var(--danger)' : 'var(--warn)'}">落後 ${it.gap}%</b>`).join('<br>');
+  }
+  // 落後 / 進度 / 狀況
+  if (has('落後', '警示', '危險', '狀況', '進度', '慢')) {
+    const danger = S.filter(s => s.status === 'danger'), warn = S.filter(s => s.status === 'warn');
+    if (!danger.length && !warn.length) return '✅ 目前沒有落後或即將落後的案場，大家都跟上進度了！';
+    let r = '';
+    if (danger.length) r += `<b style="color:var(--danger)">進度落後 ${danger.length} 案</b>：` + danger.map(nm).map(appEsc).join('、') + '<br>';
+    if (warn.length) r += `<b style="color:var(--warn)">即將落後 ${warn.length} 案</b>：` + warn.map(nm).map(appEsc).join('、');
+    return r;
+  }
+  // 完工
+  if (has('完工', '已完成', '結案', '做完')) {
+    const done = S.filter(s => s.status === 'done');
+    if (!done.length) return '目前沒有已完工的案場。';
+    return `已完工 ${done.length} 案：<br>` + done.map(s => '• ' + appEsc(nm(s))).join('<br>');
+  }
+  // 案場數 / 清單
+  if (has('幾', '多少', '數量', '幾案', '清單', '列表', '總共')) {
+    const active = S.filter(s => s.status !== 'done' && s.status !== 'pending').length;
+    return `目前共 ${S.length} 個案場：執行中 ${active}、待開工 ${S.filter(s => s.status === 'pending').length}、已完工 ${S.filter(s => s.status === 'done').length}。`;
+  }
+  return mascotHelpHTML(true);
 }
 // 點清單中某案場 → 收起泡泡、開啟該案場詳情、捲到「WBS 施工項目」並閃爍該案場需趕工的工項列（跨分頁可用）
 function mascotGo(siteId) {
