@@ -213,9 +213,8 @@ nav > * { flex-shrink: 0; }
 #mascot-bubble .mb-rush-wrap { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
 #mascot-bubble .mb-rush { display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--surface2); border-radius:8px; cursor:pointer; }
 #mascot-bubble .mb-rush:hover { background:#eef2f7; }
-#mascot-bubble .mb-rush-nm { flex:1; min-width:0; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-#mascot-bubble .mb-rush-gap { font-size:11px; font-weight:800; white-space:nowrap; }
-#mascot-bubble .mb-more { font-size:11px; color:var(--muted); margin-top:5px; text-align:center; }
+#mascot-bubble .mb-rush-nm { flex:1; min-width:0; font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#mascot-bubble .mb-chev { font-size:16px; font-weight:700; color:var(--muted); line-height:1; }
 #mascot-bubble .mb-tip { margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); color:var(--muted); font-size:12px; }
 @media (max-width:640px){ #mascot{ right:12px; bottom:12px; width:54px; height:60px; } #mascot-svg{ width:54px; height:60px; } }
 /* 工地主任今日位置頭貼（放島外，白線指向案場） */
@@ -7880,18 +7879,21 @@ function toggleMascot(e) {
   const items = mascotRushItems();
   const h = new Date().getHours();
   const hi = h < 11 ? '早安' : h < 18 ? '午安' : '晚安';
-  const who = (currentUser && currentUser.name) ? '，' + appEsc(String(currentUser.name).split('@')[0]) : '';
+  const who = (currentUser && currentUser.name) ? '，' + appEsc(String(currentUser.name).split('@')[0].split('_')[0]) : '';
   let body;
   if (items.length) {
-    const rows = items.slice(0, 8).map(it => {
-      const col = it.gap > 15 ? 'var(--danger)' : 'var(--warn)';
-      const jsName = String(it.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-      return `<div class="mb-rush" onclick="mascotRush(${it.siteId},'${jsName}')">
-        <span class="mb-rush-nm"><b>${appEsc(it.site)}</b>（${appEsc(it.name)}）</span>
-        <span class="mb-rush-gap" style="color:${col}">落後 ${it.gap}%</span></div>`;
-    }).join('');
-    const more = items.length > 8 ? `<div class="mb-more">…還有 ${items.length - 8} 項，點任一項可直接前往</div>` : '';
-    body = `<div class="mb-sub">需要趕工 ${items.length} 項：</div><div class="mb-rush-wrap">${rows}</div>${more}`;
+    // 依案場彙整（同案場只列一次，最嚴重的排前面）
+    const bySite = new Map();
+    items.forEach(it => {
+      const cur = bySite.get(it.siteId);
+      if (!cur || it.gap > cur.gap) bySite.set(it.siteId, { siteId: it.siteId, site: it.site, gap: it.gap });
+    });
+    const siteList = [...bySite.values()].sort((a, b) => b.gap - a.gap);
+    const rows = siteList.map(s =>
+      `<div class="mb-rush" onclick="mascotGo(${s.siteId})">
+        <span class="mb-rush-nm">${appEsc(s.site)}</span>
+        <span class="mb-chev">›</span></div>`).join('');
+    body = `<div class="mb-sub">需要趕工的案場：</div><div class="mb-rush-wrap">${rows}</div>`;
   } else {
     body = `<div style="margin:8px 0 2px;color:var(--success);font-weight:700;text-align:center">✅ 全部符合工期，繼續保持！</div>`;
   }
@@ -7900,11 +7902,10 @@ function toggleMascot(e) {
     `<div class="mb-title">👷 ${hi}${who}！</div>${body}<div class="mb-tip">${tip}</div>`;
   m.classList.add('open');
 }
-// 點清單中某項 → 收起泡泡並跳到該案場該工項（跨分頁可用）
-function mascotRush(siteId, name) {
+// 點清單中某案場 → 收起泡泡並開啟該案場詳情（跨分頁可用）
+function mascotGo(siteId) {
   const m = document.getElementById('mascot'); if (m) m.classList.remove('open');
-  if (typeof rushJump === 'function') rushJump(siteId, name);
-  else openModal(siteId);
+  openModal(siteId);
 }
 // 點小人以外的地方 → 收起泡泡
 document.addEventListener('click', function (ev) {
