@@ -7953,6 +7953,36 @@ function mascotAnswer(q) {
   if (has('你會', '能問', '可以問', '怎麼用', '幫助', '會什麼', 'help')) return mascotHelpHTML(false);
   // 施工日誌（導向分頁，避免誤判）
   if (has('日誌', '日報')) return '施工日誌／工具箱會議的逐日繳交狀況，請點上方導覽列的「📋 施工日誌」分頁查看。';
+  // 特定案場（名稱比對）— 放在一般主題之前，才能回答「兆豐容量」「台積電AP7進度」等
+  // 支援簡稱：問句含完整案場名、或含案場名的前綴（≥2字，如「兆豐」對到「兆豐銀行」）
+  const norm = x => String(x || '').replace(/\s/g, '');
+  const qn = norm(q);
+  const matchLen = name => {
+    const c = norm(name); if (c.length < 2) return 0;
+    if (qn.includes(c)) return c.length;
+    for (let len = c.length - 1; len >= 2; len--) { if (qn.includes(c.slice(0, len))) return len; }
+    return 0;
+  };
+  const scored = S.map(s => ({ s, best: Math.max(0, ...[s.label, s.name, (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s))].filter(Boolean).map(matchLen)) })).filter(x => x.best >= 2);
+  if (scored.length) {
+    const top = Math.max(...scored.map(x => x.best));
+    const matched = scored.filter(x => x.best === top).map(x => x.s).slice(0, 3);
+    const wantCap = has('容量', '光電', '儲能', '裝置', 'kw', 'KW', '發電', '瓩');
+    return matched.slice(0, 3).map(s => {
+      if (wantCap) {
+        const parts = [];
+        if (s.mw) parts.push(`光電 <b>${s.mw} kWp</b>`);
+        if (s.skw || s.mwh) parts.push(`儲能 <b>${s.skw ? s.skw + ' kW / ' : ''}${s.mwh || 0} kWh</b>`);
+        return `<b>${appEsc(nm(s))}</b>：` + (parts.length ? parts.join('、') : '尚未登錄設置容量');
+      }
+      if (s.status === 'done') return `<b>${appEsc(nm(s))}</b>：已完工 ✅`;
+      if (s.status === 'pending') return `<b>${appEsc(nm(s))}</b>：尚未開工（待開工）`;
+      const rush = mascotRushItems().filter(it => it.siteId === s.id);
+      let r = `<b>${appEsc(nm(s))}</b>：狀態 <b style="color:${sc[s.status]}">${statusText[s.status]}</b>、完成 ${Math.round(s.pct || 0)}%`;
+      if (rush.length) r += `<br>需趕工 ${rush.length} 項：` + rush.map(x => appEsc(x.name)).join('、');
+      return r;
+    }).join('<hr class="mb-hr">');
+  }
   // 證照 / 回訓
   if (has('證照', '回訓') || (has('到期') && !has('保險'))) {
     const items = (typeof certAlerts === 'function') ? certAlerts() : [];
@@ -7978,20 +8008,6 @@ function mascotAnswer(q) {
     const over = svs.filter(sv => activeSitesOf(sv).length > 3);
     const head = over.length ? `目前有 ${over.length} 位主任超載（帶案 >3）：<br>` : '目前沒有主任超載。各主任帶案：<br>';
     return head + svs.map(sv => { const n = activeSitesOf(sv).length; return `• ${appEsc(sv.name)}：${n} 案${n > 3 ? ' <b style="color:var(--danger)">超載</b>' : ''}`; }).join('<br>');
-  }
-  // 特定案場（名稱比對）
-  const norm = x => String(x || '').replace(/\s/g, '');
-  const qn = norm(q);
-  const matched = S.filter(s => [s.label, s.name, (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s))].filter(Boolean).some(n => norm(n).length >= 2 && qn.includes(norm(n))));
-  if (matched.length) {
-    return matched.slice(0, 3).map(s => {
-      if (s.status === 'done') return `<b>${appEsc(nm(s))}</b>：已完工 ✅`;
-      if (s.status === 'pending') return `<b>${appEsc(nm(s))}</b>：尚未開工（待開工）`;
-      const rush = mascotRushItems().filter(it => it.siteId === s.id);
-      let r = `<b>${appEsc(nm(s))}</b>：狀態 <b style="color:${sc[s.status]}">${statusText[s.status]}</b>、完成 ${Math.round(s.pct || 0)}%`;
-      if (rush.length) r += `<br>需趕工 ${rush.length} 項：` + rush.map(x => appEsc(x.name)).join('、');
-      return r;
-    }).join('<hr class="mb-hr">');
   }
   // 趕工
   if (has('趕工')) {
