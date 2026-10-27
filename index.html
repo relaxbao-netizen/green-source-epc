@@ -8016,7 +8016,32 @@ function mascotAnswer(q) {
     return '教育訓練課程在導覽列「課程園地」，現場工程師養成計畫共 10 堂課。';
   }
   if (has('晴雨', '天氣', '下雨', '降雨', '氣象', '會不會下雨', '天候')) return '各案場施工晴雨統計：開啟該案場詳情後，點裡面的「施工晴雨表」即可查看。';
-  if (has('器具', '工具借', '借用', '制服', '領用', '借工具', '借器材', '領衣服', '領裝備')) return '器具借用／制服領取在導覽列「領用管理」分頁。';
+  // 制服領取
+  if (has('制服', '衣服', '領衣', '領裝備', '制服領取')) {
+    const uni = (typeof uniforms !== 'undefined') ? uniforms : [];
+    if (!uni.length) return '目前尚無制服領取紀錄，詳見「領用管理 › 制服領取」。';
+    const bySize = {}; UNIFORM_SIZES.forEach(s => bySize[s] = 0); let tot = 0;
+    uni.forEach(r => { const q = Number(r.qty) || 0; if (bySize[r.size] != null) bySize[r.size] += q; tot += q; });
+    return `制服已領取合計 ${tot} 件：<br>` + UNIFORM_SIZES.map(s => `${s} ${bySize[s]} 件`).join('、') + '<br>明細見「領用管理 › 制服領取」。';
+  }
+  // 器具借用
+  if (has('器具', '工具', '儀器', '借用', '借走', '借出', '測距', '雷射', '電表', '扭力')) {
+    const removed = (typeof equipRemovedRuntime !== 'undefined') ? equipRemovedRuntime : new Set();
+    const idxs = EQUIPMENT.map((_, i) => i).filter(i => !((typeof EQUIP_REMOVED !== 'undefined' && EQUIP_REMOVED.has(i)) || removed.has(i)));
+    if (has('借走', '借出', '誰借', '借用中', '在誰', '沒還', '未還', '誰拿')) {
+      const out = idxs.map(i => ({ i, rec: (typeof equipOpenRecord === 'function') ? equipOpenRecord(i) : null })).filter(x => x.rec);
+      return out.length ? `借出中的器具 ${out.length} 樣：<br>` + out.map(x => `• ${esc(equipDisplayName(x.i))} — ${esc(x.rec.borrower || '?')}`).join('<br>') : '目前沒有器具借出中（都在庫）。';
+    }
+    if (has('有哪些', '清單', '列出', '幾樣', '幾個', '多少', '哪些', '哪幾')) {
+      return `共 ${idxs.length} 樣器具：<br>` + idxs.map(i => '• ' + esc(equipDisplayName(i))).join('<br>');
+    }
+    return '器具借用在「領用管理 › 器具借用」。可問我「器具有哪些」或「哪些器具借出中」。';
+  }
+  // 離職人員
+  if (has('離職', '走了', '離開', '不在了', '離開公司')) {
+    const left = (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => s.left_date);
+    return left.length ? `已離職 ${left.length} 位：<br>` + left.map(s => `• ${esc(String(s.name).split(/\s+/)[0])}（${esc(s.left_date)}）`).join('<br>') : '目前沒有離職的工地主任紀錄。';
+  }
   // 我的案場（登入者）
   if (has('我負責', '我的案場', '我帶', '我顧', '我的案子', '我手上', '我有哪些', '我管', '我在做', '我那些') || (has('我') && has('案場', '案子', '工地', '工程') && has('負責', '帶', '顧', '管', '做'))) {
     if (!currentUser || !currentUser.name) return '請先從右上角登入，我才知道你是誰喔 👷';
@@ -8026,6 +8051,23 @@ function mascotAnswer(q) {
     if (!me) return `找不到你（${esc(myName)}）負責的案場，可能你不是工地主任。`;
     const act = sitesOfPm(me.name).map(siteById).filter(s => s && s.status !== 'done');
     return act.length ? `你（${esc(String(me.name).split(/\s+/)[0])}）負責 ${act.length} 案：<br>${list2(act)}` : `${esc(myName)} 目前沒有進行中的案場。`;
+  }
+  // 今日派工 / 某主任今天在哪
+  if (has('今天', '今日') && has('在哪', '去哪', '哪個案場', '派工', '位置', '在哪裡', '跑哪', '哪個工地', '去哪裡')) {
+    const today = new Date().toISOString().slice(0, 10);
+    const logs = (typeof supLogs !== 'undefined') ? supLogs : [];
+    const place = r => r.site_id != null ? (siteById(r.site_id) ? nm(siteById(r.site_id)) : '?') : (r.place || '?');
+    const svSrc = (typeof supervisors !== 'undefined' ? supervisors : []);
+    const sv = svSrc.find(s => { const f = normS(String(s.name).split(/\s+/)[0]); return f.length >= 2 && qn.includes(f); });
+    if (sv) {
+      const recs = logs.filter(r => r.supervisor === sv.name && r.log_date === today);
+      const f = String(sv.name).split(/\s+/)[0];
+      return recs.length ? `${esc(f)} 今天：${recs.map(place).map(esc).join('、')}` : `${esc(f)} 今天沒有派工紀錄。`;
+    }
+    const recs = logs.filter(r => r.log_date === today);
+    if (!recs.length) return '今天還沒有派工紀錄。';
+    const by = {}; recs.forEach(r => { const n = String(r.supervisor || '').split(/\s+/)[0]; (by[n] = by[n] || []).push(place(r)); });
+    return '今天派工：<br>' + Object.keys(by).map(n => `• ${esc(n)}：${[...new Set(by[n])].map(esc).join('、')}`).join('<br>');
   }
   // 特定案場（名稱比對：最長共同子字串≥3，或案場名前兩字出現在問句）
   const scored = S.map(s => {
