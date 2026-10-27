@@ -7901,10 +7901,20 @@ function toggleMascot(e) {
     `<div class="mb-title">👷 ${hi}${who}！</div>${body}<div class="mb-tip">${tip}</div>`;
   m.classList.add('open');
 }
-// 點清單中某案場 → 收起泡泡並開啟該案場詳情（跨分頁可用）
+// 點清單中某案場 → 收起泡泡、開啟該案場詳情並捲到「WBS 施工項目」（跨分頁可用）
 function mascotGo(siteId) {
   const m = document.getElementById('mascot'); if (m) m.classList.remove('open');
   openModal(siteId);
+  setTimeout(() => {
+    const body = document.getElementById('modal-body'); if (!body) return;
+    const box = body.closest('.modal-box'); if (!box) return;
+    const t = [...body.querySelectorAll('.wbs-title')].find(e => (e.textContent || '').trim().startsWith('WBS 施工項目'));
+    if (!t) return;
+    const header = box.querySelector('.modal-header');
+    const off = (header ? header.getBoundingClientRect().height : 0) + 10; // 扣掉 sticky 標題列高度
+    const target = box.scrollTop + (t.getBoundingClientRect().top - box.getBoundingClientRect().top) - off;
+    box.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }, 120);
 }
 // 點小人以外的地方 → 收起泡泡
 document.addEventListener('click', function (ev) {
