@@ -7933,7 +7933,7 @@ function mascotAsk() {
   const ans = mascotAnswer(q);
   const c = document.getElementById('mascot-content');
   if (c) c.innerHTML =
-    `<div class="mb-back" onclick="mascotShowReport()">← 今日速報</div>
+    `<div class="mb-back" onclick="mascotShowReport()">← 返回</div>
      <div class="mb-q">${appEsc(q)}</div>
      <div class="mb-a">${ans}</div>`;
   inp.value = '';
