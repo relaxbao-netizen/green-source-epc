@@ -7880,6 +7880,7 @@ function toggleMascot(e) {
   const items = mascotRushItems();
   const h = new Date().getHours();
   const hi = h < 11 ? '早安' : h < 18 ? '午安' : '晚安';
+  const who = (currentUser && currentUser.name) ? '，' + appEsc(String(currentUser.name).split('@')[0]) : '';
   let body;
   if (items.length) {
     const rows = items.slice(0, 8).map(it => {
@@ -7896,7 +7897,7 @@ function toggleMascot(e) {
   }
   const tip = MASCOT_TIPS[Math.floor(Math.random() * MASCOT_TIPS.length)];
   document.getElementById('mascot-bubble').innerHTML =
-    `<div class="mb-title">👷 ${hi}！今日戰情速報</div>${body}<div class="mb-tip">${tip}</div>`;
+    `<div class="mb-title">👷 ${hi}${who}！</div>${body}<div class="mb-tip">${tip}</div>`;
   m.classList.add('open');
 }
 // 點清單中某項 → 收起泡泡並跳到該案場該工項（跨分頁可用）
