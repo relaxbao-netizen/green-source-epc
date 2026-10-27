@@ -1330,8 +1330,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <!-- 臉（會眨眼） -->
     <ellipse cx="29" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
     <ellipse cx="37" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
-    <!-- 嘴（偶爾笑得更開；點擊時變 O） -->
-    <path id="mascot-mouth" d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"><animate attributeName="d" values="M29 31 q4 3.2 8 0;M29 31 q4 3.2 8 0;M28 31 q5 4.8 10 0;M29 31 q4 3.2 8 0" keyTimes="0;0.6;0.78;1" dur="6s" repeatCount="indefinite"/></path>
+    <!-- 嘴（偶爾笑得更開；時不時露出 :D 大笑；點擊時變 O） -->
+    <path id="mascot-mouth" d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round">
+      <animate attributeName="d" values="M29 31 q4 3.2 8 0;M29 31 q4 3.2 8 0;M28 31 q5 4.8 10 0;M29 31 q4 3.2 8 0" keyTimes="0;0.6;0.78;1" dur="6s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="1;1;0;0;1;1" keyTimes="0;0.72;0.75;0.9;0.92;1" dur="8s" repeatCount="indefinite"/>
+    </path>
+    <!-- :D 大笑嘴（平常隱藏，時不時閃現） -->
+    <path id="mascot-grin" d="M27 30.5 L39 30.5 A6 4.6 0 0 1 27 30.5 Z" fill="#0f172a" opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.72;0.75;0.9;0.92;1" dur="8s" repeatCount="indefinite"/>
+    </path>
     <ellipse id="mascot-mouth-o" cx="33" cy="32" rx="2.3" ry="2.7" fill="#e23b3b" stroke="#0f172a" stroke-width="1.2" opacity="0"></ellipse>
     <!-- 右手（滑過時抬起揮動，放最後蓋在身體上） -->
     <g id="mascot-arm"><rect x="43" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="46" cy="58" r="3.4" fill="#fcd9a8"/></g>
@@ -7891,8 +7898,8 @@ function toggleMascot(e) {
   if (e) e.stopPropagation();
   // 點擊回應：嘴巴變 O 約 0.7 秒
   (function () {
-    const sm = document.getElementById('mascot-mouth'), o = document.getElementById('mascot-mouth-o');
-    if (sm && o) { sm.style.opacity = '0'; o.style.opacity = '1'; clearTimeout(window._mascotMouthT); window._mascotMouthT = setTimeout(() => { sm.style.opacity = ''; o.style.opacity = '0'; }, 700); }
+    const sm = document.getElementById('mascot-mouth'), o = document.getElementById('mascot-mouth-o'), g = document.getElementById('mascot-grin');
+    if (sm && o) { sm.style.opacity = '0'; if (g) g.style.opacity = '0'; o.style.opacity = '1'; clearTimeout(window._mascotMouthT); window._mascotMouthT = setTimeout(() => { sm.style.opacity = ''; if (g) g.style.opacity = ''; o.style.opacity = '0'; }, 700); }
   })();
   const m = document.getElementById('mascot'); if (!m) return;
   if (m.classList.contains('open')) { m.classList.remove('open'); return; }
