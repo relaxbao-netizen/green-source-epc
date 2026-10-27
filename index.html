@@ -7966,6 +7966,24 @@ function mascotAnswer(q) {
     if (has('幾點', '時間')) return `現在時間 ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}（星期${wk}）。`;
     return `今天是 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}（星期${wk}）。`;
   }
+  // 追加單流水號查明細（輸入流水號或含流水號的句子）
+  {
+    const codes = Q.match(/\d{4,6}/g);
+    const reqsAll = (typeof appRequests !== 'undefined') ? appRequests : [];
+    if (codes && reqsAll.length) {
+      let r = null;
+      for (const code of codes) { r = reqsAll.find(x => String(x.serial_no || '') === code) || reqsAll.find(x => String(x.serial_no || '').includes(code)); if (r) break; }
+      if (r) {
+        const t = appEffTotal(r); const tn = (t == null) ? '待定' : ('NT$ ' + appMoney(t));
+        const its = Array.isArray(r.items) ? r.items.filter(it => it && it.name) : [];
+        const detail = its.length ? its.map(it => esc(it.name) + (it.qty ? ` ${esc(String(it.qty))}${esc(it.unit || '')}` : '')).join('、') : '—';
+        let out = `<b>追加單 ${esc(r.serial_no)}</b>${r.status === 'rejected' ? '（已退回）' : ''}<br>案場：${esc(siteShortName(r.site_name) || r.site_name || '—')}<br>申請人：${esc(r.applicant || '—')}<br>日期：${esc((r.apply_date || '').slice(0, 10) || '—')}<br>費用歸屬：${esc(r.cost_owner || '—')}<br>追加金額：${tn}`;
+        if (appIsBillable(r)) out += `<br>對客戶請款：NT$ ${appMoney(r.client_amount || 0)}`;
+        out += `<br>明細：${detail}`;
+        return out;
+      }
+    }
+  }
   // 打招呼 / 身分 / 道謝
   if (has('你好', '妳好', '哈囉', '哈嘍', '嗨', 'hello', '安安', '唷', '喲', '在嗎', '有人嗎', 'hey', '哈瞜', '你在嗎', '喂')) return '你好！我是綠源工地小人 👷 想知道工程狀況，直接打字問我，例如「哪些案場落後？」';
   if (has('你是誰', '你叫', '妳是誰', '自我介紹', '你是什麼', '是機器人', '你誰', '哪位', '你是ai', '你幾歲')) return '我是綠源工地小人 👷 幫你快速查戰情室的案場進度、容量、主任、證照等資料。';
