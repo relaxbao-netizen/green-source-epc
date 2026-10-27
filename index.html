@@ -7978,7 +7978,6 @@ function mascotAnswer(q) {
   if (has('課程', '教育訓練', '上課', '養成', '訓練', '教材', '學習')) return '教育訓練課程在導覽列「課程園地」，現場工程師養成計畫共 10 堂課。';
   if (has('晴雨', '天氣', '下雨', '降雨', '氣象', '會不會下雨', '天候')) return '各案場施工晴雨統計：開啟該案場詳情後，點裡面的「施工晴雨表」即可查看。';
   if (has('器具', '工具借', '借用', '制服', '領用', '借工具', '借器材', '領衣服', '領裝備')) return '器具借用／制服領取在導覽列「領用管理」分頁。';
-  if (has('申請', '請款', '追加', '開票', '收款', '估驗', '請購', '追加款', '追加單', '要錢', '報帳')) return '工程／物料申請與追加請款在導覽列「工程/物料申請」分頁查看與填寫。';
   // 我的案場（登入者）
   if (has('我負責', '我的案場', '我帶', '我顧', '我的案子', '我手上', '我有哪些', '我管', '我在做', '我那些') || (has('我') && has('案場', '案子', '工地', '工程') && has('負責', '帶', '顧', '管', '做'))) {
     if (!currentUser || !currentUser.name) return '請先從右上角登入，我才知道你是誰喔 👷';
@@ -8015,6 +8014,13 @@ function mascotAnswer(q) {
         if (s.mw) parts.push(`光電 <b>${s.mw} kWp</b>`);
         if (s.skw || s.mwh) parts.push(`儲能 <b>${s.skw ? s.skw + ' kW / ' : ''}${s.mwh || 0} kWh</b>`);
         return `${head}：` + (parts.length ? parts.join('、') : '尚未登錄設置容量');
+      }
+      if (has('追加', '請款', '追加款', '估驗', '開票', '收款', '追加單')) {
+        const rs = (typeof appRequests !== 'undefined' ? appRequests : []).filter(r => r.status !== 'rejected' && siteShortName(r.site_name) === (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s)));
+        if (!rs.length) return `${head}：目前沒有追加／申請單。`;
+        const tot = rs.reduce((a, r) => { const t = appEffTotal(r); const n = Number(t); return a + (t == null || isNaN(n) ? 0 : n); }, 0);
+        const bill = rs.filter(appIsBillable);
+        return `${head} 追加單 ${rs.length} 筆，追加金額合計 NT$ ${appMoney(tot)}（其中需向客戶請款 ${bill.length} 筆）。明細見「工程/物料申請」分頁。`;
       }
       if (s.status === 'done') return `${head}：已完工 ✅`;
       if (s.status === 'pending') return `${head}：尚未開工（待開工）`;
@@ -8055,6 +8061,31 @@ function mascotAnswer(q) {
       const l = S.filter(s => REGION[rk].some(c => String(s.addr || '').includes(c)));
       return l.length ? `${rk}的案場 ${l.length} 案：<br>${list2(l)}` : `目前${rk}沒有案場。`;
     }
+  }
+  // 追加單 / 請款 / 申請
+  if (has('追加', '請款', '追加款', '追加單', '估驗', '請購', '報帳', '開票', '收款', '吸收', '已含', '原成本', '綠源吸收') || has('申請')) {
+    const reqs = (typeof appRequests !== 'undefined' ? appRequests : []).filter(r => r.status !== 'rejected');
+    const num = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+    const totOf = r => { const t = appEffTotal(r); return t == null ? 0 : num(t); };
+    // 怎麼申請 / 在哪填 → 導向
+    if (has('怎麼', '如何', '在哪', '哪裡', '填寫', '怎麼填', '新增', '要申請', '想申請')) return '工程／物料申請與追加請款，請到導覽列「工程/物料申請」分頁查看與填寫。';
+    if (!reqs.length) return '目前查無追加／申請單資料（或尚未載入）。詳見「工程/物料申請」分頁。';
+    // 某申請人的追加單
+    const applicants = [...new Set(reqs.map(r => r.applicant).filter(Boolean))];
+    const who = applicants.find(a => normS(a).length >= 2 && qn.includes(normS(a)));
+    if (who) { const rs = reqs.filter(r => r.applicant === who); const t = rs.reduce((a, r) => a + totOf(r), 0); return `${esc(who)} 的追加／申請單 ${rs.length} 筆，合計 NT$ ${appMoney(t)}。`; }
+    const bill = reqs.filter(appIsBillable);
+    const billSum = bill.reduce((a, r) => a + num(r.client_amount || 0), 0);
+    // 需向客戶請款清單
+    if (has('客戶', '請款的', '要請款', '開票', '收款', '向客戶', '跟客戶')) {
+      if (!bill.length) return '目前沒有需向客戶請款的追加單。';
+      return `需向客戶請款 ${bill.length} 筆，對客戶金額合計 NT$ ${appMoney(billSum)}：<br>` + bill.slice(0, 12).map(r => `• ${esc(siteShortName(r.site_name))}（${esc(r.serial_no || '')}）NT$ ${appMoney(num(r.client_amount) || totOf(r))}`).join('<br>');
+    }
+    if (has('吸收', '綠源吸收', '自行吸收')) { const g = reqs.filter(r => r.cost_owner === '綠源自行吸收'); return `綠源自行吸收 ${g.length} 筆，合計 NT$ ${appMoney(g.reduce((a, r) => a + totOf(r), 0))}。`; }
+    if (has('已含', '含在成本', '原成本')) { const g = reqs.filter(r => appCostIncluded(r)); return `已含於原成本 ${g.length} 筆，合計 NT$ ${appMoney(g.reduce((a, r) => a + totOf(r), 0))}。`; }
+    // 總覽
+    const total = reqs.reduce((a, r) => a + totOf(r), 0);
+    return `追加／申請單共 ${reqs.length} 筆，追加金額合計 NT$ ${appMoney(total)}。<br>其中需向客戶請款 ${bill.length} 筆（對客戶 NT$ ${appMoney(billSum)}）。<br>明細與開票／收款請見「工程/物料申請」分頁。`;
   }
   // 證照 / 回訓
   if (has('證照', '回訓', '執照', '牌照', '資格', '安衛證', '要考照', '換證', '上課證') || (has('到期', '過期', '逾期', '快到期', '快過期', '失效') && !has('保險', '保單', '投保'))) {
