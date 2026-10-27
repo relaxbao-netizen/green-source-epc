@@ -7991,9 +7991,22 @@ function mascotAnswer(q) {
   // 幫助
   if (has('你會', '能問', '可以問', '怎麼用', '幫助', '會什麼', '能做什麼', 'help', '功能', '會回答', '問什麼', '怎麼問', '能查', '可以查', '查什麼', '會查', '有什麼功能', '教我')) return mascotHelpHTML(false);
   // 導向分頁（避免誤判）
-  if (has('日誌', '日報', '每日報', '施工紀錄', '工具箱會議', '工安會議')) return '施工日誌／工具箱會議的逐日繳交狀況，請點上方導覽列的「📋 施工日誌」分頁查看。';
+  if (has('日誌', '日報', '每日報', '施工紀錄', '工具箱會議', '工安會議')) {
+    const logs = (typeof supLogs !== 'undefined' ? supLogs : []);
+    if (!logs.length) return '施工日誌／工具箱會議的逐日繳交狀況，請點上方導覽列的「📋 施工日誌」分頁查看。';
+    const ym = new Date().toISOString().slice(0, 7);
+    const subIds = new Set(logs.filter(r => (r.log_date || '').slice(0, 7) === ym && r.site_id != null).map(r => r.site_id));
+    const act = S.filter(s => s.status !== 'done' && s.status !== 'pending');
+    const miss = act.filter(s => !subIds.has(s.id));
+    let r2 = `本月（${ym}）已上傳施工日誌的案場 ${subIds.size} 個。`;
+    if (act.length) r2 += miss.length ? `<br>進行中但本月尚未上傳：${listNames(miss)}` : '<br>進行中案場本月都有上傳 ✅';
+    return r2 + '<br>逐日明細見「📋 施工日誌」分頁。';
+  }
   if (has('週報', '周報', '這週報告', '本週報告')) return '最新工程部週報在首頁下方的「最新工程部週報」卡片，點一下即可開啟 PDF。';
-  if (has('課程', '教育訓練', '上課', '養成', '訓練', '教材', '學習')) return '教育訓練課程在導覽列「課程園地」，現場工程師養成計畫共 10 堂課。';
+  if (has('課程', '教育訓練', '上課', '養成', '訓練', '教材', '學習')) {
+    if (has('有哪些', '哪些', '清單', '幾堂', '列出', '課表', '內容', '哪幾堂', '上什麼')) return '現場工程師養成計畫課程：<br>' + COURSES.filter(c => c.n !== '大綱').map(c => `• ${esc(c.n)} ${esc(c.title)}`).join('<br>');
+    return '教育訓練課程在導覽列「課程園地」，現場工程師養成計畫共 10 堂課。';
+  }
   if (has('晴雨', '天氣', '下雨', '降雨', '氣象', '會不會下雨', '天候')) return '各案場施工晴雨統計：開啟該案場詳情後，點裡面的「施工晴雨表」即可查看。';
   if (has('器具', '工具借', '借用', '制服', '領用', '借工具', '借器材', '領衣服', '領裝備')) return '器具借用／制服領取在導覽列「領用管理」分頁。';
   // 我的案場（登入者）
@@ -8033,6 +8046,10 @@ function mascotAnswer(q) {
         if (s.skw || s.mwh) parts.push(`儲能 <b>${s.skw ? s.skw + ' kW / ' : ''}${s.mwh || 0} kWh</b>`);
         return `${head}：` + (parts.length ? parts.join('、') : '尚未登錄設置容量');
       }
+      if (has('保險', '投保', '保單')) {
+        const items = (typeof insAlerts === 'function' ? insAlerts() : []).filter(it => it.site && it.site.id === s.id);
+        return items.length ? `${head} 保險提醒：` + items.map(it => `${esc(it.label)} ${it.st.level === 'expired' ? '已逾期' : '剩'} ${it.st.durText}`).join('、') : `${head}：目前無即將到期的保險。`;
+      }
       if (has('追加', '請款', '追加款', '估驗', '開票', '收款', '追加單')) {
         const rs = (typeof appRequests !== 'undefined' ? appRequests : []).filter(r => r.status !== 'rejected' && siteShortName(r.site_name) === (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s)));
         if (!rs.length) return `${head}：目前沒有追加／申請單。`;
@@ -8063,7 +8080,7 @@ function mascotAnswer(q) {
   {
     const owners = [...new Set(S.map(s => s.owner).filter(Boolean))];
     const own = owners.find(o => normS(o).length >= 2 && qn.includes(normS(o)));
-    if (own) { const l = S.filter(s => s.owner === own); return `${esc(own)} 共 ${l.length} 案：<br>${list2(l)}`; }
+    if (own) { const l = S.filter(s => s.owner === own); const kw = l.reduce((a, s) => a + (s.mw || 0), 0), kwh = l.reduce((a, s) => a + (s.mwh || 0), 0); return `${esc(own)} 共 ${l.length} 案（光電 ${fmtCap(kw, 'kWp')}、儲能 ${fmtCap(kwh, 'kWh')}）：<br>${list2(l)}`; }
   }
   // 縣市 / 地區 的案場
   {
@@ -8107,6 +8124,15 @@ function mascotAnswer(q) {
   }
   // 證照 / 回訓
   if (has('證照', '回訓', '執照', '牌照', '資格', '安衛證', '要考照', '換證', '上課證') || (has('到期', '過期', '逾期', '快到期', '快過期', '失效') && !has('保險', '保單', '投保'))) {
+    // 某人的證照
+    const who = Object.keys(certData || {}).find(n => qn.includes(normS(n)));
+    if (who) {
+      return `${esc(who)} 的證照：<br>` + CERT_META.map(m => {
+        const st = certStatus(certData[who][m.key]);
+        const txt = !st.has ? '—（無資料）' : (st.level === 'expired' ? `<b style="color:var(--danger)">已逾期 ${st.durText}</b>` : st.level === 'soon' ? `<b style="color:var(--warn)">剩 ${st.durText}</b>` : st.level === 'enrolled' ? '已報名上課' : `有效（${st.ymd}）`);
+        return `• ${esc(m.full)}：${txt}`;
+      }).join('<br>');
+    }
     const items = (typeof certAlerts === 'function') ? certAlerts() : [];
     if (!items.length) return '✅ 目前沒有即將到期或逾期的證照。';
     return '證照提醒：<br>' + items.slice(0, 10).map(it => `• ${esc(it.name)}（${esc(it.cert)}）<b style="color:var(--danger)">${it.st.level === 'expired' ? '已逾期 ' : '剩 '}${it.st.durText}</b>`).join('<br>');
@@ -8226,7 +8252,15 @@ function mascotAnswer(q) {
     const active = S.filter(s => s.status !== 'done' && s.status !== 'pending').length;
     return `目前共 ${S.length} 個案場：執行中 ${active}、待開工 ${S.filter(s => s.status === 'pending').length}、已完工 ${S.filter(s => s.status === 'done').length}。`;
   }
-  return mascotHelpHTML(true);
+  // 聽不懂 → 先給整體概況，再附可問範例
+  {
+    const act = S.filter(s => s.status !== 'done' && s.status !== 'pending');
+    const avg = act.length ? Math.round(act.reduce((a, s) => a + (s.pct || 0), 0) / act.length) : 0;
+    const rush = (typeof mascotRushItems === 'function') ? mascotRushItems().length : 0;
+    const head = `這題我沒完全聽懂 🤔 我是戰情室資料小幫手，先給你目前概況：<br>• 執行中 <b>${act.length}</b> 案（平均約 ${avg}%）、進度落後 <b>${S.filter(s => s.status === 'danger').length}</b> 案、即將落後 <b>${S.filter(s => s.status === 'warn').length}</b> 案、需趕工 <b>${rush}</b> 項<br>換個說法再問我，例如：`;
+    const ex = ['哪些案場落後？', '台積電AP7 進度？', '兆豐 的主任是誰？', '誰超載？', '追加款總共多少？', '證照快到期的有誰？'];
+    return head + '<div class="mb-exs">' + ex.map(e => `<span class="mb-ex" onclick="mascotExample('${e.replace(/'/g, "\\'")}')">${e}</span>`).join('') + '</div>';
+  }
 }
 // 點清單中某案場 → 收起泡泡、開啟該案場詳情、捲到「WBS 施工項目」並閃爍該案場需趕工的工項列（跨分頁可用）
 function mascotGo(siteId) {
