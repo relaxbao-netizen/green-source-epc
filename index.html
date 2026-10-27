@@ -7946,17 +7946,32 @@ function mascotHelpHTML(unknown) {
 }
 function mascotAnswer(q) {
   const S = (typeof sites !== 'undefined' ? sites : []);
-  const has = (...kw) => kw.some(k => q.includes(k));
   const nm = s => s.label || s.name;
   const sc = (typeof statusDotColor !== 'undefined') ? statusDotColor : { pending:'#64748b', normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
   const esc = appEsc;
   const listNames = arr => arr.map(nm).map(esc).join('、');
+  // 正規化：全形→半形、小寫（讓 Ａａ０／大小寫／全半形都比得到）
+  const toHalf = x => String(x || '').replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
+  const Q = toHalf(q).toLowerCase();
+  const has = (...kw) => kw.some(k => Q.includes(toHalf(k).toLowerCase()));
+  const normS = x => toHalf(x).replace(/\s/g, '').toLowerCase();
+  const qn = normS(q);
+  // 最長共同子字串長度（容錯比對：簡稱、漏字、AP7/ap7 都可）
+  const lcs = (a, b) => { if (!a || !b) return 0; let m = 0, prev; const dp = new Array(b.length + 1).fill(0); for (let i = 1; i <= a.length; i++) { prev = 0; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : 0; if (dp[j] > m) m = dp[j]; prev = t; } } return m; };
+  const list2 = arr => arr.map(s => `• ${esc(nm(s))}（${statusText[s.status]}）`).join('<br>');
+
+  // 今天日期 / 時間
+  if (has('今天幾號', '今天日期', '現在日期', '幾月幾號', '今天星期', '星期幾', '禮拜幾', '現在幾點', '現在時間', '幾點了', '今天禮拜')) {
+    const d = new Date(); const wk = '日一二三四五六'[d.getDay()];
+    if (has('幾點', '時間')) return `現在時間 ${d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}（星期${wk}）。`;
+    return `今天是 ${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}（星期${wk}）。`;
+  }
   // 打招呼 / 身分 / 道謝
-  if (has('你好', '妳好', '哈囉', '嗨', 'hello', '安安', '早安', '午安', '晚安')) return '你好！我是綠源工地小人 👷 想知道工程狀況，直接打字問我，例如「哪些案場落後？」';
-  if (has('你是誰', '你叫', '妳是誰', '自我介紹', '你是什麼')) return '我是綠源工地小人 👷 幫你快速查戰情室的案場進度、容量、主任、證照等資料。';
-  if (has('謝謝', '感謝', '感恩', '辛苦了', 'thank')) return '不客氣，一起加油！有需要再找我 👷';
+  if (has('你好', '妳好', '哈囉', '嗨', 'hello', '安安')) return '你好！我是綠源工地小人 👷 想知道工程狀況，直接打字問我，例如「哪些案場落後？」';
+  if (has('你是誰', '你叫', '妳是誰', '自我介紹', '你是什麼', '是機器人')) return '我是綠源工地小人 👷 幫你快速查戰情室的案場進度、容量、主任、證照等資料。';
+  if (has('謝謝', '感謝', '感恩', '辛苦了', 'thank', '3q', '感激')) return '不客氣，一起加油！有需要再找我 👷';
   // 幫助
-  if (has('你會', '能問', '可以問', '怎麼用', '幫助', '會什麼', '能做什麼', 'help', '功能')) return mascotHelpHTML(false);
+  if (has('你會', '能問', '可以問', '怎麼用', '幫助', '會什麼', '能做什麼', 'help', '功能', '會回答')) return mascotHelpHTML(false);
   // 導向分頁（避免誤判）
   if (has('日誌', '日報')) return '施工日誌／工具箱會議的逐日繳交狀況，請點上方導覽列的「📋 施工日誌」分頁查看。';
   if (has('週報', '周報')) return '最新工程部週報在首頁下方的「最新工程部週報」卡片，點一下即可開啟 PDF。';
@@ -7964,16 +7979,23 @@ function mascotAnswer(q) {
   if (has('晴雨', '天氣', '下雨', '降雨')) return '各案場施工晴雨統計：開啟該案場詳情後，點裡面的「施工晴雨表」即可查看。';
   if (has('器具', '工具借', '借用', '制服')) return '器具借用／制服領取在導覽列「領用管理」分頁。';
   if (has('申請', '請款', '追加', '開票', '收款')) return '工程／物料申請與追加請款在導覽列「工程/物料申請」分頁查看與填寫。';
-  // 特定案場（名稱比對，支援簡稱前綴，如「兆豐」對到「兆豐銀行」）
-  const norm = x => String(x || '').replace(/\s/g, '');
-  const qn = norm(q);
-  const matchLen = name => {
-    const c = norm(name); if (c.length < 2) return 0;
-    if (qn.includes(c)) return c.length;
-    for (let len = c.length - 1; len >= 2; len--) { if (qn.includes(c.slice(0, len))) return len; }
-    return 0;
-  };
-  const scored = S.map(s => ({ s, best: Math.max(0, ...[s.label, s.name, (typeof siteShortName === 'function' ? siteShortName(nm(s)) : nm(s))].filter(Boolean).map(matchLen)) })).filter(x => x.best >= 2);
+  // 我的案場（登入者）
+  if (has('我負責', '我的案場', '我帶', '我顧', '我的案子') || (has('我') && has('案場', '案子') && has('負責', '帶', '顧'))) {
+    if (!currentUser || !currentUser.name) return '請先從右上角登入，我才知道你是誰喔 👷';
+    const myName = String(currentUser.name).split('@')[0].split('_')[0];
+    const src = (typeof supervisors !== 'undefined' ? supervisors : activeSupervisors());
+    const me = src.find(sv => { const f = normS(String(sv.name).split(/\s+/)[0]); return f && (normS(myName).includes(f) || f.includes(normS(myName))); });
+    if (!me) return `找不到你（${esc(myName)}）負責的案場，可能你不是工地主任。`;
+    const act = sitesOfPm(me.name).map(siteById).filter(s => s && s.status !== 'done');
+    return act.length ? `你（${esc(String(me.name).split(/\s+/)[0])}）負責 ${act.length} 案：<br>${list2(act)}` : `${esc(myName)} 目前沒有進行中的案場。`;
+  }
+  // 特定案場（名稱比對：最長共同子字串≥3，或案場名前兩字出現在問句）
+  const scored = S.map(s => {
+    const candN = normS(s.label || nm(s));
+    const l = lcs(qn, candN);
+    const prefixHit = candN.length >= 2 && qn.includes(candN.slice(0, 2));
+    return { s, best: Math.max(l >= 3 ? l : 0, prefixHit ? 2 : 0) };
+  }).filter(x => x.best >= 2);
   if (scored.length) {
     const top = Math.max(...scored.map(x => x.best));
     const matched = scored.filter(x => x.best === top).map(x => x.s).slice(0, 3);
@@ -7984,9 +8006,11 @@ function mascotAnswer(q) {
       if (has('業務', '誰談', '誰接')) return `${head} 案場業務：${esc(s.sales || '—')}`;
       if (has('地址', '在哪', '哪裡', '位置', '地點', '縣市', '哪個縣', '哪個市')) return `${head} 地址：${esc(s.addr || '—')}`;
       if (has('類型', '哪種', '什麼案', '是什麼', '太陽能還是', '光電還是')) return `${head} 類型：${esc(s.type || '—')}`;
+      if (has('幾個工項', '工項', '幾項', '項目')) { const tree = (typeof wbsScheduleTree === 'function' ? wbsScheduleTree(s) : []) || []; const n = tree.reduce((a, c) => a + (c.subs && c.subs.length ? c.subs.length : 1), 0); return `${head} 共 ${n} 個工項`; }
+      if (has('開工多久', '做多久', '幾天了', '施工多久', '多久了')) { const sd = siteStartDate(s); if (!sd) return `${head}：尚未開工`; const days = Math.max(0, Math.round((Date.now() - new Date(sd.replace(/\//g, '-')).getTime()) / 86400000)); return `${head} 自 ${esc(sd)} 開工，約 ${days} 天`; }
       if (has('開工', '動工', '進場', '什麼時候開', '何時開', '幾號開')) return `${head} 實際開工日：${esc(siteStartDate(s) || '尚未開工')}`;
       if (has('完工', '完成日', '何時好', '什麼時候完', '什麼時候好', '交屋', '預計完', '幾號完', '結案日')) return s.status === 'done' ? `${head}：已完工 ✅` : `${head} 預計完工日：${esc(siteEndDate(s) || '—')}`;
-      if (has('容量', '光電', '儲能', '裝置', 'kw', 'KW', '發電', '瓩')) {
+      if (has('容量', '光電', '儲能', '裝置', 'kw', '發電', '瓩')) {
         const parts = [];
         if (s.mw) parts.push(`光電 <b>${s.mw} kWp</b>`);
         if (s.skw || s.mwh) parts.push(`儲能 <b>${s.skw ? s.skw + ' kW / ' : ''}${s.mwh || 0} kWh</b>`);
@@ -8001,6 +8025,37 @@ function mascotAnswer(q) {
       return r;
     }).join('<hr class="mb-hr">');
   }
+  // 某主任負責哪些案場（問句含主任姓名）
+  {
+    const svSrc = (typeof supervisors !== 'undefined' ? supervisors : activeSupervisors());
+    const svHit = svSrc.find(sv => { const f = normS(String(sv.name || '').split(/\s+/)[0]); return f.length >= 2 && qn.includes(f); });
+    if (svHit && !has('證照', '回訓', '保險')) {
+      const f = String(svHit.name).split(/\s+/)[0];
+      const act = sitesOfPm(svHit.name).map(siteById).filter(s => s && s.status !== 'done');
+      return act.length ? `${esc(f)} 負責 ${act.length} 案：<br>${list2(act)}` : `${esc(f)} 目前沒有進行中的案場。`;
+    }
+  }
+  // 某業主的案場（問句含業主名）
+  {
+    const owners = [...new Set(S.map(s => s.owner).filter(Boolean))];
+    const own = owners.find(o => normS(o).length >= 2 && qn.includes(normS(o)));
+    if (own) { const l = S.filter(s => s.owner === own); return `${esc(own)} 共 ${l.length} 案：<br>${list2(l)}`; }
+  }
+  // 縣市 / 地區 的案場
+  {
+    const CITIES = ['基隆', '台北', '臺北', '新北', '桃園', '新竹', '苗栗', '台中', '臺中', '彰化', '南投', '雲林', '嘉義', '台南', '臺南', '高雄', '屏東', '宜蘭', '花蓮', '台東', '臺東', '澎湖', '金門'];
+    const REGION = { 北部: ['基隆', '台北', '臺北', '新北', '桃園', '新竹', '苗栗'], 中部: ['台中', '臺中', '彰化', '南投', '雲林'], 南部: ['嘉義', '台南', '臺南', '高雄', '屏東'], 東部: ['宜蘭', '花蓮', '台東', '臺東'] };
+    const city = CITIES.find(c => Q.includes(c));
+    if (city && has('案場', '案子', '專案', '有哪些', '哪些', '幾', '在')) {
+      const l = S.filter(s => String(s.addr || '').includes(city) || String(s.addr || '').includes(city.replace('臺', '台')) || String(s.addr || '').includes(city.replace('台', '臺')));
+      return l.length ? `${city} 的案場 ${l.length} 案：<br>${list2(l)}` : `目前在${city}沒有案場。`;
+    }
+    const rk = Object.keys(REGION).find(k => Q.includes(k));
+    if (rk) {
+      const l = S.filter(s => REGION[rk].some(c => String(s.addr || '').includes(c)));
+      return l.length ? `${rk}的案場 ${l.length} 案：<br>${list2(l)}` : `目前${rk}沒有案場。`;
+    }
+  }
   // 證照 / 回訓
   if (has('證照', '回訓') || (has('到期', '過期', '逾期') && !has('保險'))) {
     const items = (typeof certAlerts === 'function') ? certAlerts() : [];
@@ -8013,8 +8068,37 @@ function mascotAnswer(q) {
     if (!items.length) return '✅ 目前沒有即將到期的保險。';
     return '保險提醒：<br>' + items.slice(0, 10).map(it => `• ${esc(nm(it.site))}（${esc(it.label)}）<b style="color:var(--danger)">${it.st.level === 'expired' ? '已逾期 ' : '剩 '}${it.st.durText}</b>`).join('<br>');
   }
+  // 進度最高／最低、容量最大（須在「容量（全部）」之前）
+  {
+    const actS = S.filter(s => s.status !== 'done' && s.status !== 'pending');
+    if (has('最接近完工', '快完工', '進度最高', '進度最好', '進度最快', '最多進度', '跑最快')) {
+      if (!actS.length) return '目前沒有進行中的案場。';
+      const t = [...actS].sort((a, b) => (b.pct || 0) - (a.pct || 0))[0];
+      return `進度最高：<b>${esc(nm(t))}</b> ${Math.round(t.pct || 0)}%`;
+    }
+    if (has('進度最低', '進度最差', '最落後', '最慢', '最少進度', '跑最慢')) {
+      if (!actS.length) return '目前沒有進行中的案場。';
+      const t = [...actS].sort((a, b) => (a.pct || 0) - (b.pct || 0))[0];
+      return `進度最低：<b>${esc(nm(t))}</b> ${Math.round(t.pct || 0)}%`;
+    }
+    if (has('容量最大', '最大案場', '規模最大', '最大的案場', '最大一案', '哪案最大')) {
+      const capOf = s => (s.mw || 0) + (s.skw || 0);
+      const t = [...S].sort((a, b) => capOf(b) - capOf(a))[0];
+      if (!t) return '沒有案場資料。';
+      return `容量最大：<b>${esc(nm(t))}</b>（光電 ${t.mw || 0} kWp${t.mwh ? `、儲能 ${t.mwh} kWh` : ''}）`;
+    }
+  }
+  // 儲能／光電案場清單
+  if (has('儲能') && has('案場', '案子', '有哪些', '哪些', '清單', '列出', '幾個') && !has('容量', '多少', '總', 'kw')) {
+    const st = S.filter(s => s.type.includes('儲能'));
+    return st.length ? `有儲能的案場 ${st.length} 案：<br>${list2(st)}` : '目前沒有儲能案場。';
+  }
+  if (has('光電', '太陽能') && has('案場', '案子', '有哪些', '哪些', '清單', '列出', '幾個') && !has('容量', '多少', '總', 'kw')) {
+    const pv = S.filter(s => s.type.includes('太陽能') || s.type === 'PV');
+    return pv.length ? `光電案場 ${pv.length} 案：<br>${list2(pv)}` : '目前沒有光電案場。';
+  }
   // 容量（全部）
-  if (has('容量', '光電', '儲能', '裝置', 'kw', 'KW', '發電', '瓩', '裝置量')) {
+  if (has('容量', '光電', '儲能', '裝置', 'kw', '發電', '瓩', '裝置量')) {
     const pv = S.filter(s => s.type.includes('太陽能') || s.type === 'PV');
     const st = S.filter(s => s.type.includes('儲能'));
     const kw = pv.reduce((a, s) => a + (s.mw || 0), 0), kwh = st.reduce((a, s) => a + (s.mwh || 0), 0);
@@ -8032,8 +8116,8 @@ function mascotAnswer(q) {
     const head = over.length ? `目前有 ${over.length} 位主任超載（帶案 >3）：<br>` : '目前沒有主任超載。各主任帶案：<br>';
     return head + svs.map(sv => { const n = activeSitesOf(sv).length; return `• ${esc(sv.name)}：${n} 案${n > 3 ? ' <b style="color:var(--danger)">超載</b>' : ''}`; }).join('<br>');
   }
-  // 趕工 / 最落後
-  if (has('趕工', '最落後', '最嚴重', '最急', '最慢')) {
+  // 趕工
+  if (has('趕工', '最嚴重', '最急', '哪些工項落後', '工項落後')) {
     const items = mascotRushItems();
     if (!items.length) return '✅ 目前沒有需要趕工的工項。';
     return `需要趕工 ${items.length} 項：<br>` + items.slice(0, 12).map(it => `• ${esc(it.site)}（${esc(it.name)}）<b style="color:${it.gap > 15 ? 'var(--danger)' : 'var(--warn)'}">落後 ${it.gap}%</b>`).join('<br>');
