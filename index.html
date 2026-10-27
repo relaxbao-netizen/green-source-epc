@@ -183,8 +183,36 @@ nav > * { flex-shrink: 0; }
   content: ''; position: absolute; inset: -4px; border-radius: 50%;
   border: 2px solid var(--danger); animation: pulse 1.5s infinite; opacity: .6;
 }
+/* 即將落後(warn) 也脈動，但較慢、橘色 → 綠靜止、橘慢脈、紅快脈 */
+.map-pin .dot.warn::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid var(--warn); animation: pulse 2.2s infinite; opacity: .55;
+}
 @keyframes pulse { 0%,100%{transform:scale(1);opacity:.6} 50%{transform:scale(1.7);opacity:0} }
 .map-pin .dot.office { background: #64748b; box-shadow: 0 0 8px #64748b; }
+
+/* ===== 👷 工地小人（首頁右下角，點一下看今日速報） ===== */
+#mascot { position: fixed; right: 20px; bottom: 20px; width: 66px; height: 74px; cursor: pointer; z-index: 900; filter: drop-shadow(0 4px 8px rgba(0,0,0,.18)); -webkit-tap-highlight-color: transparent; }
+#mascot-svg { display: block; animation: mascotBob 2.6s ease-in-out infinite; transform-origin: 50% 90%; transition: transform .15s; }
+#mascot:hover #mascot-svg { transform: scale(1.06); }
+#mascot:hover #mascot-arm { animation: mascotWave .5s ease-in-out infinite; transform-origin: 46px 44px; }
+@keyframes mascotBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+@keyframes mascotWave { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-26deg)} }
+#mascot-bubble {
+  position: absolute; right: 2px; bottom: 80px; width: 236px; max-width: 72vw;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.18); padding: 12px 14px; font-size: 13px; line-height: 1.7;
+  opacity: 0; transform: translateY(8px) scale(.96); transform-origin: 90% 100%;
+  pointer-events: none; transition: opacity .18s, transform .18s; text-align: left;
+}
+#mascot.open #mascot-bubble { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+#mascot-bubble::after { content:''; position:absolute; right:22px; bottom:-8px; width:14px; height:14px; background:var(--surface); border-right:1px solid var(--border); border-bottom:1px solid var(--border); transform:rotate(45deg); }
+#mascot-bubble .mb-title { font-weight: 800; font-size: 13px; margin-bottom: 6px; color: var(--text); }
+#mascot-bubble .mb-row { display:flex; justify-content:space-between; gap:10px; }
+#mascot-bubble .mb-row b { font-weight: 800; }
+#mascot-bubble .mb-cta { margin-top:8px; width:100%; border:none; border-radius:8px; padding:7px 0; font-size:12px; font-weight:700; color:#fff; background:var(--accent); cursor:pointer; font-family:inherit; }
+#mascot-bubble .mb-tip { margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); color:var(--muted); font-size:12px; }
+@media (max-width:640px){ #mascot{ right:12px; bottom:12px; width:54px; height:60px; } #mascot-svg{ width:54px; height:60px; } }
 /* 工地主任今日位置頭貼（放島外，白線指向案場） */
 .sv-mark {
   position: absolute; transform: translate(-50%, -50%);
@@ -814,6 +842,31 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <div class="card-title">保險到期提醒</div>
       <div id="home-ins-list"></div>
     </div>
+  </div>
+
+  <!-- 👷 工地小人：點一下看今日戰情速報 -->
+  <div id="mascot" title="點我看今日戰情速報" onclick="toggleMascot(event)">
+    <div id="mascot-bubble"></div>
+    <svg id="mascot-svg" width="66" height="74" viewBox="0 0 66 74" xmlns="http://www.w3.org/2000/svg" aria-label="工地小人">
+      <ellipse cx="33" cy="70" rx="17" ry="3.2" fill="rgba(0,0,0,.10)"/>
+      <!-- 身體/背心 -->
+      <rect x="21" y="38" width="24" height="25" rx="6" fill="#059669"/>
+      <rect x="25.5" y="38" width="3" height="25" fill="#fde047"/>
+      <rect x="37.5" y="38" width="3" height="25" fill="#fde047"/>
+      <rect x="21" y="47" width="24" height="3" fill="#fde047"/>
+      <!-- 手臂 -->
+      <g id="mascot-arm"><rect x="43" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="46" cy="58" r="3.4" fill="#fcd9a8"/></g>
+      <rect x="17" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="20" cy="58" r="3.4" fill="#fcd9a8"/>
+      <!-- 頭 -->
+      <circle cx="33" cy="26" r="11" fill="#fcd9a8"/>
+      <!-- 安全帽 -->
+      <path d="M20 23 a13 8.5 0 0 1 26 0 z" fill="#f59e0b"/>
+      <rect x="18" y="22" width="30" height="4.2" rx="2.1" fill="#ea580c"/>
+      <rect x="31.5" y="12.5" width="3" height="5" rx="1.5" fill="#ea580c"/>
+      <!-- 臉 -->
+      <circle cx="29" cy="26" r="1.7" fill="#0f172a"/><circle cx="37" cy="26" r="1.7" fill="#0f172a"/>
+      <path d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    </svg>
   </div>
 </div>
 
@@ -7787,6 +7840,67 @@ async function initApp() {
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
 }
 initApp();
+// ===================== 👷 工地小人：今日戰情速報 =====================
+const MASCOT_TIPS = [
+  '安全第一，戴好安全帽再上工 👷',
+  '每日施工日誌記得上傳喔 📋',
+  '落後不可怕，趕上進度就好，加油！💪',
+  '今天也辛苦了，注意工地安全 🦺',
+  '進度超前的案場，給自己拍拍手 👏',
+  '天氣多變，出工前先看晴雨表 ☀️🌧️'
+];
+// 需趕工工項數（與首頁「需要趕工」卡同標準：落後>5%、未完成）
+function mascotRushCount() {
+  let n = 0;
+  (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done' && s.status !== 'pending').forEach(s => {
+    const tree = wbsScheduleTree(s) || [];
+    tree.forEach(cat => {
+      const leafs = cat.subs.length ? cat.subs : [cat];
+      leafs.forEach(x => {
+        const pct = (x.pct != null) ? x.pct : x.catPct;
+        const gap = Math.round((Number(x.planPct) || 0) - (Number(pct) || 0));
+        if ((Number(pct) || 0) < 100 && gap > 5) n++;
+      });
+    });
+  });
+  return n;
+}
+function toggleMascot(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById('mascot'); if (!m) return;
+  if (m.classList.contains('open')) { m.classList.remove('open'); return; }
+  const S = (typeof sites !== 'undefined' ? sites : []);
+  const active = S.filter(s => s.status !== 'done' && s.status !== 'pending').length;
+  const warn   = S.filter(s => s.status === 'warn').length;
+  const danger = S.filter(s => s.status === 'danger').length;
+  const rush   = mascotRushCount();
+  const h = new Date().getHours();
+  const hi = h < 11 ? '早安' : h < 18 ? '午安' : '晚安';
+  let body = `<div class="mb-row"><span>執行中案場</span><b>${active} 案</b></div>`;
+  if (warn || danger) {
+    if (danger) body += `<div class="mb-row"><span style="color:var(--danger)">進度落後</span><b style="color:var(--danger)">${danger} 案</b></div>`;
+    if (warn)   body += `<div class="mb-row"><span style="color:var(--warn)">即將落後</span><b style="color:var(--warn)">${warn} 案</b></div>`;
+    body += `<div class="mb-row"><span>需趕工工項</span><b>${rush} 項</b></div>`;
+    body += `<button class="mb-cta" onclick="mascotGoRush(event)">看需要趕工清單 →</button>`;
+  } else {
+    body += `<div style="margin-top:6px;color:var(--success);font-weight:700">✅ 全部符合工期，繼續保持！</div>`;
+  }
+  const tip = MASCOT_TIPS[Math.floor(Math.random() * MASCOT_TIPS.length)];
+  document.getElementById('mascot-bubble').innerHTML =
+    `<div class="mb-title">👷 ${hi}！今日戰情速報</div>${body}<div class="mb-tip">${tip}</div>`;
+  m.classList.add('open');
+}
+function mascotGoRush(e) {
+  if (e) e.stopPropagation();
+  const m = document.getElementById('mascot'); if (m) m.classList.remove('open');
+  const el = document.getElementById('home-rush-list');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+// 點小人以外的地方 → 收起泡泡
+document.addEventListener('click', function (ev) {
+  const m = document.getElementById('mascot');
+  if (m && m.classList.contains('open') && !m.contains(ev.target)) m.classList.remove('open');
+});
 </script>
 </body>
 </html>
