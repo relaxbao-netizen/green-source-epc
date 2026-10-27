@@ -1327,9 +1327,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <path d="M20 23 a13 8.5 0 0 1 26 0 z" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
     <rect x="18" y="22" width="30" height="4.2" rx="2.1" fill="#e2e8f0" stroke="#cbd5e1" stroke-width=".6"/>
     <rect x="31.5" y="12.5" width="3" height="5" rx="1.5" fill="#cbd5e1"/>
-    <!-- 臉 -->
-    <circle cx="29" cy="26" r="1.7" fill="#0f172a"/><circle cx="37" cy="26" r="1.7" fill="#0f172a"/>
-    <path d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- 臉（會眨眼） -->
+    <ellipse cx="29" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
+    <ellipse cx="37" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
+    <!-- 嘴（偶爾笑得更開） -->
+    <path d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"><animate attributeName="d" values="M29 31 q4 3.2 8 0;M29 31 q4 3.2 8 0;M28 31 q5 4.8 10 0;M29 31 q4 3.2 8 0" keyTimes="0;0.6;0.78;1" dur="6s" repeatCount="indefinite"/></path>
     <!-- 右手（滑過時抬起揮動，放最後蓋在身體上） -->
     <g id="mascot-arm"><rect x="43" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="46" cy="58" r="3.4" fill="#fcd9a8"/></g>
   </svg>
