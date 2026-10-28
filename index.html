@@ -2574,8 +2574,7 @@ async function dlLoadForm() {
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
-    <div class="card" style="padding:12px 18px">
-      <div style="font-size:12px;color:var(--muted)">工程名稱、承攬商、開工／預定完工日、合約／累計工期、工地主任會自動帶入列印與存檔，不需填寫。</div>
+    <div style="display:none">
       <input type="hidden" id="dl-proj" value="${appEsc(s.name)}">
       <input type="hidden" id="dl-contractor" value="${appEsc(DL_CONTRACTOR)}">
       <input type="hidden" id="dl-start" value="${appEsc(startISO)}">
