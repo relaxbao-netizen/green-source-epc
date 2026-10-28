@@ -2658,7 +2658,7 @@ async function dlLoadForm() {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><textarea id="dl-notify" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.notify_sub : '')}</textarea></div>
       <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><textarea id="dl-coord" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.coordinate : '')}</textarea></div>
-      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '', 'list="dl-reviewer-list" placeholder="可下拉選人員，也可自行輸入"')}<datalist id="dl-reviewer-list">${reviewerOpts}</datalist></div>
+      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '', 'list="dl-reviewer-list" placeholder="請選擇"')}<datalist id="dl-reviewer-list">${reviewerOpts}</datalist></div>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -2686,7 +2686,7 @@ function dlItemRowHtml(it) {
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcCum(this.closest('tr').querySelector('.dli-today'))`;
   return `<tr>
-    ${td(ip('dli-name', it.name, '施工項目（可下拉選工項）', 'list="dl-wbs-list" oninput="' + recalc + '"'))}
+    ${td(ip('dli-name', it.name, '請選擇', 'list="dl-wbs-list" oninput="' + recalc + '"'))}
     ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
     ${td(ip('dli-unit', it.unit || '式'))}
     ${td(ip('dli-hours', it.hours))}
