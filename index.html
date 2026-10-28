@@ -2495,7 +2495,41 @@ async function renderDailyLog() {
 
 // ===================== 線上填寫施工日誌 =====================
 const DL_CONTRACTOR = '綠源科技股份有限公司';
+const DL_DRIVE_FOLDER = '0AI3S_YJ3oW_KUk9PVA';   // 公司共用硬碟：施工日誌照片資料夾
 const DL_WEATHER_OPTS = ['晴', '晴時多雲', '多雲', '陰', '多雲時陰', '雨', '陰時有雨', '雷陣雨'];
+// ---- Google Drive 上傳（沿用登入帳號，要求 drive.file 權限） ----
+let _dlDriveTok = null;
+function dlGetDriveToken() {
+  return new Promise((resolve, reject) => {
+    if (_dlDriveTok && _dlDriveTok.exp > Date.now() + 60000) return resolve(_dlDriveTok.t);
+    if (!(window.google && google.accounts && google.accounts.oauth2)) return reject(new Error('Google 服務尚未載入，請稍候再試'));
+    const tc = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: (resp) => { if (resp && resp.access_token) { _dlDriveTok = { t: resp.access_token, exp: Date.now() + (resp.expires_in || 3600) * 1000 }; resolve(resp.access_token); } else reject(new Error((resp && resp.error) || '取得 Drive 授權失敗')); }
+    });
+    tc.requestAccessToken();
+  });
+}
+async function dlDriveUpload(blob, name) {
+  const tok = await dlGetDriveToken();
+  const fd = new FormData();
+  fd.append('metadata', new Blob([JSON.stringify({ name, parents: [DL_DRIVE_FOLDER] })], { type: 'application/json' }));
+  fd.append('file', blob);
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, body: fd });
+  const data = await res.json();
+  if (!res.ok) throw new Error('Drive 上傳失敗：' + (data.error ? data.error.message : res.status));
+  // 設為「知道連結即可檢視」讓日誌/列印顯示得出來（組織政策禁止則略過）
+  try { await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions?supportsAllDrives=true`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) }); } catch (e) {}
+  return { id: data.id, url: `https://drive.google.com/thumbnail?id=${data.id}&sz=w1200`, view: data.webViewLink || `https://drive.google.com/file/d/${data.id}/view` };
+}
+async function dlDriveDelete(id) {
+  if (!id) return;
+  try { const tok = await dlGetDriveToken(); await fetch(`https://www.googleapis.com/drive/v3/files/${id}?supportsAllDrives=true`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch (e) { console.warn('Drive 刪除失敗', e); }
+}
+// 照片記錄可能是舊的 Supabase URL 字串，或新的 Drive 物件 {id,url,view}
+function dlPhotoSrc(p) { return (typeof p === 'string') ? p : (p && (p.url || p.view)) || ''; }
+function dlPhotoLink(p) { return (typeof p === 'string') ? p : (p && (p.view || p.url)) || ''; }
 let dlLogs = [];            // site_daily_log 既有紀錄
 let dlEditingId = null;     // 目前編輯中的紀錄 id（新建為 null）
 let dlPhotoUrls = [];       // 目前表單的照片 URL
@@ -2550,26 +2584,9 @@ async function renderDlFill() {
   dlLoadForm();
 }
 // 管理員：照片儲存用量提示（統計 daily-log-photos bucket 檔案大小）
-async function dlRenderUsage() {
-  const el = document.getElementById('dl-usage'); if (!el || !sb) return;
-  el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 照片儲存用量計算中…</span>';
-  try {
-    const { data: top, error } = await sb.storage.from('daily-log-photos').list('', { limit: 1000 });
-    if (error) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 照片 bucket 尚未建立（建立後會顯示用量）</span>'; return; }
-    let total = 0, count = 0;
-    for (const f of (top || [])) {
-      if (f.id === null) {
-        const { data: files } = await sb.storage.from('daily-log-photos').list(f.name, { limit: 1000 });
-        (files || []).forEach(x => { const sz = x.metadata && x.metadata.size; if (sz) { total += sz; count++; } });
-      } else { const sz = f.metadata && f.metadata.size; if (sz) { total += sz; count++; } }
-    }
-    const mb = total / 1048576, limitMB = 1024, pct = Math.min(100, mb / limitMB * 100);
-    const col = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warn)' : 'var(--accent)';
-    const warn = pct > 90 ? '　⚠ 接近上限，建議清理舊照片或升級' : '';
-    el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap">
-      <span>📸 照片儲存：<b style="color:${col}">${mb.toFixed(1)} MB</b> / ${limitMB} MB（${count} 張，約 ${pct.toFixed(1)}%）<span style="color:var(--danger)">${warn}</span></span>
-      <div style="flex:1;min-width:120px;max-width:220px;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col}"></div></div></div>`;
-  } catch (e) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 用量估算失敗</span>'; }
+function dlRenderUsage() {
+  const el = document.getElementById('dl-usage'); if (!el) return;
+  el.innerHTML = `<span style="font-size:12px;color:var(--muted)">📁 工進照片存於公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。首次上傳會請你同意 Drive 權限一次。</span>`;
 }
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
 async function dlLoadForm() {
@@ -2648,7 +2665,7 @@ async function dlLoadForm() {
       <div class="wbs-title" style="margin:0 0 10px">工進照片（最多 6 張）</div>
       <input type="file" id="dl-photos" accept="image/*" multiple onchange="dlPickPhotos(this.files)">
       <div id="dl-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
-      ${isAdmin() ? '<div id="dl-usage" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>' : ''}
+      <div id="dl-usage" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
     </div>
 
     <div style="display:flex;gap:10px;margin:16px 0 8px;flex-wrap:wrap">
@@ -2661,7 +2678,7 @@ async function dlLoadForm() {
   const wsel = document.getElementById('dl-weather');
   if (wsel && existing && existing.weather) wsel.value = existing.weather;
   dlFillWeather(s, date);
-  if (isAdmin()) dlRenderUsage();
+  dlRenderUsage();
 }
 function dlItemRowHtml(it) {
   it = it || {};
@@ -2757,12 +2774,16 @@ async function dlFillWeather(s, date) {
 // 照片：選檔後暫存預覽；儲存時上傳 Supabase Storage
 let _dlNewFiles = [];
 let _dlRemovedUrls = [];   // 本次編輯中被移除、待一併從 Storage 刪除的照片 URL
-// 從公開 URL 反推 Storage 路徑並刪除檔案（釋放用量）
-async function dlStorageRemove(urls) {
-  if (!sb || !urls || !urls.length) return;
-  const key = '/daily-log-photos/';
-  const paths = urls.map(u => { const i = String(u).indexOf(key); return i >= 0 ? decodeURIComponent(String(u).slice(i + key.length).split('?')[0]) : null; }).filter(Boolean);
-  if (paths.length) { try { await sb.storage.from('daily-log-photos').remove(paths); } catch (e) { console.warn('刪除照片檔失敗', e); } }
+// 刪除照片：Drive 物件→刪 Drive；舊的 Supabase URL 字串→刪 Storage
+async function dlStorageRemove(list) {
+  if (!list || !list.length) return;
+  for (const p of list) {
+    if (p && typeof p === 'object' && p.id) { await dlDriveDelete(p.id); continue; }
+    if (typeof p === 'string') {
+      const key = '/daily-log-photos/'; const i = p.indexOf(key);
+      if (sb && i >= 0) { try { await sb.storage.from('daily-log-photos').remove([decodeURIComponent(p.slice(i + key.length).split('?')[0])]); } catch (e) {} }
+    }
+  }
 }
 function dlPickPhotos(files) {
   _dlNewFiles = [..._dlNewFiles, ...Array.from(files)].slice(0, 6 - dlPhotoUrls.length);
@@ -2770,7 +2791,7 @@ function dlPickPhotos(files) {
 }
 function dlRenderPhotos() {
   const box = document.getElementById('dl-photo-list'); if (!box) return;
-  const existing = dlPhotoUrls.map((u, i) => `<div style="position:relative"><img src="${u}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  const existing = dlPhotoUrls.map((p, i) => `<div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
   const pending = _dlNewFiles.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
   box.innerHTML = existing + pending || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
 }
@@ -2796,18 +2817,16 @@ function dlCompressImage(file, maxDim = 1280, quality = 0.7) {
 }
 async function dlUploadNewPhotos(sid, date) {
   if (!_dlNewFiles.length) return [];
-  const urls = [];
+  const out = [];
+  const s = siteById(sid); const sn = s ? (s.label || s.name) : sid;
+  let n = 0;
   for (const f of _dlNewFiles) {
     const blob = await dlCompressImage(f);
-    const isJpeg = blob !== f; // 壓縮成功→jpeg
-    const ext = isJpeg ? 'jpg' : (f.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${sid}/${date}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
-    const { error } = await sb.storage.from('daily-log-photos').upload(path, blob, { upsert: true, contentType: isJpeg ? 'image/jpeg' : f.type });
-    if (error) { throw new Error('照片上傳失敗：' + error.message + '（請確認 Supabase 已建立 daily-log-photos bucket）'); }
-    const { data } = sb.storage.from('daily-log-photos').getPublicUrl(path);
-    urls.push(data.publicUrl);
+    n++;
+    const name = `施工日誌_${sn}_${date}_${n}.jpg`;
+    out.push(await dlDriveUpload(blob, name));   // {id,url,view}
   }
-  return urls;
+  return out;
 }
 function dlCollect() {
   const g = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
@@ -2872,7 +2891,7 @@ function dlPrintCurrent() {
   const workerRows = (r.workers.length ? r.workers : [{}]).concat(Array(Math.max(0, 4 - r.workers.length)).fill({}))
     .map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   const photos = (r.photos || []).slice(0, 6);
-  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px">` : '工進照片'}</td>`);
+  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${dlPhotoSrc(photos[i])}" referrerpolicy="no-referrer" style="max-width:100%;max-height:145px">` : '工進照片'}</td>`);
   const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
   const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>施工日誌 ${cell(r.log_date)}</title>
     <style>@page{size:A4;margin:12mm}body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
