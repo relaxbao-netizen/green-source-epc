@@ -2545,9 +2545,33 @@ async function renderDlFill() {
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
       </div>
+      ${isAdmin() ? '<div id="dl-usage" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>' : ''}
     </div>
     <div id="dl-form-body" style="margin-top:14px"></div>`;
   dlLoadForm();
+  if (isAdmin()) dlRenderUsage();
+}
+// 管理員：照片儲存用量提示（統計 daily-log-photos bucket 檔案大小）
+async function dlRenderUsage() {
+  const el = document.getElementById('dl-usage'); if (!el || !sb) return;
+  el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 照片儲存用量計算中…</span>';
+  try {
+    const { data: top, error } = await sb.storage.from('daily-log-photos').list('', { limit: 1000 });
+    if (error) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 照片 bucket 尚未建立（建立後會顯示用量）</span>'; return; }
+    let total = 0, count = 0;
+    for (const f of (top || [])) {
+      if (f.id === null) {
+        const { data: files } = await sb.storage.from('daily-log-photos').list(f.name, { limit: 1000 });
+        (files || []).forEach(x => { const sz = x.metadata && x.metadata.size; if (sz) { total += sz; count++; } });
+      } else { const sz = f.metadata && f.metadata.size; if (sz) { total += sz; count++; } }
+    }
+    const mb = total / 1048576, limitMB = 1024, pct = Math.min(100, mb / limitMB * 100);
+    const col = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warn)' : 'var(--accent)';
+    const warn = pct > 90 ? '　⚠ 接近上限，建議清理舊照片或升級' : '';
+    el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);flex-wrap:wrap">
+      <span>📸 照片儲存：<b style="color:${col}">${mb.toFixed(1)} MB</b> / ${limitMB} MB（${count} 張，約 ${pct.toFixed(1)}%）<span style="color:var(--danger)">${warn}</span></span>
+      <div style="flex:1;min-width:120px;max-width:220px;height:6px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col}"></div></div></div>`;
+  } catch (e) { el.innerHTML = '<span style="font-size:12px;color:var(--muted)">📸 用量估算失敗</span>'; }
 }
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
 async function dlLoadForm() {
