@@ -2573,9 +2573,9 @@ async function renderDlFill() {
   cont.innerHTML = `
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-field" style="margin:0"><label>案場 *</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${siteOpts}</select></div>
-        <div class="form-field" style="margin:0"><label>施工日期 *</label><input type="date" id="dl-date" value="${localDate(new Date())}" onchange="dlLoadForm()"></div>
-        <div class="form-field" style="margin:0"><label>本日天氣 <span style="color:var(--danger)">*</span></label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
+        <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="dl-date" value="${localDate(new Date())}" onchange="dlLoadForm()"></div>
+        <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
       </div>
