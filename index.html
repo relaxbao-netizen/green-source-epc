@@ -2576,30 +2576,36 @@ async function renderDlFill() {
   await loadDlLogs();
   dlShowList();
 }
-// 清單檢視：既有施工日誌 + 「＋ 新增」按鈕
+// 清單檢視：依案場分組 + 「＋ 新增」按鈕
 function dlShowList() {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const editableIds = new Set(dlEditableSites().map(s => s.id));
-  const rows = (dlLogs || []).filter(r => isAdmin() || editableIds.has(r.site_id))
-    .sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
-  const body = rows.length ? rows.map(r => {
-    const s = siteById(r.site_id); const nm = s ? (s.label || s.name) : ('案場#' + r.site_id);
-    return `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="dlShowForm('${r.id}')">
-      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
-      <td style="padding:8px 10px">${appEsc(nm)}</td>
+  const all = (dlLogs || []).filter(r => isAdmin() || editableIds.has(r.site_id));
+  const groups = {};
+  all.forEach(r => { (groups[r.site_id] = groups[r.site_id] || []).push(r); });
+  const lastOf = sid => groups[sid].reduce((m, r) => String(r.log_date) > m ? String(r.log_date) : m, '');
+  const siteIds = Object.keys(groups).sort((a, b) => lastOf(b).localeCompare(lastOf(a)));
+  let body = '';
+  if (!all.length) body = `<tr><td colspan="4" style="padding:16px;color:var(--muted)">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</td></tr>`;
+  else siteIds.forEach(sid => {
+    const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
+    const list = groups[sid].slice().sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+    body += `<tr style="background:var(--surface2)"><td colspan="4" style="padding:7px 10px;font-weight:700;color:var(--accent)">${appEsc(nm)}（${list.length} 筆）</td></tr>`;
+    body += list.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="dlShowForm('${r.id}')">
+      <td style="padding:8px 10px 8px 24px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
-      <td style="padding:8px 10px;text-align:right;white-space:nowrap"><span style="color:var(--accent);font-weight:600">編輯 ›</span></td></tr>`;
-  }).join('') : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</td></tr>`;
+      <td style="padding:8px 10px;text-align:right;white-space:nowrap"><span style="color:var(--accent);font-weight:600">編輯 ›</span></td></tr>`).join('');
+  });
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:13px;color:var(--muted)">共 ${rows.length} 筆施工日誌</div>
+      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆施工日誌・${siteIds.length} 個案場</div>
       <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="color:var(--muted);font-size:12px;background:var(--surface2)">
-          <th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">案場</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="width:70px"></th>
+        <thead><tr style="color:var(--muted);font-size:12px">
+          <th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="width:70px"></th>
         </tr></thead>
         <tbody>${body}</tbody>
       </table>
