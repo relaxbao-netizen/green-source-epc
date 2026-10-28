@@ -2687,9 +2687,9 @@ function dlItemRowHtml(it) {
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcCum(this.closest('tr').querySelector('.dli-today'))`;
-  const isOther = !!(it.name && !_dlWbsNames.includes(it.name));
-  const selOpts = '<option value="">請選擇</option>' + _dlWbsNames.map(n => `<option value="${appEsc(n)}" ${n === it.name ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + `<option value="__other__" ${isOther ? 'selected' : ''}>➕ 其他（自行輸入）</option>`;
-  const nameCell = `<select class="dli-pick2" onchange="dlPickItem(this)" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">${selOpts}</select><input class="dli-name" value="${appEsc(it.name || '')}" placeholder="自行輸入施工項目" oninput="${recalc}" style="width:100%;margin-top:4px;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;display:${isOther ? 'block' : 'none'}">`;
+  const extra = (it.name && !_dlWbsNames.includes(it.name)) ? `<option value="${appEsc(it.name)}" selected>${appEsc(it.name)}</option>` : '';
+  const selOpts = '<option value="">請選擇</option>' + extra + _dlWbsNames.map(n => `<option value="${appEsc(n)}" ${n === it.name ? 'selected' : ''}>${appEsc(n)}</option>`).join('');
+  const nameCell = `<select class="dli-name" onchange="${recalc}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">${selOpts}</select>`;
   return `<tr>
     ${td(nameCell)}
     ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
@@ -2756,13 +2756,6 @@ function dlRecalcWorkerCum(todayInput) {
   const today = parseFloat(todayInput.value);
   const v = prior + (isNaN(today) ? 0 : today);
   cum.value = v ? v : '';
-}
-// 施工項目下拉：選 WBS 工項→帶入名稱；選「其他」→顯示自行輸入欄
-function dlPickItem(sel) {
-  const tr = sel.closest('tr'); const inp = tr.querySelector('.dli-name');
-  if (sel.value === '__other__') { inp.style.display = 'block'; inp.value = ''; inp.focus(); }
-  else { inp.style.display = 'none'; inp.value = sel.value; }
-  dlRecalcCum(tr.querySelector('.dli-today'));
 }
 function dlAddRow(tableId, rowHtml) { const tb = document.querySelector('#' + tableId + ' tbody'); if (tb) tb.insertAdjacentHTML('beforeend', rowHtml); }
 function dlDelRow(btn) { const tr = btn.closest('tr'); const tb = tr.parentElement; if (tb.children.length > 1) tr.remove(); else tr.querySelectorAll('input').forEach(i => i.value = ''); }
