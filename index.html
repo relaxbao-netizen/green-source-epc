@@ -2676,8 +2676,7 @@ async function dlLoadForm() {
     </div>`;
   dlRenderPhotos();
   const wsel = document.getElementById('dl-weather');
-  if (wsel && existing && existing.weather) wsel.value = existing.weather;
-  dlFillWeather(s, date);
+  if (wsel) wsel.value = (existing && existing.weather) ? existing.weather : '';   // 新建預設「請選擇」，不自動帶天氣
   dlRenderUsage();
 }
 function dlItemRowHtml(it) {
