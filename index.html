@@ -2619,7 +2619,9 @@ async function dlLoadForm() {
     const d = (typeof appDeptOfPerson === 'function') ? String(appDeptOfPerson(n) || '') : '工程管理';
     return d.includes('工程管理');   // 僅限工程部（工程管理部）的人員
   });
-  const reviewerOpts = reviewerPeople.map(n => `<option value="${appEsc(n)}"></option>`).join('');
+  const _rev = existing ? (existing.reviewer || '') : '';
+  const _revExtra = (_rev && !reviewerPeople.includes(_rev)) ? `<option value="${appEsc(_rev)}" selected>${appEsc(_rev)}</option>` : '';
+  const reviewerOpts = '<option value="">請選擇</option>' + _revExtra + reviewerPeople.map(n => `<option value="${appEsc(n)}" ${n === _rev ? 'selected' : ''}>${appEsc(n)}</option>`).join('');
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
   const supVal = existing ? (existing.supervisor || '') : pmText(s);
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
@@ -2661,7 +2663,7 @@ async function dlLoadForm() {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><textarea id="dl-notify" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.notify_sub : '')}</textarea></div>
       <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><textarea id="dl-coord" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.coordinate : '')}</textarea></div>
-      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '', 'list="dl-reviewer-list" placeholder="請選擇"')}<datalist id="dl-reviewer-list">${reviewerOpts}</datalist></div>
+      <div class="form-field" style="margin:0"><label>審核</label><select id="dl-reviewer" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-weight:400">${reviewerOpts}</select></div>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
