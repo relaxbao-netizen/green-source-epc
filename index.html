@@ -2496,7 +2496,7 @@ async function renderDailyLog() {
 // ===================== 線上填寫施工日誌 =====================
 const DL_CONTRACTOR = '綠源科技股份有限公司';
 const DL_DRIVE_FOLDER = '0AI3S_YJ3oW_KUk9PVA';   // 公司共用硬碟：施工日誌照片資料夾
-const DL_WEATHER_OPTS = ['晴', '晴時多雲', '多雲', '陰', '多雲時陰', '雨', '陰時有雨', '雷陣雨'];
+const DL_WEATHER_OPTS = ['晴', '陰', '雨'];
 // ---- Google Drive 上傳（沿用登入帳號，要求 drive.file 權限） ----
 let _dlDriveTok = null;
 function dlGetDriveToken() {
