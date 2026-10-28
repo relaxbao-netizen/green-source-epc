@@ -2541,6 +2541,7 @@ async function renderDlFill() {
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場 *</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期 *</label><input type="date" id="dl-date" value="${localDate(new Date())}" onchange="dlLoadForm()"></div>
+        <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
       </div>
@@ -2567,16 +2568,14 @@ async function dlLoadForm() {
   const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   const wbsOpts = '<option value="">—選工項—</option>' + dlWbsItems(s).map(it => `<option value="${appEsc(it.name)}">${appEsc(it.name)}（${it.pct}%）</option>`).join('');
-  const weatherSel = DL_WEATHER_OPTS.map(w => `<option ${existing && existing.weather === w ? 'selected' : ''}>${w}</option>`).join('');
   const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
   const supVal = existing ? (existing.supervisor || '') : pmText(s);
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
-    <div class="card" style="padding:16px 18px">
-      <div class="form-field" style="margin:0;max-width:280px"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:8px">工程名稱、承攬商、開工／預定完工日、合約／累計工期、工地主任會自動帶入列印與存檔，不需填寫。</div>
+    <div class="card" style="padding:12px 18px">
+      <div style="font-size:12px;color:var(--muted)">工程名稱、承攬商、開工／預定完工日、合約／累計工期、工地主任會自動帶入列印與存檔，不需填寫。</div>
       <input type="hidden" id="dl-proj" value="${appEsc(s.name)}">
       <input type="hidden" id="dl-contractor" value="${appEsc(DL_CONTRACTOR)}">
       <input type="hidden" id="dl-start" value="${appEsc(startISO)}">
@@ -2628,6 +2627,8 @@ async function dlLoadForm() {
       <div id="dl-save-msg" style="align-self:center;font-size:13px;color:var(--muted)"></div>
     </div>`;
   dlRenderPhotos();
+  const wsel = document.getElementById('dl-weather');
+  if (wsel && existing && existing.weather) wsel.value = existing.weather;
   dlFillWeather(s, date);
 }
 function dlItemRowHtml(it, wbsOpts) {
