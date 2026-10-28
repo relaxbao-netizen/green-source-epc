@@ -2610,7 +2610,7 @@ async function dlLoadForm() {
       <div class="wbs-title" style="margin:0 0 10px">一、重要施工項目完成數量</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-items">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px">施工項目</th><th style="width:88px;padding:4px">本日完成</th><th style="width:64px;padding:4px">單位</th><th style="width:88px;padding:4px">累計完成</th><th style="width:76px;padding:4px">工時(小時)</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px">施工項目</th><th style="width:80px;padding:4px">本日完成</th><th style="width:56px;padding:4px">單位</th><th style="width:80px;padding:4px">累計完成</th><th style="width:70px;padding:4px">工時(小時)</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
         </tr></thead>
         <tbody>${items.map((it, i) => dlItemRowHtml(it, wbsOpts)).join('')}</tbody>
       </table>
@@ -2667,6 +2667,7 @@ function dlItemRowHtml(it, wbsOpts) {
     ${td(ip('dli-unit', it.unit || '式'))}
     ${td(ip('dli-cum', it.cum, '自動', cumAttr))}
     ${td(ip('dli-hours', it.hours))}
+    ${td(ip('dli-note', it.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
   </tr>`;
 }
@@ -2800,7 +2801,8 @@ function dlCollect() {
   const g = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const items = [...document.querySelectorAll('#dl-items tbody tr')].map(tr => ({
     name: tr.querySelector('.dli-name').value.trim(), today: tr.querySelector('.dli-today').value.trim(),
-    unit: tr.querySelector('.dli-unit').value.trim(), cum: tr.querySelector('.dli-cum').value.trim(), hours: tr.querySelector('.dli-hours').value.trim()
+    unit: tr.querySelector('.dli-unit').value.trim(), cum: tr.querySelector('.dli-cum').value.trim(), hours: tr.querySelector('.dli-hours').value.trim(),
+    note: tr.querySelector('.dli-note') ? tr.querySelector('.dli-note').value.trim() : ''
   })).filter(x => x.name);
   const workers = [...document.querySelectorAll('#dl-workers tbody tr')].map(tr => ({
     trade: tr.querySelector('.dlw-trade').value.trim(), today: tr.querySelector('.dlw-today').value.trim(),
@@ -2848,7 +2850,7 @@ function dlPrintCurrent() {
   const s = siteById(r.site_id);
   const cell = v => appEsc(v || '');
   const itemRows = (r.items.length ? r.items : [{}]).concat(Array(Math.max(0, 6 - r.items.length)).fill({}))
-    .map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td></tr>`).join('');
+    .map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
   const workerRows = (r.workers.length ? r.workers : [{}]).concat(Array(Math.max(0, 4 - r.workers.length)).fill({}))
     .map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   const photos = (r.photos || []).slice(0, 6);
@@ -2869,7 +2871,7 @@ function dlPrintCurrent() {
     <tr><td>本日天氣</td><td>${cell(r.weather)}</td><td>施工日期</td><td>${cell(r.log_date)}</td><td>合約工期</td><td>${cell(r.contract_days)} 天</td></tr>
     <tr><td>開工日期</td><td>${cell(r.start_date)}</td><td>預定完工</td><td>${cell(r.end_date)}</td><td>累計工期</td><td>${cell(r.cum_days)} 天</td></tr></table>
     <div class="sec">一、重要施工項目完成數量：</div>
-    <table class="tb"><thead><tr><th>施工項目</th><th>本日完成數量</th><th>單位</th><th>累計完成數量</th><th>工時(小時)</th></tr></thead><tbody>${itemRows}</tbody></table>
+    <table class="tb"><thead><tr><th>施工項目</th><th>本日完成數量</th><th>單位</th><th>累計完成數量</th><th>工時(小時)</th><th>備註</th></tr></thead><tbody>${itemRows}</tbody></table>
     <div class="sec">二、工地人員管理（含約定之出工人數及機具使用情形及數量）：</div>
     <table class="tb"><thead><tr><th>工別</th><th>本日人數</th><th>累計人數</th><th>備註</th></tr></thead><tbody>${workerRows}</tbody></table>
     <div class="sec">三、通知分包廠商辦理事項：</div>
