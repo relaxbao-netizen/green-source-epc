@@ -2696,14 +2696,39 @@ function dlRecalcCum(todayInput) {
 function dlWorkerRowHtml(w) {
   w = w || {};
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
-  const ip = (cls, v, ph = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const recalc = `dlRecalcWorkerCum(this.closest('tr').querySelector('.dlw-today'))`;
+  const cumAttr = (w.cum != null && w.cum !== '' ? 'data-manual="1" ' : '') + 'oninput="this.dataset.manual=1"';
   return `<tr>
-    ${td(ip('dlw-trade', w.trade, '工別'))}
-    ${td(ip('dlw-today', w.today))}
-    ${td(ip('dlw-cum', w.cum))}
+    ${td(ip('dlw-trade', w.trade, '工別', 'oninput="' + recalc + '"'))}
+    ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"'))}
+    ${td(ip('dlw-cum', w.cum, '自動', cumAttr))}
     ${td(ip('dlw-note', w.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
   </tr>`;
+}
+// 累計人數自動累加：之前同案場同工別的最近「累計」+ 本日人數（手動改過則不覆蓋）
+function dlPriorWorkerCum(sid, trade, beforeDate) {
+  if (!trade) return 0;
+  const recs = (dlLogs || []).filter(r => r.site_id === sid && String(r.log_date).slice(0, 10) < beforeDate)
+    .sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+  for (const r of recs) {
+    const w = (Array.isArray(r.workers) ? r.workers : []).find(x => x && x.trade === trade);
+    if (w) { const n = parseFloat(w.cum); if (!isNaN(n)) return n; }
+  }
+  return 0;
+}
+function dlRecalcWorkerCum(todayInput) {
+  if (!todayInput) return;
+  const tr = todayInput.closest('tr'); if (!tr) return;
+  const cum = tr.querySelector('.dlw-cum'); if (!cum || cum.dataset.manual) return;
+  const trade = tr.querySelector('.dlw-trade').value.trim();
+  const sidEl = document.getElementById('dl-site'), dateEl = document.getElementById('dl-date');
+  if (!sidEl || !dateEl) return;
+  const prior = dlPriorWorkerCum(Number(sidEl.value), trade, dateEl.value);
+  const today = parseFloat(todayInput.value);
+  const v = prior + (isNaN(today) ? 0 : today);
+  cum.value = v ? v : '';
 }
 function dlAddRow(tableId, rowHtml) { const tb = document.querySelector('#' + tableId + ' tbody'); if (tb) tb.insertAdjacentHTML('beforeend', rowHtml); }
 function dlDelRow(btn) { const tr = btn.closest('tr'); const tb = tr.parentElement; if (tb.children.length > 1) tr.remove(); else tr.querySelectorAll('input').forEach(i => i.value = ''); }
