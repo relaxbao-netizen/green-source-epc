@@ -2534,6 +2534,7 @@ let dlLogs = [];            // site_daily_log 既有紀錄
 let dlEditingId = null;     // 目前編輯中的紀錄 id（新建為 null）
 let dlPhotoUrls = [];       // 目前表單的照片 URL
 let _dlWbsNames = [];       // 目前案場的 WBS 工項名稱（施工項目下拉用）
+let _dlFormReturnSite = null; // 填寫表單返回時要回到哪個案場（null＝回案場卡片）
 
 function showDlTab(tab) {
   const isFill = tab === 'fill';
@@ -2576,51 +2577,65 @@ async function renderDlFill() {
   await loadDlLogs();
   dlShowList();
 }
-// 清單檢視：依案場分組 + 「＋ 新增」按鈕
+// 第一層：每個案場一個卡片，點進去看該案場日誌
 function dlShowList() {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
-  const editableIds = new Set(dlEditableSites().map(s => s.id));
-  const all = (dlLogs || []).filter(r => isAdmin() || editableIds.has(r.site_id));
-  const groups = {};
-  all.forEach(r => { (groups[r.site_id] = groups[r.site_id] || []).push(r); });
-  const lastOf = sid => groups[sid].reduce((m, r) => String(r.log_date) > m ? String(r.log_date) : m, '');
-  const siteIds = Object.keys(groups).sort((a, b) => lastOf(b).localeCompare(lastOf(a)));
-  let body = '';
-  if (!all.length) body = `<tr><td colspan="4" style="padding:16px;color:var(--muted)">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</td></tr>`;
-  else siteIds.forEach(sid => {
-    const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
-    const list = groups[sid].slice().sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
-    body += `<tr style="background:var(--surface2)"><td colspan="4" style="padding:7px 10px;font-weight:700;color:var(--accent)">${appEsc(nm)}（${list.length} 筆）</td></tr>`;
-    body += list.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="dlShowForm('${r.id}')">
-      <td style="padding:8px 10px 8px 24px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
-      <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
-      <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
-      <td style="padding:8px 10px;text-align:right;white-space:nowrap"><span style="color:var(--accent);font-weight:600">編輯 ›</span></td></tr>`).join('');
-  });
+  const editable = dlEditableSites();
+  const all = (dlLogs || []).filter(r => isAdmin() || editable.some(s => s.id === r.site_id));
+  const cnt = {}, last = {};
+  all.forEach(r => { cnt[r.site_id] = (cnt[r.site_id] || 0) + 1; const d = String(r.log_date).slice(0, 10); if (!last[r.site_id] || d > last[r.site_id]) last[r.site_id] = d; });
+  const ids = [...new Set([...editable.map(s => s.id), ...all.map(r => r.site_id)])];
+  ids.sort((a, b) => (last[b] || '').localeCompare(last[a] || ''));
+  const cards = ids.map(sid => {
+    const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid); const c = cnt[sid] || 0;
+    return `<div class="card" onclick="dlShowSite('${sid}')" style="cursor:pointer;padding:16px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
+      <div style="font-weight:700;font-size:15px;margin-bottom:10px;min-height:38px">${appEsc(nm)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><span style="font-size:26px;font-weight:800;color:var(--accent)">${c}</span><span style="font-size:12px;color:var(--muted);margin-left:3px">筆</span></div>
+        <div style="font-size:12px;color:var(--muted);text-align:right">${last[sid] ? ('最近<br>' + last[sid]) : '尚無日誌'}</div>
+      </div></div>`;
+  }).join('');
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆施工日誌・${siteIds.length} 個案場</div>
+      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆施工日誌・${ids.length} 個案場</div>
       <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
     </div>
-    <div class="card" style="padding:0;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="width:70px"></th>
-        </tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無案場</div>'}</div>`;
 }
-// 表單檢視：新增(logId=null) 或 編輯既有(logId)
-function dlShowForm(logId) {
+// 第二層：單一案場的日誌清單
+function dlShowSite(sid) {
+  const cont = document.getElementById('dl-fill-container'); if (!cont) return;
+  const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
+  const list = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+  const rows = list.length ? list.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="dlShowForm('${r.id}')">
+      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
+      <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
+      <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
+      <td style="padding:8px 10px;text-align:right"><span style="color:var(--accent);font-weight:600">編輯 ›</span></td></tr>`).join('')
+    : `<tr><td colspan="4" style="padding:16px;color:var(--muted)">此案場尚無日誌，點右上角「＋ 新增」開始填寫。</td></tr>`;
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+      <button onclick="dlShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
+      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
+      <button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="width:70px"></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+}
+function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnSite); else dlShowList(); }
+// 表單檢視：新增(logId=null) 或 編輯既有(logId)；presetSite＝新增時預設案場
+function dlShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const editable = dlEditableSites();
   const rec = logId ? (dlLogs || []).find(r => String(r.id) === String(logId)) : null;
+  _dlFormReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
+  const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const siteOpts = editable.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
-  if (rec && !editable.some(s => s.id === rec.site_id)) { const s = siteById(rec.site_id); extraSiteOpt = `<option value="${rec.site_id}">${appEsc(s ? (s.label || s.name) : ('案場#' + rec.site_id))}</option>`; }
+  if (defSite != null && !editable.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   cont.innerHTML = `
-    <div style="margin-bottom:10px"><button onclick="dlShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回清單</button></div>
+    <div style="margin-bottom:10px"><button onclick="dlFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
@@ -2631,7 +2646,7 @@ function dlShowForm(logId) {
       </div>
     </div>
     <div id="dl-form-body" style="margin-top:14px"></div>`;
-  if (rec) document.getElementById('dl-site').value = rec.site_id;
+  if (defSite != null) document.getElementById('dl-site').value = defSite;
   dlLoadForm();
 }
 // 管理員：照片儲存用量提示（統計 daily-log-photos bucket 檔案大小）
@@ -2924,7 +2939,7 @@ async function dlSave() {
     if (msg) { msg.textContent = '✅ 已儲存'; msg.style.color = '#16a34a'; }
     _dlNewFiles = [];
     await loadDlLogs();
-    setTimeout(() => dlShowList(), 600);
+    setTimeout(() => dlShowSite(rec.site_id), 600);
   } catch (e) {
     if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_daily_log 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; }
   }
@@ -2936,7 +2951,9 @@ async function dlDelete() {
   try {
     await sb.from('site_daily_log').delete().eq('id', dlEditingId);
     if (rec && Array.isArray(rec.photos)) await dlStorageRemove(rec.photos);
-    dlEditingId = null; await loadDlLogs(); dlShowList();
+    const backSid = rec ? rec.site_id : null;
+    dlEditingId = null; await loadDlLogs();
+    if (backSid != null) dlShowSite(backSid); else dlShowList();
   }
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
