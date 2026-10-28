@@ -2612,10 +2612,10 @@ async function dlLoadForm() {
         <thead><tr style="color:var(--muted);font-size:12px">
           <th style="text-align:left;padding:4px">施工項目</th><th style="width:80px;padding:4px">本日完成</th><th style="width:56px;padding:4px">單位</th><th style="width:80px;padding:4px">累計完成</th><th style="width:70px;padding:4px">工時(小時)</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
         </tr></thead>
-        <tbody>${items.map((it, i) => dlItemRowHtml(it, wbsOpts)).join('')}</tbody>
+        <tbody>${items.map(it => dlItemRowHtml(it)).join('')}</tbody>
       </table>
-      <button onclick="dlAddRow('dl-items', dlItemRowHtml({}, document.getElementById('dl-items-wbs').value))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
-      <select id="dl-items-wbs" hidden>${wbsOpts}</select>
+      <button onclick="dlAddRow('dl-items', dlItemRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+      <datalist id="dl-wbs-list">${wbsOpts}</datalist>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -2654,15 +2654,14 @@ async function dlLoadForm() {
   dlFillWeather(s, date);
   if (isAdmin()) dlRenderUsage();
 }
-function dlItemRowHtml(it, wbsOpts) {
+function dlItemRowHtml(it) {
   it = it || {};
-  const sel = wbsOpts || (document.getElementById('dl-items-wbs') ? document.getElementById('dl-items-wbs').innerHTML : '<option value="">—</option>');
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcCum(this.closest('tr').querySelector('.dli-today'))`;
   const cumAttr = (it.cum != null && it.cum !== '' ? 'data-manual="1" ' : '') + 'oninput="this.dataset.manual=1"';
   return `<tr>
-    ${td(`<div style="display:flex;gap:4px"><select class="dli-pick" onchange="if(this.value){const tr=this.closest('tr');tr.querySelector('.dli-name').value=this.value;this.selectedIndex=0;${recalc};}" style="width:34px;font-size:12px">${sel}</select>${ip('dli-name', it.name, '施工項目', 'oninput="' + recalc + '"')}</div>`)}
+    ${td(ip('dli-name', it.name, '施工項目（可下拉選工項）', 'list="dl-wbs-list" oninput="' + recalc + '"'))}
     ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"'))}
     ${td(ip('dli-unit', it.unit || '式'))}
     ${td(ip('dli-cum', it.cum, '自動', cumAttr))}
