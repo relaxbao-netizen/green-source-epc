@@ -2575,17 +2575,15 @@ async function dlLoadForm() {
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
     <div class="card" style="padding:16px 18px">
-      <div class="wbs-title" style="margin:0 0 10px">施工日誌表頭 <span style="font-weight:400;font-size:12px;color:var(--muted)">（以下自動帶入，不需填寫）</span></div>
-      <div class="form-field" style="margin:0 0 12px;max-width:280px"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0 24px;font-size:13px">
-        ${ro('工程名稱', s.name, 'dl-proj')}
-        ${ro('承攬廠商名稱', DL_CONTRACTOR, 'dl-contractor')}
-        ${ro('開工日期', startISO, 'dl-start')}
-        ${ro('預定完工日期', endISO, 'dl-end')}
-        ${ro('合約工期', (contractDays || contractDays === 0) ? contractDays + ' 天' : '—', 'dl-cdays', contractDays)}
-        ${ro('累計工期', (cumDays || cumDays === 0) ? cumDays + ' 天' : '—', 'dl-udays', cumDays)}
-        ${ro('工地主任', supVal, 'dl-supervisor')}
-      </div>
+      <div class="form-field" style="margin:0;max-width:280px"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">工程名稱、承攬商、開工／預定完工日、合約／累計工期、工地主任會自動帶入列印與存檔，不需填寫。</div>
+      <input type="hidden" id="dl-proj" value="${appEsc(s.name)}">
+      <input type="hidden" id="dl-contractor" value="${appEsc(DL_CONTRACTOR)}">
+      <input type="hidden" id="dl-start" value="${appEsc(startISO)}">
+      <input type="hidden" id="dl-end" value="${appEsc(endISO)}">
+      <input type="hidden" id="dl-cdays" value="${contractDays != null && contractDays !== '' ? contractDays : ''}">
+      <input type="hidden" id="dl-udays" value="${cumDays != null && cumDays !== '' ? cumDays : ''}">
+      <input type="hidden" id="dl-supervisor" value="${appEsc(supVal)}">
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
