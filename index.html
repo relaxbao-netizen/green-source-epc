@@ -2658,15 +2658,40 @@ function dlItemRowHtml(it, wbsOpts) {
   it = it || {};
   const sel = wbsOpts || (document.getElementById('dl-items-wbs') ? document.getElementById('dl-items-wbs').innerHTML : '<option value="">—</option>');
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
-  const ip = (cls, v, ph = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const recalc = `dlRecalcCum(this.closest('tr').querySelector('.dli-today'))`;
+  const cumAttr = (it.cum != null && it.cum !== '' ? 'data-manual="1" ' : '') + 'oninput="this.dataset.manual=1"';
   return `<tr>
-    ${td(`<div style="display:flex;gap:4px"><select class="dli-pick" onchange="if(this.value){this.closest('tr').querySelector('.dli-name').value=this.value;this.selectedIndex=0;}" style="width:34px;font-size:12px">${sel}</select>${ip('dli-name', it.name, '施工項目')}</div>`)}
-    ${td(ip('dli-today', it.today))}
+    ${td(`<div style="display:flex;gap:4px"><select class="dli-pick" onchange="if(this.value){const tr=this.closest('tr');tr.querySelector('.dli-name').value=this.value;this.selectedIndex=0;${recalc};}" style="width:34px;font-size:12px">${sel}</select>${ip('dli-name', it.name, '施工項目', 'oninput="' + recalc + '"')}</div>`)}
+    ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"'))}
     ${td(ip('dli-unit', it.unit || '式'))}
-    ${td(ip('dli-cum', it.cum))}
+    ${td(ip('dli-cum', it.cum, '自動', cumAttr))}
     ${td(ip('dli-hours', it.hours))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
   </tr>`;
+}
+// 累計完成自動累加：之前同案場同工項的最近「累計」+ 本日完成（手動改過則不覆蓋）
+function dlPriorCum(sid, name, beforeDate) {
+  if (!name) return 0;
+  const recs = (dlLogs || []).filter(r => r.site_id === sid && String(r.log_date).slice(0, 10) < beforeDate)
+    .sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+  for (const r of recs) {
+    const it = (Array.isArray(r.items) ? r.items : []).find(x => x && x.name === name);
+    if (it) { const n = parseFloat(it.cum); if (!isNaN(n)) return n; }
+  }
+  return 0;
+}
+function dlRecalcCum(todayInput) {
+  if (!todayInput) return;
+  const tr = todayInput.closest('tr'); if (!tr) return;
+  const cum = tr.querySelector('.dli-cum'); if (!cum || cum.dataset.manual) return;
+  const name = tr.querySelector('.dli-name').value.trim();
+  const sidEl = document.getElementById('dl-site'), dateEl = document.getElementById('dl-date');
+  if (!sidEl || !dateEl) return;
+  const prior = dlPriorCum(Number(sidEl.value), name, dateEl.value);
+  const today = parseFloat(todayInput.value);
+  const v = prior + (isNaN(today) ? 0 : today);
+  cum.value = v ? v : '';
 }
 function dlWorkerRowHtml(w) {
   w = w || {};
