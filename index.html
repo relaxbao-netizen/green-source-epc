@@ -2566,7 +2566,11 @@ function dlWbsItems(s) {
 async function renderDlFill() {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   if (!sb) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用。</div>'; return; }
-  if (!isLoggedIn()) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能填寫施工日誌。</div>'; return; }
+  if (!isLoggedIn()) {
+    cont.innerHTML = `<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能填寫施工日誌。<br>
+      <button onclick="devLogin('admin'); showDlTab('fill')" style="margin-top:12px;padding:7px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">🤖 以測試帳號填寫（照片需正式登入才能上傳 Drive）</button></div>`;
+    return;
+  }
   const editable = dlEditableSites();
   if (!editable.length) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">你目前沒有可填寫的進行中案場。</div>'; return; }
   await loadDlLogs();
