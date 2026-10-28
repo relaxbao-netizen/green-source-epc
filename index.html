@@ -2545,11 +2545,9 @@ async function renderDlFill() {
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
       </div>
-      ${isAdmin() ? '<div id="dl-usage" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>' : ''}
     </div>
     <div id="dl-form-body" style="margin-top:14px"></div>`;
   dlLoadForm();
-  if (isAdmin()) dlRenderUsage();
 }
 // 管理員：照片儲存用量提示（統計 daily-log-photos bucket 檔案大小）
 async function dlRenderUsage() {
@@ -2641,6 +2639,7 @@ async function dlLoadForm() {
       <div class="wbs-title" style="margin:0 0 10px">工進照片（最多 6 張）</div>
       <input type="file" id="dl-photos" accept="image/*" multiple onchange="dlPickPhotos(this.files)">
       <div id="dl-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+      ${isAdmin() ? '<div id="dl-usage" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>' : ''}
     </div>
 
     <div style="display:flex;gap:10px;margin:16px 0 8px;flex-wrap:wrap">
@@ -2653,6 +2652,7 @@ async function dlLoadForm() {
   const wsel = document.getElementById('dl-weather');
   if (wsel && existing && existing.weather) wsel.value = existing.weather;
   dlFillWeather(s, date);
+  if (isAdmin()) dlRenderUsage();
 }
 function dlItemRowHtml(it, wbsOpts) {
   it = it || {};
