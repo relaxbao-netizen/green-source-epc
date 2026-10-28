@@ -2595,7 +2595,10 @@ async function dlLoadForm() {
   const reviewerPeople = [...new Set([
     ...(typeof supervisors !== 'undefined' ? supervisors : []).filter(p => !p.left_date).map(p => p.name),
     ...(typeof approvers !== 'undefined' ? approvers : []).map(p => p.name)
-  ].filter(Boolean))];
+  ].filter(Boolean))].filter(n => {
+    const d = (typeof appDeptOfPerson === 'function') ? String(appDeptOfPerson(n) || '') : '工程管理';
+    return d.includes('工程管理');   // 僅限工程部（工程管理部）的人員
+  });
   const reviewerOpts = reviewerPeople.map(n => `<option value="${appEsc(n)}"></option>`).join('');
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
   const supVal = existing ? (existing.supervisor || '') : pmText(s);
