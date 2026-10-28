@@ -2608,6 +2608,8 @@ async function dlLoadForm() {
   const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   const wbsOpts = dlWbsItems(s).map(it => `<option value="${appEsc(it.name)}"></option>`).join('');
+  // 工別建議：所有帳號過去填過的工別（存於日誌，跨帳號共享），下次可直接選
+  const tradeOpts = [...new Set((dlLogs || []).flatMap(r => Array.isArray(r.workers) ? r.workers : []).map(w => (w && w.trade) ? String(w.trade).trim() : '').filter(Boolean))].sort().map(t => `<option value="${appEsc(t)}"></option>`).join('');
   const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
   const reviewerPeople = [...new Set([
     ...(typeof supervisors !== 'undefined' ? supervisors : []).filter(p => !p.left_date).map(p => p.name),
@@ -2653,6 +2655,7 @@ async function dlLoadForm() {
         <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
       </table>
       <button onclick="dlAddRow('dl-workers', dlWorkerRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+      <datalist id="dl-trade-list">${tradeOpts}</datalist>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -2722,7 +2725,7 @@ function dlWorkerRowHtml(w) {
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcWorkerCum(this.closest('tr').querySelector('.dlw-today'))`;
   return `<tr>
-    ${td(ip('dlw-trade', w.trade, '工別', 'oninput="' + recalc + '"'))}
+    ${td(ip('dlw-trade', w.trade, '工別', 'list="dl-trade-list" oninput="' + recalc + '"'))}
     ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
     ${td(ip('dlw-note', w.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
