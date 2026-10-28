@@ -2616,7 +2616,7 @@ async function dlLoadForm() {
       <div class="wbs-title" style="margin:0 0 10px">一、重要施工項目完成數量</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-items">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px">施工項目</th><th style="width:80px;padding:4px">本日完成</th><th style="width:56px;padding:4px">單位</th><th style="width:80px;padding:4px">累計完成</th><th style="width:70px;padding:4px">工時(小時)</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px">施工項目</th><th style="width:88px;padding:4px">本日完成</th><th style="width:64px;padding:4px">單位</th><th style="width:80px;padding:4px">工時(小時)</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
         </tr></thead>
         <tbody>${items.map(it => dlItemRowHtml(it)).join('')}</tbody>
       </table>
@@ -2628,7 +2628,7 @@ async function dlLoadForm() {
       <div class="wbs-title" style="margin:0 0 10px">二、工地人員管理</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-workers">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px">工別</th><th style="width:88px;padding:4px">本日人數</th><th style="width:88px;padding:4px">累計人數</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px">工別</th><th style="width:96px;padding:4px">本日人數</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
         </tr></thead>
         <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
       </table>
@@ -2665,12 +2665,10 @@ function dlItemRowHtml(it) {
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcCum(this.closest('tr').querySelector('.dli-today'))`;
-  const cumAttr = (it.cum != null && it.cum !== '' ? 'data-manual="1" ' : '') + 'oninput="this.dataset.manual=1"';
   return `<tr>
     ${td(ip('dli-name', it.name, '施工項目（可下拉選工項）', 'list="dl-wbs-list" oninput="' + recalc + '"'))}
-    ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"'))}
+    ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
     ${td(ip('dli-unit', it.unit || '式'))}
-    ${td(ip('dli-cum', it.cum, '自動', cumAttr))}
     ${td(ip('dli-hours', it.hours))}
     ${td(ip('dli-note', it.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
@@ -2704,11 +2702,9 @@ function dlWorkerRowHtml(w) {
   const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcWorkerCum(this.closest('tr').querySelector('.dlw-today'))`;
-  const cumAttr = (w.cum != null && w.cum !== '' ? 'data-manual="1" ' : '') + 'oninput="this.dataset.manual=1"';
   return `<tr>
     ${td(ip('dlw-trade', w.trade, '工別', 'oninput="' + recalc + '"'))}
-    ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"'))}
-    ${td(ip('dlw-cum', w.cum, '自動', cumAttr))}
+    ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
     ${td(ip('dlw-note', w.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
   </tr>`;
