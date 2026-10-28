@@ -2591,6 +2591,11 @@ async function dlLoadForm() {
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   const wbsOpts = '<option value="">—選工項—</option>' + dlWbsItems(s).map(it => `<option value="${appEsc(it.name)}">${appEsc(it.name)}（${it.pct}%）</option>`).join('');
   const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
+  const reviewerPeople = [...new Set([
+    ...(typeof supervisors !== 'undefined' ? supervisors : []).filter(p => !p.left_date).map(p => p.name),
+    ...(typeof approvers !== 'undefined' ? approvers : []).map(p => p.name)
+  ].filter(Boolean))];
+  const reviewerOpts = reviewerPeople.map(n => `<option value="${appEsc(n)}"></option>`).join('');
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
   const supVal = existing ? (existing.supervisor || '') : pmText(s);
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
@@ -2632,7 +2637,7 @@ async function dlLoadForm() {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><textarea id="dl-notify" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.notify_sub : '')}</textarea></div>
       <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><textarea id="dl-coord" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.coordinate : '')}</textarea></div>
-      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '')}</div>
+      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '', 'list="dl-reviewer-list" placeholder="可下拉選人員，也可自行輸入"')}<datalist id="dl-reviewer-list">${reviewerOpts}</datalist></div>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
