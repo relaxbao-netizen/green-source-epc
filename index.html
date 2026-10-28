@@ -2569,18 +2569,22 @@ async function dlLoadForm() {
   const wbsOpts = '<option value="">—選工項—</option>' + dlWbsItems(s).map(it => `<option value="${appEsc(it.name)}">${appEsc(it.name)}（${it.pct}%）</option>`).join('');
   const weatherSel = DL_WEATHER_OPTS.map(w => `<option ${existing && existing.weather === w ? 'selected' : ''}>${w}</option>`).join('');
   const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
+  const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
+  const supVal = existing ? (existing.supervisor || '') : pmText(s);
+  // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
+  const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
     <div class="card" style="padding:16px 18px">
-      <div class="wbs-title" style="margin:0 0 10px">施工日誌表頭</div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px">
-        <div class="form-field" style="margin:0"><label>工程名稱</label>${inp('dl-proj', s.name, 'readonly')}</div>
-        <div class="form-field" style="margin:0"><label>承攬廠商名稱</label>${inp('dl-contractor', DL_CONTRACTOR)}</div>
-        <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
-        <div class="form-field" style="margin:0"><label>開工日期</label><input type="date" id="dl-start" value="${toISO(start).slice(0,10)}"></div>
-        <div class="form-field" style="margin:0"><label>預定完工日期</label><input type="date" id="dl-end" value="${toISO(end).slice(0,10)}"></div>
-        <div class="form-field" style="margin:0"><label>合約工期（天）</label>${inp('dl-cdays', contractDays)}</div>
-        <div class="form-field" style="margin:0"><label>累計工期（天）</label>${inp('dl-udays', cumDays)}</div>
-        <div class="form-field" style="margin:0"><label>工地主任</label>${inp('dl-supervisor', existing ? existing.supervisor : pmText(s))}</div>
+      <div class="wbs-title" style="margin:0 0 10px">施工日誌表頭 <span style="font-weight:400;font-size:12px;color:var(--muted)">（以下自動帶入，不需填寫）</span></div>
+      <div class="form-field" style="margin:0 0 12px;max-width:280px"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0 24px;font-size:13px">
+        ${ro('工程名稱', s.name, 'dl-proj')}
+        ${ro('承攬廠商名稱', DL_CONTRACTOR, 'dl-contractor')}
+        ${ro('開工日期', startISO, 'dl-start')}
+        ${ro('預定完工日期', endISO, 'dl-end')}
+        ${ro('合約工期', (contractDays || contractDays === 0) ? contractDays + ' 天' : '—', 'dl-cdays', contractDays)}
+        ${ro('累計工期', (cumDays || cumDays === 0) ? cumDays + ' 天' : '—', 'dl-udays', cumDays)}
+        ${ro('工地主任', supVal, 'dl-supervisor')}
       </div>
     </div>
 
