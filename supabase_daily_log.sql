@@ -46,3 +46,6 @@ create policy "daily log photos anon read"
 create policy "daily log photos anon update"
   on storage.objects for update to anon
   using (bucket_id = 'daily-log-photos');
+create policy "daily log photos anon delete"
+  on storage.objects for delete to anon
+  using (bucket_id = 'daily-log-photos');

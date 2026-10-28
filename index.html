@@ -2580,6 +2580,7 @@ async function dlLoadForm() {
   const existing = dlLogs.find(r => r.site_id === sid && String(r.log_date).slice(0, 10) === date);
   dlEditingId = existing ? existing.id : null;
   dlPhotoUrls = existing && Array.isArray(existing.photos) ? existing.photos.slice() : [];
+  _dlNewFiles = []; _dlRemovedUrls = [];
   const start = (typeof siteStartDate === 'function' ? siteStartDate(s) : '') || s.contract_start || '';
   const end = (typeof siteEndDate === 'function' ? siteEndDate(s) : '') || s.end || '';
   const toISO = d => (d || '').replace(/\//g, '-');
@@ -2756,6 +2757,14 @@ async function dlFillWeather(s, date) {
 }
 // 照片：選檔後暫存預覽；儲存時上傳 Supabase Storage
 let _dlNewFiles = [];
+let _dlRemovedUrls = [];   // 本次編輯中被移除、待一併從 Storage 刪除的照片 URL
+// 從公開 URL 反推 Storage 路徑並刪除檔案（釋放用量）
+async function dlStorageRemove(urls) {
+  if (!sb || !urls || !urls.length) return;
+  const key = '/daily-log-photos/';
+  const paths = urls.map(u => { const i = String(u).indexOf(key); return i >= 0 ? decodeURIComponent(String(u).slice(i + key.length).split('?')[0]) : null; }).filter(Boolean);
+  if (paths.length) { try { await sb.storage.from('daily-log-photos').remove(paths); } catch (e) { console.warn('刪除照片檔失敗', e); } }
+}
 function dlPickPhotos(files) {
   _dlNewFiles = [..._dlNewFiles, ...Array.from(files)].slice(0, 6 - dlPhotoUrls.length);
   dlRenderPhotos();
@@ -2766,7 +2775,7 @@ function dlRenderPhotos() {
   const pending = _dlNewFiles.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
   box.innerHTML = existing + pending || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
 }
-function dlRemovePhoto(i) { dlPhotoUrls.splice(i, 1); dlRenderPhotos(); }
+function dlRemovePhoto(i) { const u = dlPhotoUrls.splice(i, 1)[0]; if (u) _dlRemovedUrls.push(u); dlRenderPhotos(); }
 function dlRemoveNewPhoto(i) { _dlNewFiles.splice(i, 1); dlRenderPhotos(); }
 // 上傳前壓縮：長邊縮到 1280px、JPEG 0.7（一張 3MB → 約 200~300KB，省 Storage）
 function dlCompressImage(file, maxDim = 1280, quality = 0.7) {
@@ -2835,6 +2844,7 @@ async function dlSave() {
     if (dlEditingId) ({ error } = await sb.from('site_daily_log').update(rec).eq('id', dlEditingId));
     else ({ error } = await sb.from('site_daily_log').upsert(rec, { onConflict: 'site_id,log_date' }));
     if (error) throw error;
+    if (_dlRemovedUrls.length) { await dlStorageRemove(_dlRemovedUrls); _dlRemovedUrls = []; }
     if (msg) { msg.textContent = '✅ 已儲存'; msg.style.color = '#16a34a'; }
     _dlNewFiles = [];
     await loadDlLogs(); dlLoadForm();
@@ -2844,8 +2854,13 @@ async function dlSave() {
 }
 async function dlDelete() {
   if (!dlEditingId) return;
-  if (!confirm('確定刪除這筆施工日誌？')) return;
-  try { await sb.from('site_daily_log').delete().eq('id', dlEditingId); dlEditingId = null; await loadDlLogs(); dlLoadForm(); }
+  if (!confirm('確定刪除這筆施工日誌？（含照片）')) return;
+  const rec = (dlLogs || []).find(r => r.id === dlEditingId);
+  try {
+    await sb.from('site_daily_log').delete().eq('id', dlEditingId);
+    if (rec && Array.isArray(rec.photos)) await dlStorageRemove(rec.photos);
+    dlEditingId = null; await loadDlLogs(); dlLoadForm();
+  }
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 // 列印：比照模板版面產生可列印頁
