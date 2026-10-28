@@ -978,7 +978,12 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 </div>
 
 <div id="page-dailylog" class="page">
+  <div id="dl-subtabs" style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+    <button id="dl-tab-status" class="tab-btn active" onclick="showDlTab('status')">📊 繳交狀況</button>
+    <button id="dl-tab-fill" class="tab-btn" onclick="showDlTab('fill')">✍️ 線上填寫施工日誌</button>
+  </div>
   <div id="dailylog-container"></div>
+  <div id="dl-fill-container" hidden></div>
 </div>
 
 <!-- ===== 器具借出 Modal ===== -->
@@ -2486,6 +2491,303 @@ function manpowerRowsForSite(s) {
 async function renderDailyLog() {
   await loadDailyLog();
   drawDailyLog();
+}
+
+// ===================== 線上填寫施工日誌 =====================
+const DL_CONTRACTOR = '綠源科技股份有限公司';
+const DL_WEATHER_OPTS = ['晴', '晴時多雲', '多雲', '陰', '多雲時陰', '雨', '陰時有雨', '雷陣雨'];
+let dlLogs = [];            // site_daily_log 既有紀錄
+let dlEditingId = null;     // 目前編輯中的紀錄 id（新建為 null）
+let dlPhotoUrls = [];       // 目前表單的照片 URL
+
+function showDlTab(tab) {
+  const isFill = tab === 'fill';
+  document.getElementById('dailylog-container').hidden = isFill;
+  document.getElementById('dl-fill-container').hidden = !isFill;
+  document.getElementById('dl-tab-status').classList.toggle('active', !isFill);
+  document.getElementById('dl-tab-fill').classList.toggle('active', isFill);
+  if (isFill) renderDlFill(); else { renderDailyLog(); }
+}
+async function loadDlLogs() {
+  if (!sb) return;
+  try { const { data, error } = await sb.from('site_daily_log').select('*').order('log_date', { ascending: false }); dlLogs = (!error && data) ? data : []; }
+  catch (e) { dlLogs = []; }
+}
+// 此登入者可填的案場（管理員＝全部進行中；工地主任＝自己負責）
+function dlEditableSites() {
+  const S = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  if (isAdmin()) return S;
+  return S.filter(s => isSiteSupervisor(s));
+}
+// 案場 WBS 葉節點工項（含完成%）
+function dlWbsItems(s) {
+  const out = [];
+  (wbsScheduleTree(s) || []).forEach(cat => {
+    if (cat.subs && cat.subs.length) cat.subs.forEach(x => out.push({ name: x.name, pct: Math.round(x.pct || 0) }));
+    else out.push({ name: cat.name, pct: Math.round(cat.catPct || 0) });
+  });
+  return out;
+}
+async function renderDlFill() {
+  const cont = document.getElementById('dl-fill-container'); if (!cont) return;
+  if (!sb) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用。</div>'; return; }
+  if (!isLoggedIn()) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能填寫施工日誌。</div>'; return; }
+  const editable = dlEditableSites();
+  if (!editable.length) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">你目前沒有可填寫的進行中案場。</div>'; return; }
+  await loadDlLogs();
+  const siteOpts = editable.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
+  cont.innerHTML = `
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場 *</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>施工日期 *</label><input type="date" id="dl-date" value="${localDate(new Date())}" onchange="dlLoadForm()"></div>
+        <div style="flex:1"></div>
+        <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
+      </div>
+    </div>
+    <div id="dl-form-body" style="margin-top:14px"></div>`;
+  dlLoadForm();
+}
+// 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
+async function dlLoadForm() {
+  const body = document.getElementById('dl-form-body'); if (!body) return;
+  const sid = Number(document.getElementById('dl-site').value);
+  const date = document.getElementById('dl-date').value;
+  const s = siteById(sid); if (!s || !date) { body.innerHTML = ''; return; }
+  const existing = dlLogs.find(r => r.site_id === sid && String(r.log_date).slice(0, 10) === date);
+  dlEditingId = existing ? existing.id : null;
+  dlPhotoUrls = existing && Array.isArray(existing.photos) ? existing.photos.slice() : [];
+  const start = (typeof siteStartDate === 'function' ? siteStartDate(s) : '') || s.contract_start || '';
+  const end = (typeof siteEndDate === 'function' ? siteEndDate(s) : '') || s.end || '';
+  const toISO = d => (d || '').replace(/\//g, '-');
+  const dayDiff = (a, b) => { const x = new Date(toISO(a)), y = new Date(toISO(b)); return (a && b && !isNaN(x) && !isNaN(y)) ? Math.max(0, Math.round((y - x) / 86400000) + 1) : ''; };
+  const contractDays = existing && existing.contract_days != null ? existing.contract_days : dayDiff(start, end);
+  const cumDays = existing && existing.cum_days != null ? existing.cum_days : dayDiff(start, date);
+  const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（此日已有紀錄，載入編輯）' : '（新建日誌）';
+  const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
+  const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
+  const wbsOpts = '<option value="">—選工項—</option>' + dlWbsItems(s).map(it => `<option value="${appEsc(it.name)}">${appEsc(it.name)}（${it.pct}%）</option>`).join('');
+  const weatherSel = DL_WEATHER_OPTS.map(w => `<option ${existing && existing.weather === w ? 'selected' : ''}>${w}</option>`).join('');
+  const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
+  body.innerHTML = `
+    <div class="card" style="padding:16px 18px">
+      <div class="wbs-title" style="margin:0 0 10px">施工日誌表頭</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px 16px">
+        <div class="form-field" style="margin:0"><label>工程名稱</label>${inp('dl-proj', s.name, 'readonly')}</div>
+        <div class="form-field" style="margin:0"><label>承攬廠商名稱</label>${inp('dl-contractor', DL_CONTRACTOR)}</div>
+        <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400">${weatherSel}</select></div>
+        <div class="form-field" style="margin:0"><label>開工日期</label><input type="date" id="dl-start" value="${toISO(start).slice(0,10)}"></div>
+        <div class="form-field" style="margin:0"><label>預定完工日期</label><input type="date" id="dl-end" value="${toISO(end).slice(0,10)}"></div>
+        <div class="form-field" style="margin:0"><label>合約工期（天）</label>${inp('dl-cdays', contractDays)}</div>
+        <div class="form-field" style="margin:0"><label>累計工期（天）</label>${inp('dl-udays', cumDays)}</div>
+        <div class="form-field" style="margin:0"><label>工地主任</label>${inp('dl-supervisor', existing ? existing.supervisor : pmText(s))}</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">一、重要施工項目完成數量</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-items">
+        <thead><tr style="color:var(--muted);font-size:12px">
+          <th style="text-align:left;padding:4px">施工項目</th><th style="width:88px;padding:4px">本日完成</th><th style="width:64px;padding:4px">單位</th><th style="width:88px;padding:4px">累計完成</th><th style="width:76px;padding:4px">工時(小時)</th><th style="width:34px"></th>
+        </tr></thead>
+        <tbody>${items.map((it, i) => dlItemRowHtml(it, wbsOpts)).join('')}</tbody>
+      </table>
+      <button onclick="dlAddRow('dl-items', dlItemRowHtml({}, document.getElementById('dl-items-wbs').value))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+      <select id="dl-items-wbs" hidden>${wbsOpts}</select>
+    </div>
+
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">二、工地人員管理</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-workers">
+        <thead><tr style="color:var(--muted);font-size:12px">
+          <th style="text-align:left;padding:4px">工別</th><th style="width:88px;padding:4px">本日人數</th><th style="width:88px;padding:4px">累計人數</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
+        </tr></thead>
+        <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
+      </table>
+      <button onclick="dlAddRow('dl-workers', dlWorkerRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+    </div>
+
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><textarea id="dl-notify" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.notify_sub : '')}</textarea></div>
+      <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><textarea id="dl-coord" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;font-family:inherit">${appEsc(existing ? existing.coordinate : '')}</textarea></div>
+      <div class="form-field" style="margin:0"><label>審核</label>${inp('dl-reviewer', existing ? existing.reviewer : '')}</div>
+    </div>
+
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">工進照片（最多 6 張）</div>
+      <input type="file" id="dl-photos" accept="image/*" multiple onchange="dlPickPhotos(this.files)">
+      <div id="dl-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin:16px 0 8px;flex-wrap:wrap">
+      <button onclick="dlSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存施工日誌</button>
+      <button onclick="dlPrintCurrent()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
+      ${dlEditingId ? '<button onclick="dlDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此日誌</button>' : ''}
+      <div id="dl-save-msg" style="align-self:center;font-size:13px;color:var(--muted)"></div>
+    </div>`;
+  dlRenderPhotos();
+  dlFillWeather(s, date);
+}
+function dlItemRowHtml(it, wbsOpts) {
+  it = it || {};
+  const sel = wbsOpts || (document.getElementById('dl-items-wbs') ? document.getElementById('dl-items-wbs').innerHTML : '<option value="">—</option>');
+  const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
+  const ip = (cls, v, ph = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  return `<tr>
+    ${td(`<div style="display:flex;gap:4px"><select class="dli-pick" onchange="if(this.value){this.closest('tr').querySelector('.dli-name').value=this.value;this.selectedIndex=0;}" style="width:34px;font-size:12px">${sel}</select>${ip('dli-name', it.name, '施工項目')}</div>`)}
+    ${td(ip('dli-today', it.today))}
+    ${td(ip('dli-unit', it.unit || '式'))}
+    ${td(ip('dli-cum', it.cum))}
+    ${td(ip('dli-hours', it.hours))}
+    ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
+  </tr>`;
+}
+function dlWorkerRowHtml(w) {
+  w = w || {};
+  const td = (h) => `<td style="padding:3px 4px">${h}</td>`;
+  const ip = (cls, v, ph = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  return `<tr>
+    ${td(ip('dlw-trade', w.trade, '工別'))}
+    ${td(ip('dlw-today', w.today))}
+    ${td(ip('dlw-cum', w.cum))}
+    ${td(ip('dlw-note', w.note))}
+    ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
+  </tr>`;
+}
+function dlAddRow(tableId, rowHtml) { const tb = document.querySelector('#' + tableId + ' tbody'); if (tb) tb.insertAdjacentHTML('beforeend', rowHtml); }
+function dlDelRow(btn) { const tr = btn.closest('tr'); const tb = tr.parentElement; if (tb.children.length > 1) tr.remove(); else tr.querySelectorAll('input').forEach(i => i.value = ''); }
+// 本日天氣：讀 weather_log（晴雨表）當日資料自動帶入（best-effort）
+async function dlFillWeather(s, date) {
+  if (!sb || !s) return;
+  try {
+    const L = (typeof siteLoc === 'function') ? siteLoc(s) : {};
+    const labels = [L.label, L.county].filter(Boolean);
+    if (!labels.length) return;
+    const { data } = await sb.from('weather_log').select('county,am_weather,pm_weather,am_pop,pm_pop').in('county', labels).eq('log_date', date);
+    if (!data || !data.length) return;
+    const rec = data[0];
+    const txt = rec.am_weather || rec.pm_weather || '';
+    let guess = '';
+    if (/雷/.test(txt)) guess = '雷陣雨'; else if (/雨/.test(txt)) guess = '雨'; else if (/陰/.test(txt)) guess = '陰'; else if (/多雲/.test(txt)) guess = '多雲'; else if (/晴/.test(txt)) guess = '晴';
+    const sel = document.getElementById('dl-weather');
+    if (sel && guess && !dlEditingId && DL_WEATHER_OPTS.includes(guess)) sel.value = guess;
+  } catch (e) {}
+}
+// 照片：選檔後暫存預覽；儲存時上傳 Supabase Storage
+let _dlNewFiles = [];
+function dlPickPhotos(files) {
+  _dlNewFiles = [..._dlNewFiles, ...Array.from(files)].slice(0, 6 - dlPhotoUrls.length);
+  dlRenderPhotos();
+}
+function dlRenderPhotos() {
+  const box = document.getElementById('dl-photo-list'); if (!box) return;
+  const existing = dlPhotoUrls.map((u, i) => `<div style="position:relative"><img src="${u}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  const pending = _dlNewFiles.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  box.innerHTML = existing + pending || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+}
+function dlRemovePhoto(i) { dlPhotoUrls.splice(i, 1); dlRenderPhotos(); }
+function dlRemoveNewPhoto(i) { _dlNewFiles.splice(i, 1); dlRenderPhotos(); }
+async function dlUploadNewPhotos(sid, date) {
+  if (!_dlNewFiles.length) return [];
+  const urls = [];
+  for (const f of _dlNewFiles) {
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${sid}/${date}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const { error } = await sb.storage.from('daily-log-photos').upload(path, f, { upsert: true, contentType: f.type });
+    if (error) { throw new Error('照片上傳失敗：' + error.message + '（請確認 Supabase 已建立 daily-log-photos bucket）'); }
+    const { data } = sb.storage.from('daily-log-photos').getPublicUrl(path);
+    urls.push(data.publicUrl);
+  }
+  return urls;
+}
+function dlCollect() {
+  const g = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const items = [...document.querySelectorAll('#dl-items tbody tr')].map(tr => ({
+    name: tr.querySelector('.dli-name').value.trim(), today: tr.querySelector('.dli-today').value.trim(),
+    unit: tr.querySelector('.dli-unit').value.trim(), cum: tr.querySelector('.dli-cum').value.trim(), hours: tr.querySelector('.dli-hours').value.trim()
+  })).filter(x => x.name);
+  const workers = [...document.querySelectorAll('#dl-workers tbody tr')].map(tr => ({
+    trade: tr.querySelector('.dlw-trade').value.trim(), today: tr.querySelector('.dlw-today').value.trim(),
+    cum: tr.querySelector('.dlw-cum').value.trim(), note: tr.querySelector('.dlw-note').value.trim()
+  })).filter(x => x.trade);
+  return {
+    site_id: Number(g('dl-site')), log_date: g('dl-date'), weather: g('dl-weather'),
+    proj_name: g('dl-proj'), contractor: g('dl-contractor'),
+    start_date: g('dl-start') || null, end_date: g('dl-end') || null,
+    contract_days: g('dl-cdays') ? Number(g('dl-cdays')) : null, cum_days: g('dl-udays') ? Number(g('dl-udays')) : null,
+    items, workers, notify_sub: g('dl-notify'), coordinate: g('dl-coord'),
+    reviewer: g('dl-reviewer'), supervisor: g('dl-supervisor')
+  };
+}
+async function dlSave() {
+  const msg = document.getElementById('dl-save-msg'); const rec = dlCollect();
+  if (!rec.site_id || !rec.log_date) { if (msg) { msg.textContent = '請選擇案場與日期'; msg.style.color = 'var(--danger)'; } return; }
+  if (msg) { msg.textContent = '儲存中…'; msg.style.color = 'var(--muted)'; }
+  try {
+    let newUrls = [];
+    try { newUrls = await dlUploadNewPhotos(rec.site_id, rec.log_date); }
+    catch (pe) { if (msg) { msg.textContent = String(pe.message || pe); msg.style.color = 'var(--danger)'; } return; }
+    rec.photos = [...dlPhotoUrls, ...newUrls];
+    rec.created_by = (currentUser && currentUser.name) || '';
+    let error;
+    if (dlEditingId) ({ error } = await sb.from('site_daily_log').update(rec).eq('id', dlEditingId));
+    else ({ error } = await sb.from('site_daily_log').upsert(rec, { onConflict: 'site_id,log_date' }));
+    if (error) throw error;
+    if (msg) { msg.textContent = '✅ 已儲存'; msg.style.color = '#16a34a'; }
+    _dlNewFiles = [];
+    await loadDlLogs(); dlLoadForm();
+  } catch (e) {
+    if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_daily_log 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; }
+  }
+}
+async function dlDelete() {
+  if (!dlEditingId) return;
+  if (!confirm('確定刪除這筆施工日誌？')) return;
+  try { await sb.from('site_daily_log').delete().eq('id', dlEditingId); dlEditingId = null; await loadDlLogs(); dlLoadForm(); }
+  catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+// 列印：比照模板版面產生可列印頁
+function dlPrintCurrent() {
+  const r = dlCollect(); r.photos = dlPhotoUrls.slice();
+  const s = siteById(r.site_id);
+  const cell = v => appEsc(v || '');
+  const itemRows = (r.items.length ? r.items : [{}]).concat(Array(Math.max(0, 6 - r.items.length)).fill({}))
+    .map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td></tr>`).join('');
+  const workerRows = (r.workers.length ? r.workers : [{}]).concat(Array(Math.max(0, 4 - r.workers.length)).fill({}))
+    .map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
+  const photos = (r.photos || []).slice(0, 6);
+  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px">` : '工進照片'}</td>`);
+  const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
+  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>施工日誌 ${cell(r.log_date)}</title>
+    <style>@page{size:A4;margin:12mm}body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
+    h1{text-align:center;font-size:20px;margin:0 0 10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    .hd td{border:1px solid #333;padding:4px 6px}
+    .sec{font-weight:700;margin:10px 0 4px}
+    .tb th,.tb td{border:1px solid #333;padding:4px 6px;text-align:center}
+    .note td{border:1px solid #333;padding:6px;height:34px;text-align:left}
+    .sign td{border:1px solid #333;height:70px;text-align:center;vertical-align:top;padding:4px}
+    img{object-fit:contain}</style></head><body>
+    <h1>施工日誌</h1>
+    <table class="hd"><tr><td>工程名稱</td><td colspan="3">${cell(r.proj_name)}</td><td>承攬廠商</td><td>${cell(r.contractor)}</td></tr>
+    <tr><td>本日天氣</td><td>${cell(r.weather)}</td><td>施工日期</td><td>${cell(r.log_date)}</td><td>合約工期</td><td>${cell(r.contract_days)} 天</td></tr>
+    <tr><td>開工日期</td><td>${cell(r.start_date)}</td><td>預定完工</td><td>${cell(r.end_date)}</td><td>累計工期</td><td>${cell(r.cum_days)} 天</td></tr></table>
+    <div class="sec">一、重要施工項目完成數量：</div>
+    <table class="tb"><thead><tr><th>施工項目</th><th>本日完成數量</th><th>單位</th><th>累計完成數量</th><th>工時(小時)</th></tr></thead><tbody>${itemRows}</tbody></table>
+    <div class="sec">二、工地人員管理（含約定之出工人數及機具使用情形及數量）：</div>
+    <table class="tb"><thead><tr><th>工別</th><th>本日人數</th><th>累計人數</th><th>備註</th></tr></thead><tbody>${workerRows}</tbody></table>
+    <div class="sec">三、通知分包廠商辦理事項：</div>
+    <table class="note"><tr><td>${cell(r.notify_sub)}</td></tr></table>
+    <div class="sec">四、待協調及追蹤事項：</div>
+    <table class="note"><tr><td style="height:48px">${cell(r.coordinate)}</td></tr></table>
+    <table class="sign"><tr><td style="width:50%">審核<br><br>${cell(r.reviewer)}</td><td>工地主任<br><br>${cell(r.supervisor)}</td></tr></table>
+    <div style="page-break-before:always"></div>
+    <h1 style="font-size:16px">工進照片</h1>
+    <table class="tb">${photoRows}</table>
+    </body></html>`;
+  const w = window.open('', '_blank'); if (!w) { alert('請允許彈出視窗以列印'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(() => { try { w.print(); } catch (e) {} }, 400);
 }
 function drawDailyLog() {
   const cont = document.getElementById('dailylog-container');
