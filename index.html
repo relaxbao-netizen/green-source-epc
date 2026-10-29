@@ -542,6 +542,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .big-pct { font-size: 52px; font-weight: 800; line-height: 1; }
 .big-pct-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .wbs-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+/* 施工日誌填寫表單：所有欄位字體統一（字型/顏色/大小/字重一致） */
+#dl-fill-container input, #dl-fill-container select, #dl-fill-container textarea { font-family: inherit; color: var(--text); font-size: 13px; font-weight: 400; }
 /* 操作紀錄有新紀錄時，紀錄按鈕底色呼吸（紅↔透明） */
 @keyframes auditFlash { 0%,100% { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.4); } 50% { background: rgba(239,68,68,.75); border-color: rgba(239,68,68,.9); } }
 .audit-flash { animation: auditFlash 1.6s ease-in-out infinite; }
