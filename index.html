@@ -2998,17 +2998,19 @@ async function dlDelete() {
 // 施工日誌內容 HTML（列印與產 PDF 共用）；photoSrcs＝照片 img src 陣列
 const DL_PDF_STYLE = `<style>
     .dlpdf{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
-    .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px}
-    .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #333;border-left:1px solid #333}
-    .dlpdf th,.dlpdf td{border-right:1px solid #333;border-bottom:1px solid #333}
+    .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px;color:#065f46;border-bottom:3px solid #059669;padding-bottom:6px}
+    .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #9cc7b8;border-left:1px solid #9cc7b8}
+    .dlpdf th,.dlpdf td{border-right:1px solid #9cc7b8;border-bottom:1px solid #9cc7b8}
     .dlpdf .hd td{padding:5px 8px}
-    .dlpdf .hd .lb{text-align:center;background:#f5f5f5;white-space:nowrap}
-    .dlpdf .sec{font-weight:700;margin:10px 0 4px}
+    .dlpdf .hd .lb{text-align:center;background:#e4f3ec;color:#065f46;white-space:nowrap}
+    .dlpdf .sec{font-weight:700;margin:10px 0 4px;color:#065f46;background:#eef7f2;border-left:4px solid #059669;padding:5px 10px}
     .dlpdf .tb{table-layout:fixed}
+    .dlpdf .tb th{background:#059669;color:#fff;font-weight:500}
     .dlpdf .tb th,.dlpdf .tb td{padding:4px 6px;text-align:center;word-break:break-word}
+    .dlpdf .tb tbody tr:nth-child(even){background:#f6fbf8}
     .dlpdf .note td{padding:4px 6px;height:20px;text-align:left}
     .dlpdf .sign td{padding:4px;text-align:center;vertical-align:middle}
-    .dlpdf .sign .lbl{font-weight:700}
+    .dlpdf .sign .lbl{font-weight:700;background:#059669;color:#fff}
     .dlpdf .sign .nm{height:28px;vertical-align:middle}
   </style>`;
 // 第一頁：施工日誌內容（一、二表格只顯示實際有填的列，不補空白格）
