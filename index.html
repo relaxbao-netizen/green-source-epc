@@ -2962,7 +2962,7 @@ async function dlSave() {
     // 2) 上傳 PDF 到 Google 共用硬碟
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     let drive;
-    try { const folderId = await dlEnsureSiteFolder(String(sn)); drive = await dlDriveUpload(pdfBlob, `施工日誌_${sn}_${rec.log_date}.pdf`, folderId); }
+    try { const folderId = await dlEnsureSiteFolder(String(sn)); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, folderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
     rec.photos = { pdf: drive.view, id: drive.id };
     rec.created_by = (currentUser && currentUser.name) || '';
