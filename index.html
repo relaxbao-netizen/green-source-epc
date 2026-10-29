@@ -2992,16 +2992,7 @@ async function dlDelete() {
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 // 施工日誌內容 HTML（列印與產 PDF 共用）；photoSrcs＝照片 img src 陣列
-function dlLogInnerHtml(r, photoSrcs) {
-  const cell = v => appEsc(v || '');
-  const itemRows = (r.items.length ? r.items : [{}]).concat(Array(Math.max(0, 6 - r.items.length)).fill({}))
-    .map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
-  const workerRows = (r.workers.length ? r.workers : [{}]).concat(Array(Math.max(0, 4 - r.workers.length)).fill({}))
-    .map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
-  const photos = (photoSrcs || []).slice(0, 6);
-  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px;object-fit:contain">` : '工進照片'}</td>`);
-  const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
-  return `<style>
+const DL_PDF_STYLE = `<style>
     .dlpdf{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
     .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px}
     .dlpdf table{width:100%;border-collapse:collapse;margin-bottom:8px}
@@ -3010,8 +3001,15 @@ function dlLogInnerHtml(r, photoSrcs) {
     .dlpdf .tb th,.dlpdf .tb td{border:1px solid #333;padding:4px 6px;text-align:center}
     .dlpdf .note td{border:1px solid #333;padding:6px;height:34px;text-align:left}
     .dlpdf .sign td{border:1px solid #333;height:70px;text-align:center;vertical-align:top;padding:4px}
-  </style>
-  <div class="dlpdf">
+  </style>`;
+// 第一頁：施工日誌內容（一、二表格只顯示實際有填的列，不補空白格）
+function dlLogContentHtml(r) {
+  const cell = v => appEsc(v || '');
+  const items = (r.items && r.items.length) ? r.items : [{}];
+  const workers = (r.workers && r.workers.length) ? r.workers : [{}];
+  const itemRows = items.map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
+  const workerRows = workers.map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
+  return DL_PDF_STYLE + `<div class="dlpdf">
     <h1>施工日誌</h1>
     <table class="hd"><tr><td>工程名稱</td><td colspan="3">${cell(r.proj_name)}</td><td>承攬廠商</td><td>${cell(r.contractor)}</td></tr>
     <tr><td>本日天氣</td><td>${cell(r.weather)}</td><td>施工日期</td><td>${cell(r.log_date)}</td><td>合約工期</td><td>${cell(r.contract_days)} 天</td></tr>
@@ -3025,10 +3023,18 @@ function dlLogInnerHtml(r, photoSrcs) {
     <div class="sec">四、待協調及追蹤事項：</div>
     <table class="note"><tr><td style="height:48px">${cell(r.coordinate)}</td></tr></table>
     <table class="sign"><tr><td style="width:50%">審核<br><br>${cell(r.reviewer)}</td><td>工地主任<br><br>${cell(r.supervisor)}</td></tr></table>
-    <div style="page-break-before:always"></div>
-    <h1 style="font-size:16px">工進照片</h1>
-    <table class="tb">${photoRows}</table>
   </div>`;
+}
+// 第二頁：工進照片（6 格）
+function dlLogPhotoHtml(photoSrcs) {
+  const photos = (photoSrcs || []).slice(0, 6);
+  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px;object-fit:contain">` : '工進照片'}</td>`);
+  const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
+  return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:16px">工進照片</h1><table class="tb">${photoRows}</table></div>`;
+}
+// 本機列印用：內容 + 分頁 + 照片
+function dlLogInnerHtml(r, photoSrcs) {
+  return dlLogContentHtml(r) + '<div style="page-break-before:always"></div>' + dlLogPhotoHtml(photoSrcs);
 }
 function dlBlobToDataURL(b) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(''); r.readAsDataURL(b); }); }
 async function dlPhotoDataUrls() { const out = []; for (const f of _dlNewFiles) { const b = await dlCompressImage(f); out.push(await dlBlobToDataURL(b)); } return out; }
@@ -3041,26 +3047,34 @@ function dlPrintCurrent() {
   w.document.write(html); w.document.close(); w.focus();
   setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
 }
-// 產生施工日誌 PDF Blob（html2canvas + jsPDF，中文以點陣呈現）
-async function dlGeneratePdfBlob(r, photoSrcs) {
-  if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
+// 把一段 HTML 轉成 canvas（離屏渲染）
+async function dlCanvasOf(html) {
   const holder = document.createElement('div');
   holder.style.cssText = 'position:fixed;left:-99999px;top:0;width:794px;background:#fff;padding:24px;box-sizing:border-box';
-  holder.innerHTML = dlLogInnerHtml(r, photoSrcs);
+  holder.innerHTML = html;
   document.body.appendChild(holder);
   await Promise.all([...holder.querySelectorAll('img')].map(img => (img.complete && img.naturalWidth) ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
-  let canvas;
-  try { canvas = await html2canvas(holder, { scale: 2, useCORS: true, backgroundColor: '#fff' }); }
+  try { return await html2canvas(holder, { scale: 2, useCORS: true, backgroundColor: '#fff' }); }
   finally { document.body.removeChild(holder); }
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF('p', 'mm', 'a4');
+}
+// 把 canvas 加進 PDF（過長自動分頁）；newPage=true 時先另起一頁
+function dlAddCanvasToPdf(pdf, canvas, newPage) {
   const pw = 210, ph = 297;
   const imgH = canvas.height * pw / canvas.width;
   const imgData = canvas.toDataURL('image/jpeg', 0.85);
+  if (newPage) pdf.addPage();
   let heightLeft = imgH, position = 0;
   pdf.addImage(imgData, 'JPEG', 0, position, pw, imgH);
   heightLeft -= ph;
   while (heightLeft > 0) { position = heightLeft - imgH; pdf.addPage(); pdf.addImage(imgData, 'JPEG', 0, position, pw, imgH); heightLeft -= ph; }
+}
+// 產生施工日誌 PDF Blob：第1頁內容、照片一律另起新頁(第2頁)
+async function dlGeneratePdfBlob(r, photoSrcs) {
+  if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogContentHtml(r)), false);   // 內容（第1頁起）
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs)), true); // 照片（另起新頁）
   return pdf.output('blob');
 }
 function drawDailyLog() {
