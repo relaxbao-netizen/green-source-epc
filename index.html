@@ -2592,19 +2592,23 @@ async function renderDlFill() {
       <button onclick="devLogin('admin'); showDlTab('fill')" style="margin-top:12px;padding:7px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">🤖 以測試帳號填寫（照片需正式登入才能上傳 Drive）</button></div>`;
     return;
   }
-  const editable = dlEditableSites();
-  if (!editable.length) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">你目前沒有可填寫的進行中案場。</div>'; return; }
+  // 全公司登入者皆可「檢視」施工日誌；新增/編輯仍限管理員與該案場工地主任
   await loadDlLogs();
   dlShowList();
 }
+// 是否可新增/編輯某案場的施工日誌（管理員＝全部；工地主任＝自己負責案場）
+function dlCanEditSite(s) { return !!s && (isAdmin() || isSiteSupervisor(s)); }
 // 第一層：每個案場一個卡片，點進去看該案場日誌
 function dlShowList() {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const editable = dlEditableSites();
-  const all = (dlLogs || []).filter(r => isAdmin() || editable.some(s => s.id === r.site_id));
+  const canEditAny = editable.length > 0;
+  const all = (dlLogs || []);   // 全公司可檢視全部施工日誌
   const cnt = {}, last = {};
   all.forEach(r => { cnt[r.site_id] = (cnt[r.site_id] || 0) + 1; const d = String(r.log_date).slice(0, 10); if (!last[r.site_id] || d > last[r.site_id]) last[r.site_id] = d; });
-  const ids = [...new Set([...editable.map(s => s.id), ...all.map(r => r.site_id)])];
+  // 顯示所有進行中案場（可編輯者的＋有日誌的），讓全公司都能點進去看
+  const inProgress = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done').map(s => s.id);
+  const ids = [...new Set([...inProgress, ...editable.map(s => s.id), ...all.map(r => r.site_id)])];
   ids.sort((a, b) => (last[b] || '').localeCompare(last[a] || ''));
   const cards = ids.map(sid => {
     const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid); const c = cnt[sid] || 0;
@@ -2618,7 +2622,7 @@ function dlShowList() {
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
       <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆施工日誌・${ids.length} 個案場</div>
-      <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
+      ${canEditAny ? `<button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>` : ''}
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無案場</div>'}</div>`;
 }
@@ -2626,19 +2630,20 @@ function dlShowList() {
 function dlShowSite(sid) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
+  const canEdit = dlCanEditSite(s);
   const list = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
-  const rows = list.length ? list.map(r => `<tr style="border-top:1px solid var(--border);cursor:pointer" onclick="dlShowForm('${r.id}')">
+  const rows = list.length ? list.map(r => `<tr style="border-top:1px solid var(--border)${canEdit ? ';cursor:pointer' : ''}"${canEdit ? ` onclick="dlShowForm('${r.id}')"` : ''}>
       <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
-      <td style="padding:8px 10px;white-space:nowrap">${(r.photos && r.photos.pdf) ? `<a href="${r.photos.pdf}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
-      <td style="padding:8px 10px;text-align:right"><span style="color:var(--accent);font-weight:600">編輯 ›</span></td></tr>`).join('')
-    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無日誌，點右上角「＋ 新增」開始填寫。</td></tr>`;
+      <td style="padding:8px 10px;white-space:nowrap">${(r.photos && r.photos.pdf) ? `<a href="${r.photos.pdf}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="padding:8px 10px;text-align:right">${canEdit ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : ''}</td></tr>`).join('')
+    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">${canEdit ? '此案場尚無日誌，點右上角「＋ 新增」開始填寫。' : '此案場尚無施工日誌。'}</td></tr>`;
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="dlShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
-      <button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+      ${canEdit ? `<button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>` : '<span style="width:60px"></span>'}
     </div>
     <div class="card" style="padding:0;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="text-align:left;padding:8px 10px">PDF</th><th style="width:70px"></th></tr></thead>
@@ -2649,7 +2654,9 @@ function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnS
 function dlShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const editable = dlEditableSites();
+  if (!editable.length) { alert('你沒有可新增／編輯施工日誌的案場（僅能檢視）。'); dlShowList(); return; }
   const rec = logId ? (dlLogs || []).find(r => String(r.id) === String(logId)) : null;
+  if (rec && !dlCanEditSite(siteById(Number(rec.site_id)))) { alert('你只能檢視此案場的施工日誌，無法編輯。'); dlShowSite(rec.site_id); return; }
   _dlEditRec = rec;   // 新增(null)＝空白；編輯＝載入該筆
   _dlFormReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
