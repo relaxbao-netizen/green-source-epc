@@ -2750,8 +2750,8 @@ async function dlLoadForm() {
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><textarea id="dl-notify" rows="1" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:none">${appEsc(existing ? existing.notify_sub : '')}</textarea></div>
-      <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><textarea id="dl-coord" rows="1" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit;resize:none">${appEsc(existing ? existing.coordinate : '')}</textarea></div>
+      <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><input id="dl-notify" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.notify_sub : '')}"></div>
+      <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><input id="dl-coord" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.coordinate : '')}"></div>
       <div class="form-field" style="margin:0"><label>審核</label><select id="dl-reviewer" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-weight:400">${reviewerOpts}</select></div>
     </div>
 
@@ -2999,7 +2999,7 @@ const DL_PDF_STYLE = `<style>
     .dlpdf .hd td{border:1px solid #333;padding:4px 6px}
     .dlpdf .sec{font-weight:700;margin:10px 0 4px}
     .dlpdf .tb th,.dlpdf .tb td{border:1px solid #333;padding:4px 6px;text-align:center}
-    .dlpdf .note td{border:1px solid #333;padding:6px;height:34px;text-align:left}
+    .dlpdf .note td{border:1px solid #333;padding:4px 6px;height:20px;text-align:left}
     .dlpdf .sign td{border:1px solid #333;height:70px;text-align:center;vertical-align:top;padding:4px}
   </style>`;
 // 第一頁：施工日誌內容（一、二表格只顯示實際有填的列，不補空白格）
@@ -3021,14 +3021,14 @@ function dlLogContentHtml(r) {
     <div class="sec">三、通知分包廠商辦理事項：</div>
     <table class="note"><tr><td>${cell(r.notify_sub)}</td></tr></table>
     <div class="sec">四、待協調及追蹤事項：</div>
-    <table class="note"><tr><td style="height:48px">${cell(r.coordinate)}</td></tr></table>
+    <table class="note"><tr><td>${cell(r.coordinate)}</td></tr></table>
     <table class="sign"><tr><td style="width:50%">審核<br><br>${cell(r.reviewer)}</td><td>工地主任<br><br>${cell(r.supervisor)}</td></tr></table>
   </div>`;
 }
-// 第二頁：工進照片（6 格）
+// 第二頁：工進照片（固定 6 格框框，沒放的格子內容留白）
 function dlLogPhotoHtml(photoSrcs) {
   const photos = (photoSrcs || []).slice(0, 6);
-  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px;object-fit:contain">` : '工進照片'}</td>`);
+  const photoCells = Array(6).fill(0).map((_, i) => `<td style="height:150px;border:1px solid #333;text-align:center;vertical-align:middle">${photos[i] ? `<img src="${photos[i]}" style="max-width:100%;max-height:145px;object-fit:contain">` : ''}</td>`);
   const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
   return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:16px">工進照片</h1><table class="tb">${photoRows}</table></div>`;
 }
@@ -3074,7 +3074,7 @@ async function dlGeneratePdfBlob(r, photoSrcs) {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p', 'mm', 'a4');
   dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogContentHtml(r)), false);   // 內容（第1頁起）
-  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs)), true); // 照片（另起新頁）
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs)), true); // 照片頁（固定6格，另起新頁）
   return pdf.output('blob');
 }
 function drawDailyLog() {
