@@ -2596,19 +2596,22 @@ async function renderDlFill() {
   await loadDlLogs();
   dlShowList();
 }
-// 是否可新增/編輯某案場的施工日誌（管理員＝全部；工地主任＝自己負責案場）
-function dlCanEditSite(s) { return !!s && (isAdmin() || isSiteSupervisor(s)); }
+// 新增：全公司登入者皆可。編輯/刪除：只能動自己新增的那筆（管理員可動全部）
+function dlCanEditLog(r) {
+  if (isAdmin()) return true;
+  if (!r || !currentUser) return false;
+  const mine = String(currentUser.name || '').trim();
+  return !!mine && String(r.created_by || '').trim() === mine;
+}
 // 第一層：每個案場一個卡片，點進去看該案場日誌
 function dlShowList() {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
-  const editable = dlEditableSites();
-  const canEditAny = editable.length > 0;
-  const all = (dlLogs || []);   // 全公司可檢視全部施工日誌
+  const all = (dlLogs || []);   // 全公司可檢視全部施工日誌、也都可新增
   const cnt = {}, last = {};
   all.forEach(r => { cnt[r.site_id] = (cnt[r.site_id] || 0) + 1; const d = String(r.log_date).slice(0, 10); if (!last[r.site_id] || d > last[r.site_id]) last[r.site_id] = d; });
   // 顯示所有進行中案場（可編輯者的＋有日誌的），讓全公司都能點進去看
   const inProgress = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done').map(s => s.id);
-  const ids = [...new Set([...inProgress, ...editable.map(s => s.id), ...all.map(r => r.site_id)])];
+  const ids = [...new Set([...inProgress, ...all.map(r => r.site_id)])];
   ids.sort((a, b) => (last[b] || '').localeCompare(last[a] || ''));
   const cards = ids.map(sid => {
     const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid); const c = cnt[sid] || 0;
@@ -2622,7 +2625,7 @@ function dlShowList() {
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
       <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆施工日誌・${ids.length} 個案場</div>
-      ${canEditAny ? `<button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>` : ''}
+      <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無案場</div>'}</div>`;
 }
@@ -2630,20 +2633,19 @@ function dlShowList() {
 function dlShowSite(sid) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
-  const canEdit = dlCanEditSite(s);
   const list = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
-  const rows = list.length ? list.map(r => `<tr style="border-top:1px solid var(--border)${canEdit ? ';cursor:pointer' : ''}"${canEdit ? ` onclick="dlShowForm('${r.id}')"` : ''}>
+  const rows = list.length ? list.map(r => { const mine = dlCanEditLog(r); return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="dlShowForm('${r.id}')"` : ''}>
       <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
       <td style="padding:8px 10px;white-space:nowrap">${(r.photos && r.photos.pdf) ? `<a href="${r.photos.pdf}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
-      <td style="padding:8px 10px;text-align:right">${canEdit ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : ''}</td></tr>`).join('')
-    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">${canEdit ? '此案場尚無日誌，點右上角「＋ 新增」開始填寫。' : '此案場尚無施工日誌。'}</td></tr>`;
+      <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`; }).join('')
+    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無日誌，點右上角「＋ 新增」開始填寫。</td></tr>`;
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="dlShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
-      ${canEdit ? `<button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>` : '<span style="width:60px"></span>'}
+      <button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px">施工日期</th><th style="text-align:left;padding:8px 10px">天氣</th><th style="text-align:left;padding:8px 10px">填寫人</th><th style="text-align:left;padding:8px 10px">PDF</th><th style="width:70px"></th></tr></thead>
@@ -2653,16 +2655,17 @@ function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnS
 // 表單檢視：新增(logId=null) 或 編輯既有(logId)；presetSite＝新增時預設案場
 function dlShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
-  const editable = dlEditableSites();
-  if (!editable.length) { alert('你沒有可新增／編輯施工日誌的案場（僅能檢視）。'); dlShowList(); return; }
   const rec = logId ? (dlLogs || []).find(r => String(r.id) === String(logId)) : null;
-  if (rec && !dlCanEditSite(siteById(Number(rec.site_id)))) { alert('你只能檢視此案場的施工日誌，無法編輯。'); dlShowSite(rec.site_id); return; }
+  // 編輯既有：只能編輯自己新增的（管理員可全部）；新增：全公司皆可
+  if (rec && !dlCanEditLog(rec)) { alert('只能編輯自己新增的施工日誌。'); dlShowSite(rec.site_id); return; }
   _dlEditRec = rec;   // 新增(null)＝空白；編輯＝載入該筆
   _dlFormReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
-  const siteOpts = editable.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
+  // 新增可選任一進行中案場（全公司皆可填）
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = formSites.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
-  if (defSite != null && !editable.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="dlFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
@@ -2957,6 +2960,7 @@ function dlCollect() {
 }
 async function dlSave() {
   const msg = document.getElementById('dl-save-msg'); const rec = dlCollect();
+  if (dlEditingId) { const old = (dlLogs || []).find(r => r.id === dlEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的施工日誌。'; msg.style.color = 'var(--danger)'; } return; } }
   if (!rec.site_id || !rec.log_date) { if (msg) { msg.textContent = '請選擇案場與日期'; msg.style.color = 'var(--danger)'; } return; }
   if (!rec.weather) { if (msg) { msg.textContent = '請選擇本日天氣'; msg.style.color = 'var(--danger)'; } const w = document.getElementById('dl-weather'); if (w) w.focus(); return; }
   if (msg) { msg.textContent = '產生 PDF 中…'; msg.style.color = 'var(--muted)'; }
@@ -2991,8 +2995,9 @@ async function dlSave() {
 }
 async function dlDelete() {
   if (!dlEditingId) return;
-  if (!confirm('確定刪除這筆施工日誌？（含 Drive 上的 PDF）')) return;
   const rec = (dlLogs || []).find(r => r.id === dlEditingId);
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的施工日誌。'); return; }
+  if (!confirm('確定刪除這筆施工日誌？（含 Drive 上的 PDF）')) return;
   try {
     await sb.from('site_daily_log').delete().eq('id', dlEditingId);
     if (rec && rec.photos && rec.photos.id) await dlDriveDelete(rec.photos.id);
