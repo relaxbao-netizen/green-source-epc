@@ -2935,6 +2935,10 @@ function dlCollect() {
     trade: tr.querySelector('.dlw-trade').value.trim(), today: tr.querySelector('.dlw-today').value.trim(),
     cum: tr.querySelector('.dlw-cum').value.trim(), note: tr.querySelector('.dlw-note').value.trim()
   })).filter(x => x.trade);
+  // 權威重算累計＝之前日期同工項/工別的累計＋本日（不依賴填寫當下的即時重算，避免沒跨天累加）
+  const _sid = Number(g('dl-site')), _date = g('dl-date');
+  items.forEach(it => { const t = parseFloat(it.today); const v = dlPriorCum(_sid, it.name, _date) + (isNaN(t) ? 0 : t); it.cum = v ? String(v) : ''; });
+  workers.forEach(w => { const t = parseFloat(w.today); const v = dlPriorWorkerCum(_sid, w.trade, _date) + (isNaN(t) ? 0 : t); w.cum = v ? String(v) : ''; });
   return {
     site_id: Number(g('dl-site')), log_date: g('dl-date'), weather: g('dl-weather'),
     proj_name: g('dl-proj'), contractor: g('dl-contractor'),
