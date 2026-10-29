@@ -2513,10 +2513,10 @@ function dlGetDriveToken() {
     tc.requestAccessToken();
   });
 }
-async function dlDriveUpload(blob, name) {
+async function dlDriveUpload(blob, name, parentId) {
   const tok = await dlGetDriveToken();
   const fd = new FormData();
-  fd.append('metadata', new Blob([JSON.stringify({ name, parents: [DL_DRIVE_FOLDER] })], { type: 'application/json' }));
+  fd.append('metadata', new Blob([JSON.stringify({ name, parents: [parentId || DL_DRIVE_FOLDER] })], { type: 'application/json' }));
   fd.append('file', blob);
   const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, body: fd });
   const data = await res.json();
@@ -2524,6 +2524,21 @@ async function dlDriveUpload(blob, name) {
   // 設為「知道連結即可檢視」讓日誌/列印顯示得出來（組織政策禁止則略過）
   try { await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions?supportsAllDrives=true`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'reader', type: 'anyone' }) }); } catch (e) {}
   return { id: data.id, url: `https://drive.google.com/thumbnail?id=${data.id}&sz=w1200`, view: data.webViewLink || `https://drive.google.com/file/d/${data.id}/view` };
+}
+// 找/建該案場的子資料夾（放在共用硬碟根目錄下），回傳資料夾 id
+async function dlEnsureSiteFolder(name) {
+  const tok = await dlGetDriveToken();
+  const safe = String(name).replace(/'/g, "\\'");
+  const q = encodeURIComponent(`'${DL_DRIVE_FOLDER}' in parents and name='${safe}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
+    const data = await res.json();
+    if (res.ok && data.files && data.files.length) return data.files[0].id;
+  } catch (e) {}
+  const res2 = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: String(name), mimeType: 'application/vnd.google-apps.folder', parents: [DL_DRIVE_FOLDER] }) });
+  const d2 = await res2.json();
+  if (!res2.ok) throw new Error('建立案場資料夾失敗：' + (d2.error ? d2.error.message : res2.status));
+  return d2.id;
 }
 async function dlDriveDelete(id) {
   if (!id) return;
@@ -2939,7 +2954,7 @@ async function dlSave() {
     // 2) 上傳 PDF 到 Google 共用硬碟
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…（首次會請你同意 Drive 權限）'; }
     let drive;
-    try { drive = await dlDriveUpload(pdfBlob, `施工日誌_${sn}_${rec.log_date}.pdf`); }
+    try { const folderId = await dlEnsureSiteFolder(String(sn)); drive = await dlDriveUpload(pdfBlob, `施工日誌_${sn}_${rec.log_date}.pdf`, folderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
     rec.photos = { pdf: drive.view, id: drive.id };
     rec.created_by = (currentUser && currentUser.name) || '';
