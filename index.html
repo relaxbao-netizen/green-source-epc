@@ -3000,19 +3000,19 @@ const DL_LOGO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMC
 // 施工日誌內容 HTML（列印與產 PDF 共用）；photoSrcs＝照片 img src 陣列
 const DL_PDF_STYLE = `<style>
     .dlpdf{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
-    .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px;color:#2f8f6b;border-bottom:3px solid #8fd3bb;padding-bottom:6px}
-    .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #c3dfd4;border-left:1px solid #c3dfd4}
-    .dlpdf th,.dlpdf td{border-right:1px solid #c3dfd4;border-bottom:1px solid #c3dfd4}
+    .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px;color:#374151;border-bottom:3px solid #9ca3af;padding-bottom:6px}
+    .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #cbd5e1;border-left:1px solid #cbd5e1}
+    .dlpdf th,.dlpdf td{border-right:1px solid #cbd5e1;border-bottom:1px solid #cbd5e1}
     .dlpdf .hd td{padding:5px 8px}
-    .dlpdf .hd .lb{text-align:center;background:#eef7f2;color:#2f8f6b;white-space:nowrap}
-    .dlpdf .sec{font-weight:700;margin:10px 0 4px;color:#2f8f6b;background:#f1f8f5;border-left:4px solid #8fd3bb;padding:5px 10px}
+    .dlpdf .hd .lb{text-align:center;background:#f1f3f5;color:#374151;white-space:nowrap}
+    .dlpdf .sec{font-weight:700;margin:10px 0 4px;color:#374151;background:#f3f4f6;border-left:4px solid #9ca3af;padding:5px 10px}
     .dlpdf .tb{table-layout:fixed}
-    .dlpdf .tb th{background:#e3f1ea;color:#2f8f6b;font-weight:500}
+    .dlpdf .tb th{background:#e9edf1;color:#374151;font-weight:500}
     .dlpdf .tb th,.dlpdf .tb td{padding:4px 6px;text-align:center;word-break:break-word}
-    .dlpdf .tb tbody tr:nth-child(even){background:#f7fbf9}
+    .dlpdf .tb tbody tr:nth-child(even){background:#f8f9fa}
     .dlpdf .note td{padding:4px 6px;height:20px;text-align:left}
     .dlpdf .sign td{padding:4px;text-align:center;vertical-align:middle}
-    .dlpdf .sign .lbl{font-weight:700;background:#e3f1ea;color:#2f8f6b}
+    .dlpdf .sign .lbl{font-weight:700;background:#e9edf1;color:#374151}
     .dlpdf .sign .nm{height:28px;vertical-align:middle}
   </style>`;
 // 第一頁：施工日誌內容（一、二表格只顯示實際有填的列，不補空白格）
@@ -3023,9 +3023,9 @@ function dlLogContentHtml(r) {
   const itemRows = items.map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
   const workerRows = workers.map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
-    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #8fd3bb;padding-bottom:6px">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:6px">
       <img src="${DL_LOGO}" width="104" height="30" style="width:104px;height:30px">
-      <div style="flex:1;text-align:center;font-size:20px;font-weight:500;color:#2f8f6b">施工日誌</div>
+      <div style="flex:1;text-align:center;font-size:20px;font-weight:500;color:#374151">施工日誌</div>
       <div style="width:104px"></div>
     </div>
     ${(() => {
