@@ -2995,11 +2995,12 @@ async function dlDelete() {
 const DL_PDF_STYLE = `<style>
     .dlpdf{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:13px}
     .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px}
-    .dlpdf table{width:100%;border-collapse:collapse;margin-bottom:8px}
-    .dlpdf th,.dlpdf td{border:1px solid #333}
+    .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #333;border-left:1px solid #333}
+    .dlpdf th,.dlpdf td{border-right:1px solid #333;border-bottom:1px solid #333}
     .dlpdf .hd td{padding:4px 6px}
     .dlpdf .sec{font-weight:700;margin:10px 0 4px}
-    .dlpdf .tb th,.dlpdf .tb td{padding:4px 6px;text-align:center}
+    .dlpdf .tb{table-layout:fixed}
+    .dlpdf .tb th,.dlpdf .tb td{padding:4px 6px;text-align:center;word-break:break-word}
     .dlpdf .note td{padding:4px 6px;height:20px;text-align:left}
     .dlpdf .sign td{padding:4px;text-align:center;vertical-align:middle}
     .dlpdf .sign .lbl{font-weight:700}
