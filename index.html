@@ -2956,7 +2956,7 @@ async function dlSave() {
     try { const srcs = await dlPhotoDataUrls(); pdfBlob = await dlGeneratePdfBlob(rec, srcs); }
     catch (pe) { if (msg) { msg.textContent = 'PDF 產生失敗：' + (pe.message || pe); msg.style.color = 'var(--danger)'; } return; }
     // 2) 上傳 PDF 到 Google 共用硬碟
-    if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…（首次會請你同意 Drive 權限）'; }
+    if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     let drive;
     try { const folderId = await dlEnsureSiteFolder(String(sn)); drive = await dlDriveUpload(pdfBlob, `施工日誌_${sn}_${rec.log_date}.pdf`, folderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
