@@ -3001,7 +3001,8 @@ const DL_PDF_STYLE = `<style>
     .dlpdf h1{text-align:center;font-size:20px;margin:0 0 10px}
     .dlpdf table{width:100%;border-collapse:separate;border-spacing:0;margin-bottom:8px;border-top:1px solid #333;border-left:1px solid #333}
     .dlpdf th,.dlpdf td{border-right:1px solid #333;border-bottom:1px solid #333}
-    .dlpdf .hd td{padding:4px 6px}
+    .dlpdf .hd td{padding:5px 8px}
+    .dlpdf .hd .lb{text-align:center;background:#f5f5f5;white-space:nowrap}
     .dlpdf .sec{font-weight:700;margin:10px 0 4px}
     .dlpdf .tb{table-layout:fixed}
     .dlpdf .tb th,.dlpdf .tb td{padding:4px 6px;text-align:center;word-break:break-word}
@@ -3019,9 +3020,16 @@ function dlLogContentHtml(r) {
   const workerRows = workers.map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
     <h1>施工日誌</h1>
-    <table class="hd"><tr><td>工程名稱</td><td colspan="3">${cell(r.proj_name)}</td><td>承攬廠商</td><td>${cell(r.contractor)}</td></tr>
-    <tr><td>本日天氣</td><td>${cell(r.weather)}</td><td>施工日期</td><td>${cell(r.log_date)}</td><td>合約工期</td><td>${cell(r.contract_days)} 天</td></tr>
-    <tr><td>開工日期</td><td>${cell(r.start_date)}</td><td>預定完工</td><td>${cell(r.end_date)}</td><td>累計工期</td><td>${cell(r.cum_days)} 天</td></tr></table>
+    ${(() => {
+      const d = v => v ? appEsc(String(v).slice(0, 10).replace(/-/g, '/')) : '';   // 日期用斜線
+      const days = v => (v || v === 0) && String(v).trim() !== '' ? appEsc(v) + ' 天' : '';
+      const L = t => `<td class="lb">${t}</td>`;
+      return `<table class="hd"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>
+      <tr>${L('工程名稱')}<td>${cell(r.proj_name)}</td>${L('承攬廠商名稱')}<td>${cell(r.contractor)}</td></tr>
+      <tr>${L('本日天氣')}<td>${cell(r.weather)}</td>${L('施工日期')}<td>${d(r.log_date)}</td></tr>
+      <tr>${L('合約工期')}<td>${days(r.contract_days)}</td>${L('累計工期')}<td>${days(r.cum_days)}</td></tr>
+      <tr>${L('開工日期')}<td>${d(r.start_date)}</td>${L('預定完工日期')}<td>${d(r.end_date)}</td></tr></table>`;
+    })()}
     <div class="sec">一、重要施工項目完成數量：</div>
     <table class="tb"><colgroup><col style="width:26%"><col style="width:13%"><col style="width:9%"><col style="width:14%"><col style="width:12%"><col style="width:26%"></colgroup><thead><tr><th>施工項目</th><th>本日完成數量</th><th>單位</th><th>累計完成數量</th><th>工時(小時)</th><th>備註</th></tr></thead><tbody>${itemRows}</tbody></table>
     <div class="sec">二、工地人員管理（含約定之出工人數及機具使用情形及數量）：</div>
