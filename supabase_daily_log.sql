@@ -23,9 +23,8 @@ create table if not exists public.site_daily_log (
   created_at    timestamptz default now()
 );
 
--- 同案場同日只一筆（儲存時可覆蓋）
-create unique index if not exists site_daily_log_site_date_uidx
-  on public.site_daily_log (site_id, log_date);
+-- （允許同案場同日多筆：不建唯一索引；若之前建過，請執行下面這行移除）
+drop index if exists site_daily_log_site_date_uidx;
 
 -- 與戰情室其他資料表一致：anon 可讀寫（RLS 尚未啟用）
 alter table public.site_daily_log disable row level security;

@@ -2552,6 +2552,7 @@ let dlEditingId = null;     // 目前編輯中的紀錄 id（新建為 null）
 let dlPhotoUrls = [];       // 目前表單的照片 URL
 let _dlWbsNames = [];       // 目前案場的 WBS 工項名稱（施工項目下拉用）
 let _dlFormReturnSite = null; // 填寫表單返回時要回到哪個案場（null＝回案場卡片）
+let _dlEditRec = null;        // 目前編輯中的紀錄（null＝新增空白，不自動載入當日舊紀錄）
 
 function showDlTab(tab) {
   const isFill = tab === 'fill';
@@ -2647,6 +2648,7 @@ function dlShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
   const editable = dlEditableSites();
   const rec = logId ? (dlLogs || []).find(r => String(r.id) === String(logId)) : null;
+  _dlEditRec = rec;   // 新增(null)＝空白；編輯＝載入該筆
   _dlFormReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const siteOpts = editable.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
@@ -2680,7 +2682,7 @@ async function dlLoadForm() {
   const sid = Number(document.getElementById('dl-site').value);
   const date = document.getElementById('dl-date').value;
   const s = siteById(sid); if (!s || !date) { body.innerHTML = ''; return; }
-  const existing = dlLogs.find(r => r.site_id === sid && String(r.log_date).slice(0, 10) === date);
+  const existing = _dlEditRec;   // 只載入「明確要編輯的那筆」，新增一律空白
   dlEditingId = existing ? existing.id : null;
   dlPhotoUrls = existing && Array.isArray(existing.photos) ? existing.photos.slice() : [];
   _dlNewFiles = []; _dlRemovedUrls = [];
@@ -2690,7 +2692,7 @@ async function dlLoadForm() {
   const dayDiff = (a, b) => { const x = new Date(toISO(a)), y = new Date(toISO(b)); return (a && b && !isNaN(x) && !isNaN(y)) ? Math.max(0, Math.round((y - x) / 86400000) + 1) : ''; };
   const contractDays = existing && existing.contract_days != null ? existing.contract_days : dayDiff(start, end);
   const cumDays = existing && existing.cum_days != null ? existing.cum_days : dayDiff(start, date);
-  const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（此日已有紀錄，載入編輯）' : '（新建日誌）';
+  const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（編輯此筆日誌）' : '（新建日誌）';
   const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   _dlWbsNames = dlWbsItems(s).map(x => x.name);
@@ -2964,7 +2966,7 @@ async function dlSave() {
       const old = (dlLogs || []).find(r => r.id === dlEditingId);
       if (old && old.photos && old.photos.id && old.photos.id !== drive.id) await dlDriveDelete(old.photos.id);
       ({ error } = await sb.from('site_daily_log').update(rec).eq('id', dlEditingId));
-    } else ({ error } = await sb.from('site_daily_log').upsert(rec, { onConflict: 'site_id,log_date' }));
+    } else ({ error } = await sb.from('site_daily_log').insert(rec));
     if (error) throw error;
     if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
     _dlNewFiles = [];
