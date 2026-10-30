@@ -2579,16 +2579,16 @@ async function dlBuildDocxBlob(r, photoSrcs) {
   const esc = v => v == null ? '' : String(v);
   const dslash = v => v ? esc(v).slice(0, 10).replace(/-/g, '/') : '';
   const T = (t, o = {}) => new TextRun({ text: esc(t), font: 'Microsoft JhengHei', size: o.size || 20, bold: !!o.bold, color: o.color || '000000' });
-  const P = (runs, o = {}) => new Paragraph(Object.assign({ children: Array.isArray(runs) ? runs : [runs], alignment: o.align, spacing: { before: o.before || 0, after: o.after || 0, line: 240, lineRule: 'auto' } }, o.pageBreakBefore ? { pageBreakBefore: true } : {}, o.border ? { border: o.border } : {}, o.shading ? { shading: o.shading } : {}));
+  const P = (runs, o = {}) => new Paragraph(Object.assign({ children: Array.isArray(runs) ? runs : [runs], alignment: o.align, spacing: { before: o.before || 0, after: o.after || 0, line: o.line || 230, lineRule: o.lineRule || 'exact' } }, o.pageBreakBefore ? { pageBreakBefore: true } : {}, o.border ? { border: o.border } : {}, o.shading ? { shading: o.shading } : {}));
   const CW = 10466;
   // 標題列：logo | 置中標題 | 右側等寬空位（讓標題真正置中），下方灰底線
   const titleTbl = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [2000, 6466, 2000], borders: { top: NB, bottom: NB, left: NB, right: NB, insideHorizontal: NB, insideVertical: NB }, rows: [new TableRow({ children: [
     new TableCell({ width: { size: 2000, type: WidthType.DXA }, borders: { bottom: B('9ca3af', 18) }, verticalAlign: VerticalAlign.CENTER, children: [new Paragraph({ children: [new ImageRun({ data: dlDataUrlToU8(DL_LOGO), transformation: { width: 120, height: 35 } })] })] }),
-    new TableCell({ width: { size: 6466, type: WidthType.DXA }, borders: { bottom: B('9ca3af', 18) }, verticalAlign: VerticalAlign.CENTER, children: [P(T('施工日誌', { bold: true, size: 36, color: '374151' }), { align: AlignmentType.CENTER })] }),
+    new TableCell({ width: { size: 6466, type: WidthType.DXA }, borders: { bottom: B('9ca3af', 18) }, verticalAlign: VerticalAlign.CENTER, children: [P(T('施工日誌', { bold: true, size: 36, color: '374151' }), { align: AlignmentType.CENTER, line: 460 })] }),
     new TableCell({ width: { size: 2000, type: WidthType.DXA }, borders: { bottom: B('9ca3af', 18) }, children: [new Paragraph('')] })
   ] })] });
-  const lb = (t) => new TableCell({ shading: SH('f1f3f5'), verticalAlign: VerticalAlign.CENTER, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [P(T(t, { color: '374151' }), { align: AlignmentType.CENTER })] });
-  const vc = (t) => new TableCell({ verticalAlign: VerticalAlign.CENTER, margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [P(T(t))] });
+  const lb = (t) => new TableCell({ shading: SH('f1f3f5'), verticalAlign: VerticalAlign.CENTER, margins: { top: 22, bottom: 22, left: 80, right: 80 }, children: [P(T(t, { color: '374151' }), { align: AlignmentType.CENTER })] });
+  const vc = (t) => new TableCell({ verticalAlign: VerticalAlign.CENTER, margins: { top: 22, bottom: 22, left: 80, right: 80 }, children: [P(T(t))] });
   const days = v => (v || v === 0) && String(v).trim() !== '' ? esc(v) + ' 天' : '';
   const hdTbl = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [1570, 3663, 1570, 3663], borders: allB('cbd5e1'), rows: [
     new TableRow({ children: [lb('工程名稱'), vc(r.proj_name), lb('承攬廠商名稱'), vc(r.contractor)] }),
@@ -2597,8 +2597,8 @@ async function dlBuildDocxBlob(r, photoSrcs) {
     new TableRow({ children: [lb('開工日期'), vc(dslash(r.start_date)), lb('預定完工日期'), vc(dslash(r.end_date))] }),
   ] });
   const sec = (t) => P(T(t, { bold: true, color: '374151' }), { before: 120, after: 40, shading: SH('f3f4f6'), border: { left: { style: BorderStyle.SINGLE, size: 30, color: '9ca3af' }, top: NB, bottom: NB, right: NB } });
-  const hcell = (t) => new TableCell({ shading: SH('e9edf1'), verticalAlign: VerticalAlign.CENTER, margins: { top: 30, bottom: 30, left: 60, right: 60 }, children: [P(T(t, { color: '374151' }), { align: AlignmentType.CENTER })] });
-  const dcell = (t, al) => new TableCell({ verticalAlign: VerticalAlign.CENTER, margins: { top: 30, bottom: 30, left: 60, right: 60 }, children: [P(T(t), { align: al || AlignmentType.CENTER })] });
+  const hcell = (t) => new TableCell({ shading: SH('e9edf1'), verticalAlign: VerticalAlign.CENTER, margins: { top: 20, bottom: 20, left: 60, right: 60 }, children: [P(T(t, { color: '374151' }), { align: AlignmentType.CENTER })] });
+  const dcell = (t, al) => new TableCell({ verticalAlign: VerticalAlign.CENTER, margins: { top: 20, bottom: 20, left: 60, right: 60 }, children: [P(T(t), { align: al || AlignmentType.CENTER })] });
   const items = (r.items && r.items.length) ? r.items : [{}];
   const workers = (r.workers && r.workers.length) ? r.workers : [{}];
   const t1 = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [2721, 1360, 942, 1465, 1256, 2722], borders: allB('cbd5e1'), rows: [
@@ -2609,7 +2609,7 @@ async function dlBuildDocxBlob(r, photoSrcs) {
     new TableRow({ tableHeader: true, children: [hcell('工別'), hcell('本日人數'), hcell('累計人數'), hcell('備註')] }),
     ...workers.map(w => new TableRow({ children: [dcell(w.trade, AlignmentType.LEFT), dcell(w.today), dcell(w.cum), dcell(w.note, AlignmentType.LEFT)] }))
   ] });
-  const noteBox = (t) => new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [CW], borders: allB('cbd5e1'), rows: [new TableRow({ height: { value: 360, rule: 'atLeast' }, children: [new TableCell({ margins: { top: 40, bottom: 40, left: 80, right: 80 }, children: [P(T(t))] })] })] });
+  const noteBox = (t) => new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [CW], borders: allB('cbd5e1'), rows: [new TableRow({ height: { value: 360, rule: 'atLeast' }, children: [new TableCell({ margins: { top: 22, bottom: 22, left: 80, right: 80 }, children: [P(T(t))] })] })] });
   const signTbl = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [5233, 5233], borders: allB('cbd5e1'), rows: [
     new TableRow({ tableHeader: true, children: [hcell('審核'), hcell('工地主任')] }),
     new TableRow({ height: { value: 560, rule: 'atLeast' }, children: [dcell(r.reviewer), dcell(r.supervisor)] })
@@ -2618,10 +2618,12 @@ async function dlBuildDocxBlob(r, photoSrcs) {
   const photoCell = (src) => new TableCell({ width: { size: CW / 2, type: WidthType.DXA }, verticalAlign: VerticalAlign.CENTER, margins: { top: 40, bottom: 40, left: 40, right: 40 }, children: [src ? new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ data: dlDataUrlToU8(src), transformation: { width: 230, height: 173 } })] }) : new Paragraph({ children: [new TextRun('')] })] });
   const photoRow = (a, b) => new TableRow({ height: { value: 2600, rule: 'atLeast' }, children: [photoCell(ph[a]), photoCell(ph[b])] });
   const photoTbl = new Table({ width: { size: CW, type: WidthType.DXA }, columnWidths: [CW / 2, CW / 2], borders: allB('cbd5e1'), rows: [photoRow(0, 1), photoRow(2, 3), photoRow(4, 5)] });
-  const doc = new Document({ sections: [{
+  const doc = new Document({
+    styles: { default: { document: { run: { font: 'Microsoft JhengHei', size: 20 }, paragraph: { spacing: { before: 0, after: 0, line: 230, lineRule: 'exact' } } } } },
+    sections: [{
     properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
     children: [titleTbl, P(T(''), { after: 60 }), hdTbl, sec('一、重要施工項目完成數量：'), t1, sec('二、工地人員管理（含約定之出工人數及機具使用情形及數量）：'), t2, sec('三、通知分包廠商辦理事項：'), noteBox(r.notify_sub), sec('四、待協調及追蹤事項：'), noteBox(r.coordinate), P(T(''), { after: 120 }), signTbl,
-      P([T('工進照片', { bold: true, size: 28, color: '374151' })], { align: AlignmentType.CENTER, pageBreakBefore: true, after: 120 }), photoTbl]
+      P([T('工進照片', { bold: true, size: 28, color: '374151' })], { align: AlignmentType.CENTER, pageBreakBefore: true, after: 120, line: 380 }), photoTbl]
   }] });
   return await Packer.toBlob(doc);
 }
