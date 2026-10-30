@@ -2609,9 +2609,8 @@ function dlShowList() {
   const all = (dlLogs || []);   // 全公司可檢視全部施工日誌、也都可新增
   const cnt = {}, last = {};
   all.forEach(r => { cnt[r.site_id] = (cnt[r.site_id] || 0) + 1; const d = String(r.log_date).slice(0, 10); if (!last[r.site_id] || d > last[r.site_id]) last[r.site_id] = d; });
-  // 顯示所有進行中案場（可編輯者的＋有日誌的），讓全公司都能點進去看
-  const inProgress = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done').map(s => s.id);
-  const ids = [...new Set([...inProgress, ...all.map(r => r.site_id)])];
+  // 只顯示「有填寫過（有日誌）」的案場；要新增用右上角「＋ 新增施工日誌」(可選任一案場)
+  const ids = [...new Set(all.map(r => r.site_id))];
   ids.sort((a, b) => (last[b] || '').localeCompare(last[a] || ''));
   const cards = ids.map(sid => {
     const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid); const c = cnt[sid] || 0;
@@ -2630,7 +2629,7 @@ function dlShowList() {
         <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無案場</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</div>'}</div>`;
 }
 // 第二層：單一案場的日誌清單
 function dlShowSite(sid) {
