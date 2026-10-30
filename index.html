@@ -2629,7 +2629,7 @@ function dlShowList() {
         <button onclick="dlShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增施工日誌</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="color:var(--muted);padding:20px">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無施工日誌，點右上角「＋ 新增施工日誌」開始填寫。</div>'}</div>`;
 }
 // 第二層：單一案場的日誌清單
 function dlShowSite(sid) {
