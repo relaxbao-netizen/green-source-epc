@@ -2741,23 +2741,27 @@ async function dlLoadForm() {
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">一、重要施工項目完成數量</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-items">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:13px" id="dl-items">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px">施工項目</th><th style="width:88px;padding:4px">本日完成</th><th style="width:64px;padding:4px">單位</th><th style="width:80px;padding:4px">工時(小時)</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px;white-space:nowrap">施工項目</th><th style="width:88px;padding:4px;white-space:nowrap">本日完成</th><th style="width:64px;padding:4px;white-space:nowrap">單位</th><th style="width:80px;padding:4px;white-space:nowrap">工時(小時)</th><th style="text-align:left;padding:4px;white-space:nowrap">備註</th><th style="width:34px"></th>
         </tr></thead>
         <tbody>${items.map(it => dlItemRowHtml(it)).join('')}</tbody>
       </table>
+      </div>
       <button onclick="dlAddRow('dl-items', dlItemRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">二、工地人員管理</div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px" id="dl-workers">
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:420px;border-collapse:collapse;font-size:13px" id="dl-workers">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px">工別</th><th style="width:96px;padding:4px">本日人數</th><th style="text-align:left;padding:4px">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px;white-space:nowrap">工別</th><th style="width:96px;padding:4px;white-space:nowrap">本日人數</th><th style="text-align:left;padding:4px;white-space:nowrap">備註</th><th style="width:34px"></th>
         </tr></thead>
         <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
       </table>
+      </div>
       <button onclick="dlAddRow('dl-workers', dlWorkerRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
       <datalist id="dl-trade-list">${tradeOpts}</datalist>
     </div>
