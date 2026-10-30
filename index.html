@@ -3095,14 +3095,14 @@ async function dlCanvasOf(html) {
     if (img.complete && img.naturalWidth) return;
     await new Promise(res => { img.onload = img.onerror = res; });
   }));
-  try { return await html2canvas(holder, { scale: 3, useCORS: true, backgroundColor: '#fff', imageTimeout: 0 }); }
+  try { return await html2canvas(holder, { scale: 2, useCORS: true, backgroundColor: '#fff', imageTimeout: 0 }); }
   finally { document.body.removeChild(holder); }
 }
 // 把 canvas 加進 PDF（過長自動分頁）；newPage=true 時先另起一頁
 function dlAddCanvasToPdf(pdf, canvas, newPage) {
   const pw = 210, ph = 297;
   const imgH = canvas.height * pw / canvas.width;
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const imgData = canvas.toDataURL('image/jpeg', 0.85);
   if (newPage) pdf.addPage();
   let heightLeft = imgH, position = 0;
   pdf.addImage(imgData, 'JPEG', 0, position, pw, imgH);
