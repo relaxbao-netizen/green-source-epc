@@ -8611,6 +8611,8 @@ function mascotAnswer(q) {
   // 最長共同子字串長度（容錯比對：簡稱、漏字、AP7/ap7 都可）
   const lcs = (a, b) => { if (!a || !b) return 0; let m = 0, prev; const dp = new Array(b.length + 1).fill(0); for (let i = 1; i <= a.length; i++) { prev = 0; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : 0; if (dp[j] > m) m = dp[j]; prev = t; } } return m; };
   const list2 = arr => arr.map(s => `• ${esc(nm(s))}（${statusText[s.status]}）`).join('<br>');
+  // 日期是否已過（供「預計完工日」標示逾期用）
+  const isOverdue = d => { if (!d) return false; const t = new Date(String(d).replace(/\//g, '-')); return !isNaN(t) && t < new Date(new Date().toISOString().slice(0, 10)); };
 
   // 今天日期 / 時間
   if (has('今天幾號', '今天日期', '現在日期', '幾月幾號', '今天星期', '星期幾', '禮拜幾', '現在幾點', '現在時間', '幾點了', '今天禮拜', '今天幾月', '今天是幾', '現在是幾', '今天幾日', '日期是')) {
@@ -8732,7 +8734,12 @@ function mascotAnswer(q) {
   }).filter(x => x.best >= 2);
   if (scored.length) {
     const top = Math.max(...scored.map(x => x.best));
-    const matched = scored.filter(x => x.best === top).map(x => x.s).slice(0, 3);
+    const matchedAll = scored.filter(x => x.best === top).map(x => x.s);
+    // 同一關鍵字（如「台積電」）命中多案、且問的是數量/清單 → 直接回「共 N 案」+清單，不逐案倒狀態
+    if (matchedAll.length > 1 && has('幾案', '幾個', '有幾', '多少案', '多少個', '幾間', '幾座', '有哪些', '哪些', '列出', '清單', '列一下', '數量', '哪幾', '幾項案')) {
+      return `符合的案場 ${matchedAll.length} 案：<br>${list2(matchedAll)}`;
+    }
+    const matched = matchedAll.slice(0, 3);
     return matched.map(s => {
       const head = `<b>${esc(nm(s))}</b>`;
       if (has('主任', '負責', '誰做', '誰顧', '誰管', '誰蓋', '誰在做', '誰跑', '誰的工地', '現場誰', '誰盯', 'pm', '工地主任', '負責人', '顧', '在做', '誰在')) return `${head} 工地主任：${esc(pmText(s)) || '—'}`;
@@ -8743,7 +8750,7 @@ function mascotAnswer(q) {
       if (has('幾個工項', '工項', '幾項', '項目', '幾個項目', '多少項', '工序')) { const tree = (typeof wbsScheduleTree === 'function' ? wbsScheduleTree(s) : []) || []; const n = tree.reduce((a, c) => a + (c.subs && c.subs.length ? c.subs.length : 1), 0); return `${head} 共 ${n} 個工項`; }
       if (has('開工多久', '做多久', '幾天了', '施工多久', '多久了', '施工幾天', '蓋多久', '做幾天')) { const sd = siteStartDate(s); if (!sd) return `${head}：尚未開工`; const days = Math.max(0, Math.round((Date.now() - new Date(sd.replace(/\//g, '-')).getTime()) / 86400000)); return `${head} 自 ${esc(sd)} 開工，約 ${days} 天`; }
       if (has('開工', '動工', '進場', '什麼時候開', '何時開', '幾號開', '開了嗎', '開始了嗎', '動了嗎', '幾時開', '何時動')) return `${head} 實際開工日：${esc(siteStartDate(s) || '尚未開工')}`;
-      if (has('完工', '完成日', '何時好', '什麼時候完', '什麼時候好', '交屋', '預計完', '幾號完', '結案日', '何時交', '幾時好', '多久好', '何時弄好', '什麼時候弄好', '什麼時候交', '快好了嗎', '做完沒')) return s.status === 'done' ? `${head}：已完工 ✅` : `${head} 預計完工日：${esc(siteEndDate(s) || '—')}`;
+      if (has('完工', '完成日', '何時好', '什麼時候完', '什麼時候好', '交屋', '預計完', '幾號完', '結案日', '何時交', '幾時好', '多久好', '何時弄好', '什麼時候弄好', '什麼時候交', '快好了嗎', '做完沒')) { if (s.status === 'done') return `${head}：已完工 ✅`; const end = siteEndDate(s); return `${head} 預計完工日：${esc(end || '—')}${isOverdue(end) ? ' <b style="color:var(--danger)">（已逾期，尚未完工）</b>' : ''}`; }
       if (has('容量', '光電', '儲能', '裝置', 'kw', '發電', '瓩', '幾度', '多大', '多少瓦', '幾mw', '幾瓦', '規模多大', '幾kwp')) {
         const parts = [];
         if (s.mw) parts.push(`光電 <b>${s.mw} kWp</b>`);
@@ -8765,7 +8772,7 @@ function mascotAnswer(q) {
       if (s.status === 'pending') return `${head}：尚未開工（待開工）`;
       const rush = mascotRushItems().filter(it => it.siteId === s.id);
       let r = `${head}：狀態 <b style="color:${sc[s.status]}">${statusText[s.status]}</b>、完成 ${Math.round(s.pct || 0)}%`;
-      const end = siteEndDate(s); if (end) r += `、預計完工 ${esc(end)}`;
+      const end = siteEndDate(s); if (end) r += `、預計完工 ${esc(end)}${isOverdue(end) ? '（已逾期）' : ''}`;
       if (rush.length) r += `<br>需趕工 ${rush.length} 項：` + rush.map(x => esc(x.name)).join('、');
       return r;
     }).join('<hr class="mb-hr">');
@@ -8891,9 +8898,16 @@ function mascotAnswer(q) {
   // 超載 / 人力 / 最忙 / 最閒
   if (has('超載', '人力', '負荷', '最忙', '最閒', '最少', '帶幾', '帶案', '案量', '分配', '誰比較忙', '誰累', '誰輕鬆', '誰手上', '誰案子多', '誰案子少', '忙不忙', '操不操', '爆了嗎', '扛幾', '管幾', '誰有空', '誰閒', '案子最多', '最多案', '帶最多', '誰最多案', '誰帶最多', '誰案子最多')) {
     const svs = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload);
+    const listLine = () => svs.map(sv => { const n = activeSitesOf(sv).length; return `• ${esc(sv.name)}：${n} 案${n > 3 ? ' <b style="color:var(--danger)">超載</b>' : ''}`; }).join('<br>');
+    if (svs.length && has('最忙', '誰忙', '誰累', '誰比較忙', '案子最多', '最多案', '帶最多', '誰最多案', '誰帶最多', '誰案子最多', '操不操')) {
+      const b = svs[0]; return `最忙的是 <b>${esc(b.name)}</b>（${activeSitesOf(b).length} 案）。<br>各主任帶案：<br>` + listLine();
+    }
+    if (svs.length && has('最閒', '最少', '誰有空', '誰閒', '誰比較閒', '誰輕鬆', '案子最少', '誰案子少')) {
+      const b = svs[svs.length - 1]; return `最閒的是 <b>${esc(b.name)}</b>（${activeSitesOf(b).length} 案）。<br>各主任帶案：<br>` + listLine();
+    }
     const over = svs.filter(sv => activeSitesOf(sv).length > 3);
     const head = over.length ? `目前有 ${over.length} 位主任超載（帶案 >3）：<br>` : '目前沒有主任超載。各主任帶案：<br>';
-    return head + svs.map(sv => { const n = activeSitesOf(sv).length; return `• ${esc(sv.name)}：${n} 案${n > 3 ? ' <b style="color:var(--danger)">超載</b>' : ''}`; }).join('<br>');
+    return head + listLine();
   }
   // 趕工
   if (has('趕工', '最嚴重', '最急', '哪些工項落後', '工項落後', '要加班', '要衝', '催', '急件', '火燒', '最拖', '要趕', '得趕', '拼一下', '要追')) {
