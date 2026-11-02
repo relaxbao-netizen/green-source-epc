@@ -3131,7 +3131,8 @@ function drawDailyLog() {
   const prevScrolls = [...cont.querySelectorAll('.daily-scroll')].map(d => d.scrollLeft);
   const sameView = (drawDailyLog._prevYm === dailyLogYm) && prevScrolls.length > 0;
   const yms = [...new Set(dailyLogRows.map(r => r.ym))].sort().reverse();
-  if (!dailyLogYm || !yms.includes(dailyLogYm)) {
+  // 只有第一次（尚未選過月份）才給預設最新月；使用者自己選的月份一律保留（即使該月無資料，比照申請系統）
+  if (!dailyLogYm) {
     const n = new Date();
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
