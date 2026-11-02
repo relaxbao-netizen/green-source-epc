@@ -3124,6 +3124,12 @@ async function dlGeneratePdfBlob(r, photoSrcs) {
   dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs)), true); // 照片頁（固定6格，另起新頁）
   return pdf.output('blob');
 }
+// 月份純打字框：接受 2026/10、2026-10、202610 等，解析成 YYYY-MM（可自由打 10、11、12，不會被當成 1 月）
+function dlSetMonth(val) {
+  const m = String(val || '').match(/(\d{4})\D?(\d{1,2})/);
+  if (m) { const y = +m[1], mo = +m[2]; if (mo >= 1 && mo <= 12) dailyLogYm = y + '-' + String(mo).padStart(2, '0'); }
+  drawDailyLog();
+}
 function drawDailyLog() {
   const cont = document.getElementById('dailylog-container');
   if (!cont) return;
@@ -3135,7 +3141,7 @@ function drawDailyLog() {
     const n = new Date();
     dailyLogYm = yms[0] || (n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'));
   }
-  const monthSel = `<input type="month" value="${dailyLogYm}" onchange="dailyLogYm=this.value;drawDailyLog()" style="height:36px;padding:6px 10px;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;background:var(--surface);color:inherit">`;
+  const monthSel = `<input type="text" inputmode="numeric" value="${dailyLogYm.replace('-', '/')}" placeholder="YYYY/MM" onchange="dlSetMonth(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();dlSetMonth(this.value);}" style="height:36px;width:104px;text-align:center;padding:6px 10px;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;background:var(--surface);color:inherit">`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
   const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;display:${dailyLogDirty.size ? 'inline-flex' : 'none'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
   let html = `<div class="section-title no-line" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>${saveBtn}${monthSel}</div>`;
