@@ -3128,16 +3128,14 @@ async function dlGeneratePdfBlob(r, photoSrcs) {
 }
 // 月份輸入：自由打數字(10/11/12 都可)，按 Enter 或點別處才套用；接受 2026/10、2026-10、202610
 function dlMonthClick(el) {
-  // 點到哪個數字群組(年或月)就反藍選取該段，模擬原生月份框
-  setTimeout(function () {
-    const v = el.value, pos = el.selectionStart;
-    const runs = []; let m; const re = /\d+/g;
-    while ((m = re.exec(v))) runs.push([m.index, m.index + m[0].length]);
-    if (!runs.length) return;
-    let pick = runs.find(r => pos >= r[0] && pos <= r[1]);
-    if (!pick) pick = runs.reduce((a, b) => Math.abs(pos - b[0]) < Math.abs(pos - a[0]) ? b : a);
-    el.setSelectionRange(pick[0], pick[1]);
-  }, 0);
+  // 點到哪個數字群組(年或月)就反藍選取該段，模擬原生月份框(同步執行，不延遲)
+  const v = el.value, pos = el.selectionStart;
+  const runs = []; let m; const re = /\d+/g;
+  while ((m = re.exec(v))) runs.push([m.index, m.index + m[0].length]);
+  if (!runs.length) return;
+  let pick = runs.find(r => pos >= r[0] && pos <= r[1]);
+  if (!pick) pick = runs.reduce((a, b) => Math.abs(pos - b[0]) < Math.abs(pos - a[0]) ? b : a);
+  el.setSelectionRange(pick[0], pick[1]);
 }
 function dlSetMonth(val) {
   const m = String(val || '').match(/(\d{4})\D?(\d{1,2})/);
