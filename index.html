@@ -3317,10 +3317,15 @@ async function tbOpenSiteFolder(sid, siteName, btn) {
     if (withPdf) {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.pdf.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
       const d = await res.json();
-      if (res.ok && d.parents && d.parents.length) folderId = d.parents[0];
+      if (!res.ok) throw new Error((d && d.error && d.error.message) || ('讀取資料夾失敗 ' + res.status));
+      if (d.parents && d.parents.length) folderId = d.parents[0];
+      else throw new Error('找不到該 PDF 的所在資料夾');
+    } else {
+      folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
     }
-    if (!folderId) folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
-    const url = `https://drive.google.com/drive/folders/${folderId}`;
+    // 帶上登入帳號，避免用瀏覽器預設 Google 帳號開啟而無存取權
+    const email = (currentUser && currentUser.email) ? `?authuser=${encodeURIComponent(currentUser.email)}` : '';
+    const url = `https://drive.google.com/drive/folders/${folderId}${email}`;
     if (w) w.location = url; else window.open(url, '_blank');
   } catch (e) {
     if (w) w.close();
