@@ -2655,7 +2655,7 @@ function dlShowSite(sid) {
   const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
   const list = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
   const rows = list.length ? list.map(r => { const mine = dlCanEditLog(r); return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="dlShowForm('${r.id}')"` : ''}>
-      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10))}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.log_date).slice(0, 10).replace(/-/g, '/'))}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.weather || '')}</td>
       <td style="padding:8px 10px;color:var(--muted)">${appEsc(r.created_by || '')}</td>
       <td style="padding:8px 10px;white-space:nowrap">${(r.photos && r.photos.pdf) ? `<a href="${r.photos.pdf}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
