@@ -3138,7 +3138,7 @@ function tbShowForm(logId, presetSite) {
         <div style="flex:1"></div>
         <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建記錄）'}</div>
       </div>
-      ${tbEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">目前 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">📄 檢視</a>　（未重新選紙本/照片則沿用現有 PDF）</div>` : ''}
+      ${tbEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">目前 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">📄 檢視</a></div>` : ''}
     </div>
     <div style="margin-top:14px">
       <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -3335,18 +3335,6 @@ async function tbSave() {
   const items = [...tbItemsSel];
   const oldRec = tbEditingId ? (tbLogs || []).find(r => r.id === tbEditingId) : null;
   const oldPdf = oldRec ? (oldRec.pdf || null) : null;
-  const hasNewFiles = !!tbRecordFile || tbNewPhotos.length > 0;
-  // 編輯但沒重新選檔 → 保留原 PDF（原紙本/照片已包在裡面，不重產以免遺失）
-  if (tbEditingId && !hasNewFiles && oldPdf) {
-    try {
-      const row = { site_id: sid, meet_date: date, items, pdf: oldPdf, note: v('tb-note'), created_by: oldRec.created_by || (currentUser && currentUser.name) || '' };
-      const { error } = await sb.from('site_toolbox_meeting').update(row).eq('id', tbEditingId);
-      if (error) throw error;
-      if (msg) { msg.textContent = '✅ 已儲存（未重新選檔，PDF 內容沿用；如需更新紙本/照片請重新選檔）'; msg.style.color = '#16a34a'; }
-      await loadTbLogs(); setTimeout(() => tbShowSite(sid), 800);
-    } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e); msg.style.color = 'var(--danger)'; } }
-    return;
-  }
   try {
     const s = siteById(sid); const sn = s ? (s.label || s.name) : sid;
     const ymd = String(date).slice(0, 10).replace(/-/g, '');
