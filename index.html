@@ -3515,10 +3515,10 @@ function dlLogContentHtml(r) {
   const itemRows = items.map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
   const workerRows = workers.map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
-    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:6px">
-      <img src="${DL_LOGO}" width="104" height="30" style="width:104px;height:30px">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
+      <img src="${DL_LOGO}" style="height:46px">
       <div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">施工日誌</div>
-      <div style="width:104px"></div>
+      <div style="width:120px"></div>
     </div>
     ${(() => {
       const d = v => v ? appEsc(String(v).slice(0, 10).replace(/-/g, '/')) : '';   // 日期用斜線
@@ -3544,10 +3544,10 @@ function dlLogContentHtml(r) {
 // 第二頁：工進照片（固定 6 格框框；每格純白底，覆蓋斑馬紋保持一致）
 function dlLogPhotoHtml(photoSrcs) {
   const photos = (photoSrcs || []).slice(0, 6);
-  // 每格 4:3 橫式：外層 div 用 padding-bottom:75% 鎖比例，照片置中填滿；一律白底
-  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:0;vertical-align:middle;background:#fff"><div style="position:relative;width:100%;padding-bottom:75%">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : ''}</div></td>`; });
+  // 每格 4:3 橫式：外層 div 用 padding-bottom:75% 鎖比例，照片置中填滿；一律白底。每格加明顯粗框、cell 間留白，讓每張照片清楚區分
+  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:6px;vertical-align:middle;background:#fff;border:none"><div style="position:relative;width:100%;padding-bottom:75%;border:2px solid #4b5563;box-sizing:border-box;background:#fff">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div></td>`; });
   const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
-  return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:20px">工進照片</h1><table class="tb" style="table-layout:fixed">${photoRows}</table></div>`;
+  return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:20px">工進照片</h1><table style="table-layout:fixed;border:none">${photoRows}</table></div>`;
 }
 // 本機列印用：內容 + 分頁 + 照片
 function dlLogInnerHtml(r, photoSrcs) {
