@@ -3260,15 +3260,20 @@ function tbHazardTableHtml() {
       <th style="border:1px solid #cbd5e1;background:#e9edf1;color:#374151;padding:8px 10px;text-align:center">危害之防護措施</th>
     </tr>${rows}</table>`;
 }
-function tbCoverHtml(meta) {
+// 單頁式表單：標題→案場資訊→施工項目→危害表格→紙本照片｜人員照片→工地主任/工安人員簽名
+function tbDocHtml(meta, scanSrcs, photoSrcs) {
   const items = (meta.items && meta.items.length)
     ? meta.items.map(n => `<span style="display:inline-block;border:1px solid #cbd5e1;border-radius:14px;padding:4px 14px;margin:0 6px 6px 0;font-size:15px;color:#111">${appEsc(n)}</span>`).join('')
     : '<span style="color:#888">（未勾選施工項目）</span>';
   const secTitle = t => `<div style="font-size:16px;font-weight:700;color:#374151;background:#f3f4f6;border-left:4px solid #9ca3af;padding:6px 10px;margin:0 0 10px">${t}</div>`;
+  const colLbl = t => `<div style="font-size:15px;font-weight:700;color:#374151;margin-bottom:8px">${t}</div>`;
+  const imgList = (srcs) => (srcs && srcs.length)
+    ? srcs.map(s => `<img src="${s}" referrerpolicy="no-referrer" style="width:100%;border:1px solid #cbd5e1;margin-bottom:8px;display:block">`).join('')
+    : '<div style="color:#999;font-size:13px;padding:10px 0">（未上傳）</div>';
   return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000">
     <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:16px">
       <img src="${DL_LOGO}" style="height:46px">
-      <div style="flex:1;text-align:center;font-size:23px;font-weight:800;color:#374151">每日施工前工具箱會議記錄</div>
+      <div style="flex:1;text-align:center;font-size:23px;font-weight:800;color:#374151">施工前工具箱會議紀錄</div>
       <div style="width:120px"></div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:15px;margin-bottom:18px">
@@ -3283,26 +3288,20 @@ function tbCoverHtml(meta) {
         <td style="border:1px solid #cbd5e1;padding:9px 12px" colspan="3">${appEsc(meta.by || '')}</td>
       </tr>
     </table>
-    ${secTitle('工作內容（施工項目）')}
+    ${secTitle('施工項目')}
     <div style="margin-bottom:18px">${items}</div>
     ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
     ${secTitle('危害類型與防護措施')}
     ${tbHazardTableHtml()}
-    <div style="font-size:13px;color:#666;border-top:1px dashed #cbd5e1;padding-top:12px;line-height:1.7">※ 施工期間產生危害狀況之勾選，以及工地主任／工安人員簽名，詳見下方紙本「施工前工具箱會議記錄」掃描。</div>
+    <div style="display:flex;gap:16px;margin:18px 0;align-items:flex-start">
+      <div style="flex:1.1">${colLbl('紙本照片')}${imgList(scanSrcs)}</div>
+      <div style="flex:1">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
+    </div>
+    <div style="display:flex;gap:40px;margin-top:20px;border-top:1px solid #cbd5e1;padding-top:18px;font-size:16px;color:#374151">
+      <div style="flex:1">工地主任：______________</div>
+      <div style="flex:1">工安人員：______________</div>
+    </div>
   </div>`;
-}
-// 把一張掃描圖直接貼成「剛好一頁」的 A4（等比縮放、置中），避免 html2canvas 比例略超頁而多出空白頁
-async function tbAddImgPage(pdf, dataUrl) {
-  const im = new Image(); im.src = dataUrl; try { await im.decode(); } catch (e) {}
-  const iw = im.naturalWidth || 1000, ih = im.naturalHeight || 1414;
-  pdf.addPage();
-  const pw = 210, ph = 297, m = 8, maxW = pw - 2 * m, maxH = ph - 2 * m;
-  let w = iw, h = ih; const r = Math.min(maxW / w, maxH / h); w *= r; h *= r;
-  pdf.addImage(dataUrl, 'JPEG', (pw - w) / 2, m, w, h);
-}
-function tbPhotoGridHtml(srcs) {
-  const cells = srcs.map(s => `<div style="width:48%;margin:0 1% 14px;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%;border:1px solid #cbd5e1;overflow:hidden"><img src="${s}" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div></div>`).join('');
-  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif"><div style="font-size:17px;font-weight:700;color:#374151;margin-bottom:12px">工地人員照片</div><div style="display:flex;flex-wrap:wrap">${cells}</div></div>`;
 }
 // 把上傳的 PDF 紙本在本機逐頁轉成 JPEG data URL（免再上傳原檔，直接嵌進合成 PDF）
 async function tbPdfToImages(file) {
@@ -3323,9 +3322,7 @@ async function tbGeneratePdfBlob(meta, scanSrcs, photoSrcs) {
   if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p', 'mm', 'a4');
-  dlAddCanvasToPdf(pdf, await dlCanvasOf(tbCoverHtml(meta)), false);
-  for (const s of (scanSrcs || [])) await tbAddImgPage(pdf, s);
-  if (photoSrcs && photoSrcs.length) dlAddCanvasToPdf(pdf, await dlCanvasOf(tbPhotoGridHtml(photoSrcs)), true);
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(tbDocHtml(meta, scanSrcs, photoSrcs)), false);
   return pdf.output('blob');
 }
 
@@ -3369,7 +3366,7 @@ async function tbSave() {
     const pdfBlob = await tbGeneratePdfBlob(meta, scanSrcs, photoSrcs);
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     const folder = await tbEnsureFolder(String(sn));
-    const up = await dlDriveUpload(pdfBlob, `工具箱會議_${sn}_${ymd}.pdf`, folder);
+    const up = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_工具箱會議.pdf`, folder);
     if (tbEditingId && oldPdf && oldPdf.id && oldPdf.id !== up.id) await dlDriveDelete(oldPdf.id);
     const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length };
     const row = { site_id: sid, meet_date: date, items, record_file: null, photos: null, pdf: pdfObj, note: v('tb-note'), created_by: (tbEditingId && oldRec) ? (oldRec.created_by || '') : ((currentUser && currentUser.name) || '') };
