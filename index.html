@@ -7532,6 +7532,14 @@ function appIsBillable(r){ return r.cost_owner==='需向客戶請款' || r.cost_
 function appCostDecided(r){ return r.cost_owner==='需向客戶請款' || r.cost_owner==='可向客戶請款' || r.cost_owner==='綠源自行吸收' || r.cost_owner==='已含於原成本' || Number(r.client_amount)>0; }
 // 已含於原成本：已決定、非對客戶請款、也不算綠源「額外」吸收（不計入綠源吸收統計）
 function appCostIncluded(r){ return r && r.cost_owner==='已含於原成本'; }
+// 對客戶請款是否已處理：開票或收款日期已 key（多張請款明細需每張都已 key 至少一個日期）；未處理→紅字提醒，已處理→黑字
+function appBillHandled(r){
+  const bills=Array.isArray(r.client_bills)?r.client_bills:[];
+  if(bills.length) return bills.every(b=>b && (b.invoice_date||b.payment_date));
+  return !!(r.invoice_date||r.payment_date);
+}
+// 對客戶請款金額顯示色：尚未 key 開票/收款日期＝紅，已處理＝黑
+function appBillColor(r){ return appBillHandled(r)?'#0f172a':'#dc2626'; }
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ const n=Number(amt)||0; let c=[...SIGN_BASE]; if(n>=1000000) c=c.concat(['協理','總經理','董事長']); else if(n>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
@@ -7782,7 +7790,7 @@ function appBillableTableHTML(rows){
   const itemSumm=r=>{ const its=Array.isArray(r.items)?r.items:[]; if(!its.length) return '<span style="color:var(--muted)">—</span>'; return its.map(it=>appEsc(it.name)).join('<br>'); };
   return `<table class="prog-table" style="width:100%;min-width:0;table-layout:fixed;font-size:12px"><thead><tr><th style="width:11%;white-space:normal">流水號</th><th style="width:12%;white-space:normal">日期</th><th style="width:11%;white-space:normal">申請人</th><th style="width:24%;white-space:normal">追加明細</th><th style="width:11%;white-space:normal">追加金額</th><th style="width:11%;white-space:normal">對客戶請款</th><th style="width:12%;white-space:normal">已含於原成本</th><th style="width:8%;white-space:normal">狀態</th></tr></thead><tbody>${sorted.map(r=>{
     const cb=appIsBillable(r) ? (Number(r.client_amount)||Number(appEffTotal(r))||0) : 0; // 非請款單顯示 —
-    const cbCell=cb>0 ? `<span style="color:#dc2626;font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
+    const cbCell=cb>0 ? `<span style="color:${appBillColor(r)};font-weight:600">${appMoney(cb)}</span>` : '<span style="color:var(--muted)">—</span>';
     const inclCell=appCostIncluded(r) ? `<span style="color:#7c3aed;font-weight:600">${appMoney(Number(appEffTotal(r))||0)}</span>` : '<span style="color:var(--muted)">—</span>';
     return `<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
     <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:left;word-break:break-all">${itemSumm(r)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${cbCell}</td><td style="text-align:right">${inclCell}</td><td>${badge(r)}</td></tr>`;
@@ -8724,7 +8732,7 @@ function appResultTableHTML(rows, compact, desc){
     <td style="word-break:break-all">${appEsc(r.serial_no)}</td><td>${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left;word-break:break-all">${appEsc(siteShortName(r.site_name))}</td><td style="word-break:break-all">${appEsc(r.applicant)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table>`;
   }
   return `<div style="overflow-x:auto"><table class="prog-table" style="min-width:940px"><thead><tr><th>流水號</th><th style="text-align:center">日期</th><th>工程名稱</th><th>申請人</th><th>追加明細</th><th style="text-align:right">金額</th><th style="text-align:right">對客戶請款</th><th>狀態</th></tr></thead><tbody>${rows.map(r=>`<tr onclick="appViewReq(${r.id})" style="cursor:pointer">
-    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${Number(r.client_amount)>0?appMoney(r.client_amount):'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
+    <td>${appEsc(r.serial_no)}</td><td style="white-space:nowrap;text-align:center">${appEsc((r.apply_date||'').slice(0,10))}</td><td style="text-align:left">${appEsc(siteShortName(r.site_name))}</td><td style="white-space:nowrap">${appEsc(r.applicant)}</td><td style="text-align:left">${itemSumm(r)}</td><td style="text-align:right">${(appEffTotal(r)==null)?'<span style="color:#d97706">待定</span>':appMoney(appEffTotal(r))}</td><td style="text-align:right">${Number(r.client_amount)>0?`<span style="color:${appBillColor(r)};font-weight:600">${appMoney(r.client_amount)}</span>`:'—'}</td><td>${badge(r)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function runAppQuery(){
   // 統一用 appQueryFilterPass（與下拉選項同一套邏輯），避免兩份篩選程式分歧
