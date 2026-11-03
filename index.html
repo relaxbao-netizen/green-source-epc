@@ -3088,12 +3088,12 @@ function tbShowSite(sid) {
     const mine = dlCanEditLog(r);
     const items = Array.isArray(r.items) ? r.items : [];
     const itemsTxt = items.length ? appEsc(items.join('、')) : '<span style="color:var(--muted)">—</span>';
-    const rec = r.record_file && (r.record_file.view || r.record_file.url);
+    const pdfLink = (r.pdf && (r.pdf.view || r.pdf.url)) || (r.record_file && (r.record_file.view || r.record_file.url));
     const np = Array.isArray(r.photos) ? r.photos.length : 0;
     return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="tbShowForm('${r.id}')"` : ''}>
       <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.meet_date).slice(0, 10))}</td>
       <td style="padding:8px 10px">${itemsTxt}</td>
-      <td style="padding:8px 10px;white-space:nowrap">${rec ? `<a href="${rec}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${pdfLink ? `<a href="${pdfLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">${np ? (np + ' 張') : '—'}</td>
       <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
   }).join('')
@@ -3105,7 +3105,7 @@ function tbShowSite(sid) {
       <button onclick="tbShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">會議日期</th><th style="text-align:left;padding:8px 10px">施工項目</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">紙本記錄</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">人員照片</th><th style="width:70px"></th></tr></thead>
+      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">會議日期</th><th style="text-align:left;padding:8px 10px">施工項目</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">人員照片</th><th style="width:70px"></th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
 }
 function tbFormBack() { if (_tbReturnSite != null) tbShowSite(_tbReturnSite); else tbShowList(); }
@@ -3230,6 +3230,61 @@ async function tbEnsureFolder(siteName) {
   const res2 = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '工具箱會議記錄', mimeType: 'application/vnd.google-apps.folder', parents: [siteFolder] }) });
   const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
 }
+// ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
+function tbCoverHtml(meta) {
+  const items = (meta.items && meta.items.length)
+    ? meta.items.map(n => `<span style="display:inline-block;border:1px solid #cbd5e1;border-radius:14px;padding:4px 14px;margin:0 6px 6px 0;font-size:15px;color:#111">${appEsc(n)}</span>`).join('')
+    : '<span style="color:#888">（未勾選施工項目）</span>';
+  const secTitle = t => `<div style="font-size:16px;font-weight:700;color:#374151;background:#f3f4f6;border-left:4px solid #9ca3af;padding:6px 10px;margin:0 0 10px">${t}</div>`;
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000">
+    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:16px">
+      <img src="${DL_LOGO}" style="height:46px">
+      <div style="flex:1;text-align:center;font-size:23px;font-weight:800;color:#374151">每日施工前工具箱會議記錄</div>
+      <div style="width:120px"></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:15px;margin-bottom:18px">
+      <tr>
+        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">案場</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px">${appEsc(meta.siteName || '')}</td>
+        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">會議日期</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px;width:24%">${appEsc(meta.date || '')}</td>
+      </tr>
+      <tr>
+        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;font-weight:700;color:#374151">填寫人</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px" colspan="3">${appEsc(meta.by || '')}</td>
+      </tr>
+    </table>
+    ${secTitle('工作內容（施工項目）')}
+    <div style="margin-bottom:18px">${items}</div>
+    ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
+    <div style="font-size:13px;color:#666;border-top:1px dashed #cbd5e1;padding-top:12px;line-height:1.7">※ 施工期間產生危害狀況、危害防護措施，以及工地主任／工安人員簽名，詳見下方紙本「施工前工具箱會議記錄」掃描。</div>
+  </div>`;
+}
+function tbScanImgHtml(src) {
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif"><div style="font-size:17px;font-weight:700;color:#374151;margin-bottom:12px">紙本「施工前工具箱會議記錄」</div><img src="${src}" referrerpolicy="no-referrer" style="width:100%;border:1px solid #cbd5e1"></div>`;
+}
+function tbPhotoGridHtml(srcs) {
+  const cells = srcs.map(s => `<div style="width:48%;margin:0 1% 14px;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%;border:1px solid #cbd5e1;overflow:hidden"><img src="${s}" referrerpolicy="no-referrer" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div></div>`).join('');
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif"><div style="font-size:17px;font-weight:700;color:#374151;margin-bottom:12px">工地人員照片</div><div style="display:flex;flex-wrap:wrap">${cells}</div></div>`;
+}
+// 等 Drive 縮圖產生好（新上傳的檔案縮圖可能慢幾秒）；成功回 true
+function tbWaitThumb(url, tries = 6) {
+  return new Promise(res => {
+    let n = 0;
+    const go = () => { const im = new Image(); im.referrerPolicy = 'no-referrer'; im.onload = () => res(true); im.onerror = () => { if (++n >= tries) return res(false); setTimeout(go, 800); }; im.src = url + (url.includes('?') ? '&' : '?') + '_t=' + Date.now(); };
+    go();
+  });
+}
+async function tbGeneratePdfBlob(meta, scanSrc, photoSrcs) {
+  if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(tbCoverHtml(meta)), false);
+  if (scanSrc) dlAddCanvasToPdf(pdf, await dlCanvasOf(tbScanImgHtml(scanSrc)), true);
+  if (photoSrcs && photoSrcs.length) dlAddCanvasToPdf(pdf, await dlCanvasOf(tbPhotoGridHtml(photoSrcs)), true);
+  return pdf.output('blob');
+}
+
 async function tbSave() {
   const msg = document.getElementById('tb-save-msg');
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
@@ -3242,22 +3297,38 @@ async function tbSave() {
     if (msg) { msg.textContent = '上傳檔案到共用硬碟…'; msg.style.color = 'var(--muted)'; }
     const folder = await tbEnsureFolder(String(sn));
     const ymd = String(date).slice(0, 10).replace(/-/g, '');
-    // 紙本記錄
+    // 紙本記錄（原檔保留，供再編輯/記錄）
     let record = (tbRecordExisting && !tbRecordRemoved) ? tbRecordExisting : null;
+    let scanSrc = '';   // 合成 PDF 的紙本影像來源（新圖用本機 data URL，PDF/既有用 Drive 首頁縮圖）
     if (tbRecordFile) {
       const isImg = tbRecordFile.type && tbRecordFile.type.startsWith('image/');
       const blob = isImg ? await dlCompressImage(tbRecordFile, 1600, 0.82) : tbRecordFile;
       const ext = isImg ? 'jpg' : ((tbRecordFile.name.split('.').pop() || 'pdf').toLowerCase());
       const up = await dlDriveUpload(blob, `工具箱會議_${sn}_${ymd}_紙本.${ext}`, folder);
       record = { id: up.id, view: up.view, url: up.url };
-    }
-    // 人員照片
+      scanSrc = isImg ? await dlBlobToDataURL(blob) : up.url;
+    } else if (record) { scanSrc = record.url || record.view || ''; }
+    // 人員照片（原圖保留）
     let photos = [...tbPhotoUrls];
+    let photoSrcs = tbPhotoUrls.map(p => dlPhotoSrc(p));
     if (tbNewPhotos.length) {
       let n = photos.length;
-      for (const f of tbNewPhotos) { const b = await dlCompressImage(f); n++; const up = await dlDriveUpload(b, `工具箱會議_${sn}_${ymd}_人員${n}.jpg`, folder); photos.push({ id: up.id, url: up.url, view: up.view }); }
+      for (const f of tbNewPhotos) { const b = await dlCompressImage(f); n++; const up = await dlDriveUpload(b, `工具箱會議_${sn}_${ymd}_人員${n}.jpg`, folder); photos.push({ id: up.id, url: up.url, view: up.view }); photoSrcs.push(await dlBlobToDataURL(b)); }
     }
-    const row = { site_id: sid, meet_date: date, items, record_file: record, photos, note: v('tb-note'), created_by: (currentUser && currentUser.name) || '' };
+    // 產生合併 PDF（封面＋紙本＋人員照片）並上傳；失敗不擋存檔
+    let pdfObj = tbEditingId ? (((tbLogs || []).find(r => r.id === tbEditingId) || {}).pdf || null) : null;
+    try {
+      if (msg) { msg.textContent = '產生 PDF…'; }
+      const newImgScan = tbRecordFile && (tbRecordFile.type || '').startsWith('image/');
+      if (scanSrc && !newImgScan) await tbWaitThumb(scanSrc);   // PDF/既有紙本等 Drive 縮圖就緒
+      const meta = { siteName: String(sn), date, by: (currentUser && currentUser.name) || '', items, note: v('tb-note') };
+      const pdfBlob = await tbGeneratePdfBlob(meta, scanSrc, photoSrcs);
+      if (msg) { msg.textContent = '上傳 PDF…'; }
+      const up = await dlDriveUpload(pdfBlob, `工具箱會議_${sn}_${ymd}.pdf`, folder);
+      if (tbEditingId && pdfObj && pdfObj.id && pdfObj.id !== up.id) await dlDriveDelete(pdfObj.id);
+      pdfObj = { view: up.view, id: up.id };
+    } catch (pe) { console.warn('工具箱 PDF 產生/上傳失敗', pe); }
+    const row = { site_id: sid, meet_date: date, items, record_file: record, photos, pdf: pdfObj, note: v('tb-note'), created_by: (currentUser && currentUser.name) || '' };
     if (msg) { msg.textContent = '儲存中…'; }
     let error;
     if (tbEditingId) {
@@ -3267,7 +3338,7 @@ async function tbSave() {
       ({ error } = await sb.from('site_toolbox_meeting').update(row).eq('id', tbEditingId));
     } else ({ error } = await sb.from('site_toolbox_meeting').insert(row));
     if (error) throw error;
-    if (msg) { msg.textContent = '✅ 已儲存，檔案已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
     tbNewPhotos = []; tbRecordFile = null; tbRecordRemoved = false; tbRemovedPhotos = [];
     await loadTbLogs();
     setTimeout(() => tbShowSite(sid), 800);
@@ -3283,6 +3354,7 @@ async function tbDelete() {
   try {
     await sb.from('site_toolbox_meeting').delete().eq('id', tbEditingId);
     if (rec) {
+      if (rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id);
       if (rec.record_file && rec.record_file.id) await dlDriveDelete(rec.record_file.id);
       (Array.isArray(rec.photos) ? rec.photos : []).forEach(p => { if (p && p.id) dlDriveDelete(p.id); });
     }

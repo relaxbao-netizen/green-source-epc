@@ -9,6 +9,7 @@ create table if not exists site_toolbox_meeting (
   items       jsonb  default '[]'::jsonb,              -- 施工項目名稱陣列，如 ["模組安裝","機電平台施作"]
   record_file jsonb,                                   -- 紙本「施工前工具箱會議記錄」掃描檔 {id, view, url}
   photos      jsonb  default '[]'::jsonb,              -- 工地人員照片 [{id, url, view}, ...]
+  pdf         jsonb,                                   -- 系統合成的 PDF（封面+紙本+照片）{id, view}
   note        text,                                    -- 備註
   created_by  text,                                    -- 填寫人（登入者姓名）
   created_at  timestamptz default now()
