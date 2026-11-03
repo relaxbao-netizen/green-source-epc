@@ -3234,6 +3234,32 @@ async function tbEnsureFolder(siteName) {
   const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
 }
 // ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
+// 官方表單固定的「危害類型／危害之防護措施」對照（印在封面）
+const TB_HAZARD_ROWS = [
+  ['墜落', ['於高空作業車作業禁止站立在欄杆上', '施工人員要確實配戴背負式安全帶', '施工人員上高空作業車須將安全線條扣上']],
+  ['感電', ['電箱各開關及電動機具使用漏電斷路器(30mA，0.1sec)及接地系統', '電線經過通道應架高或設置護蓋絕緣保護', '檢查電動手工具之絕緣性能是否正常']],
+  ['撞傷', ['移動不當撞傷', '每日勤前教育宣導', '作業範圍豎立警示']],
+  ['物體掉落', ['作業範圍豎立警示']],
+  ['異物入眼', ['作業時配戴護目眼鏡']],
+  ['割傷', ['作業時配戴防護手套']],
+  ['噪音', ['作業時必須配帶耳塞']],
+];
+function tbHazardTableHtml() {
+  const rows = TB_HAZARD_ROWS.map(([type, ms]) => {
+    const body = ms.length > 1
+      ? ms.map((m, i) => `${i + 1}. ${appEsc(m)}`).join('<br>')
+      : appEsc(ms[0]);
+    return `<tr>
+      <td style="border:1px solid #cbd5e1;padding:7px 10px;text-align:center;width:16%;font-weight:600;color:#374151">${appEsc(type)}</td>
+      <td style="border:1px solid #cbd5e1;padding:7px 10px;line-height:1.7">${body}</td>
+    </tr>`;
+  }).join('');
+  return `<table style="width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:16px">
+    <tr>
+      <th style="border:1px solid #cbd5e1;background:#e9edf1;color:#374151;padding:8px 10px;text-align:center">危害類型</th>
+      <th style="border:1px solid #cbd5e1;background:#e9edf1;color:#374151;padding:8px 10px;text-align:center">危害之防護措施</th>
+    </tr>${rows}</table>`;
+}
 function tbCoverHtml(meta) {
   const items = (meta.items && meta.items.length)
     ? meta.items.map(n => `<span style="display:inline-block;border:1px solid #cbd5e1;border-radius:14px;padding:4px 14px;margin:0 6px 6px 0;font-size:15px;color:#111">${appEsc(n)}</span>`).join('')
@@ -3260,7 +3286,9 @@ function tbCoverHtml(meta) {
     ${secTitle('工作內容（施工項目）')}
     <div style="margin-bottom:18px">${items}</div>
     ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
-    <div style="font-size:13px;color:#666;border-top:1px dashed #cbd5e1;padding-top:12px;line-height:1.7">※ 施工期間產生危害狀況、危害防護措施，以及工地主任／工安人員簽名，詳見下方紙本「施工前工具箱會議記錄」掃描。</div>
+    ${secTitle('危害類型與防護措施')}
+    ${tbHazardTableHtml()}
+    <div style="font-size:13px;color:#666;border-top:1px dashed #cbd5e1;padding-top:12px;line-height:1.7">※ 施工期間產生危害狀況之勾選，以及工地主任／工安人員簽名，詳見下方紙本「施工前工具箱會議記錄」掃描。</div>
   </div>`;
 }
 // 把一張掃描圖直接貼成「剛好一頁」的 A4（等比縮放、置中），避免 html2canvas 比例略超頁而多出空白頁
