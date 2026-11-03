@@ -2547,6 +2547,16 @@ async function dlEnsureSiteFolder(name) {
   if (!res2.ok) throw new Error('建立案場資料夾失敗：' + (d2.error ? d2.error.message : res2.status));
   return d2.id;
 }
+// 找/建某案場資料夾底下的指定子資料夾（如「施工日誌」「工具箱會議記錄」），回傳子資料夾 id
+async function dlEnsureSubFolder(siteName, subName) {
+  const siteFolder = await dlEnsureSiteFolder(String(siteName));
+  const tok = await dlGetDriveToken();
+  const safe = String(subName).replace(/'/g, "\\'");
+  const q = encodeURIComponent(`'${siteFolder}' in parents and name='${safe}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  try { const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } }); const d = await res.json(); if (res.ok && d.files && d.files.length) return d.files[0].id; } catch (e) {}
+  const res2 = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: String(subName), mimeType: 'application/vnd.google-apps.folder', parents: [siteFolder] }) });
+  const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
+}
 async function dlDriveDelete(id) {
   if (!id) return;
   try { const tok = await dlGetDriveToken(); await fetch(`https://www.googleapis.com/drive/v3/files/${id}?supportsAllDrives=true`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch (e) { console.warn('Drive 刪除失敗', e); }
@@ -2987,7 +2997,7 @@ async function dlSave() {
     // 2) 上傳 PDF 到 Google 共用硬碟
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     let drive;
-    try { const folderId = await dlEnsureSiteFolder(String(sn)); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, folderId); }
+    try { const folderId = await dlEnsureSubFolder(String(sn), '施工日誌'); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, folderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
     rec.photos = { pdf: drive.view, id: drive.id };
     rec.created_by = (currentUser && currentUser.name) || '';
@@ -3277,12 +3287,7 @@ function tbRemovePhoto(i) { const p = tbPhotoUrls.splice(i, 1)[0]; if (p) tbRemo
 function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
 // 找/建該案場資料夾底下的「工具箱會議記錄」子資料夾
 async function tbEnsureFolder(siteName) {
-  const siteFolder = await dlEnsureSiteFolder(String(siteName));
-  const tok = await dlGetDriveToken();
-  const q = encodeURIComponent(`'${siteFolder}' in parents and name='工具箱會議記錄' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  try { const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } }); const d = await res.json(); if (res.ok && d.files && d.files.length) return d.files[0].id; } catch (e) {}
-  const res2 = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '工具箱會議記錄', mimeType: 'application/vnd.google-apps.folder', parents: [siteFolder] }) });
-  const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
+  return dlEnsureSubFolder(String(siteName), '工具箱會議記錄');
 }
 // ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
 // 官方表單「施工期間產生危害狀況」勾選項（表單可複選、PDF 以 ☑/☐ 呈現）
