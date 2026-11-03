@@ -3037,6 +3037,7 @@ let tbRemovedPhotos = [];       // 編輯時被移除的既有照片（存檔後
 let tbRecordFile = null;        // 待上傳的紙本記錄 File
 let tbRecordExisting = null;    // 既有紙本記錄 {id,view,url}
 let tbRecordRemoved = false;    // 是否移除既有紙本
+let tbHazardSel = new Set();     // 已勾選的「施工期間產生危害狀況」
 
 async function renderTbFill() {
   const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
@@ -3119,6 +3120,7 @@ function tbShowForm(logId, presetSite) {
   tbEditingId = rec ? rec.id : null;
   _tbReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   tbItemsSel = new Set(rec && Array.isArray(rec.items) ? rec.items : []);
+  tbHazardSel = new Set(rec && rec.pdf && Array.isArray(rec.pdf.hazards) ? rec.pdf.hazards : []);
   tbCustomItems = []; tbWbsNames = [];
   tbNewPhotos = []; tbRemovedPhotos = [];
   tbPhotoUrls = rec && Array.isArray(rec.photos) ? [...rec.photos] : [];
@@ -3149,17 +3151,21 @@ function tbShowForm(logId, presetSite) {
         </div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
-        <div class="wbs-title" style="margin:0 0 10px">二、紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</div>
+        <div class="wbs-title" style="margin:0 0 10px">二、施工期間產生危害狀況（可複選）</div>
+        <div id="tb-hazard-box" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-top:12px">
+        <div class="wbs-title" style="margin:0 0 10px">三、紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</div>
         <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label>
         <div id="tb-record-box" style="margin-top:10px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
-        <div class="wbs-title" style="margin:0 0 10px">三、工地人員照片</div>
+        <div class="wbs-title" style="margin:0 0 10px">四、工地人員照片</div>
         <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" onchange="tbPickPhotos(this.files)" style="display:none"></label>
         <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
-        <div class="wbs-title" style="margin:0 0 10px">四、備註（選填）</div>
+        <div class="wbs-title" style="margin:0 0 10px">五、備註（選填）</div>
         <textarea id="tb-note" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none">${rec ? appEsc(rec.note || '') : ''}</textarea>
       </div>
     </div>
@@ -3172,6 +3178,7 @@ function tbShowForm(logId, presetSite) {
     </div>`;
   const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
   tbLoadWbsItems();
+  tbRenderHazards();
   tbRenderPhotos();
   tbRenderRecord();
 }
@@ -3198,6 +3205,19 @@ function tbToggleItem(i) {
   const n = names[i]; if (n == null) return;
   if (tbItemsSel.has(n)) tbItemsSel.delete(n); else tbItemsSel.add(n);
   tbRenderItems();
+}
+function tbRenderHazards() {
+  const box = document.getElementById('tb-hazard-box'); if (!box) return;
+  box.innerHTML = TB_HAZARD_STATUS.map((h, i) => {
+    const on = tbHazardSel.has(h);
+    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};border-radius:16px;font-size:12px;cursor:pointer;background:${on ? 'rgba(5,150,105,.12)' : 'var(--surface)'}">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleHazard(${i})" style="margin:0">${appEsc(h)}</label>`;
+  }).join('');
+}
+function tbToggleHazard(i) {
+  const h = TB_HAZARD_STATUS[i]; if (h == null) return;
+  if (tbHazardSel.has(h)) tbHazardSel.delete(h); else tbHazardSel.add(h);
+  tbRenderHazards();
 }
 function tbAddCustomItem() {
   const inp = document.getElementById('tb-item-new'); if (!inp) return;
@@ -3235,6 +3255,12 @@ async function tbEnsureFolder(siteName) {
   const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
 }
 // ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
+// 官方表單「施工期間產生危害狀況」勾選項（表單可複選、PDF 以 ☑/☐ 呈現）
+const TB_HAZARD_STATUS = ['火花', '可燃性物質', '爆炸性物質', '腐蝕性物質', '毒性物質', '有機溶劑（含油漆）', '割傷', '粉塵', '觸動火警警報', '異常氣味', '活線作業', '撞擊', '異物入眼', '感電', '物體掉落', '挾入', '墜落', '其它'];
+function tbHazardStatusHtml(sel) {
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px 20px;font-size:14px;margin-bottom:16px">` +
+    TB_HAZARD_STATUS.map(h => { const on = sel && sel.has(h); return `<span style="color:${on ? '#111' : '#9aa3ad'};font-weight:${on ? '700' : '400'}">${on ? '☑' : '☐'} ${appEsc(h)}</span>`; }).join('') + `</div>`;
+}
 // 官方表單固定的「危害類型／危害之防護措施」對照（印在封面）
 const TB_HAZARD_ROWS = [
   ['墜落', ['於高空作業車作業禁止站立在欄杆上', '施工人員要確實配戴背負式安全帶', '施工人員上高空作業車須將安全線條扣上']],
@@ -3279,19 +3305,17 @@ function tbDocHtml(meta, scanSrcs, photoSrcs) {
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:15px;margin-bottom:18px">
       <tr>
-        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">案場</td>
-        <td style="border:1px solid #cbd5e1;padding:9px 12px">${appEsc(meta.siteName || '')}</td>
-        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">會議日期</td>
-        <td style="border:1px solid #cbd5e1;padding:9px 12px;width:24%">${appEsc(meta.date || '')}</td>
-      </tr>
-      <tr>
-        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;font-weight:700;color:#374151">填寫人</td>
-        <td style="border:1px solid #cbd5e1;padding:9px 12px" colspan="3">${appEsc(meta.by || '')}</td>
+        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">工程名稱</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px">${appEsc(meta.projName || meta.siteName || '')}</td>
+        <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:12%;font-weight:700;color:#374151">日期</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px;width:22%">${appEsc(meta.date || '')}</td>
       </tr>
     </table>
     ${secTitle('施工項目')}
     <div style="margin-bottom:18px">${items}</div>
     ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
+    ${secTitle('施工期間產生危害狀況')}
+    ${tbHazardStatusHtml(new Set(meta.hazards || []))}
     ${secTitle('危害類型與防護措施')}
     ${tbHazardTableHtml()}
     <div style="display:flex;gap:16px;margin:18px 0;align-items:flex-start">
@@ -3339,7 +3363,7 @@ async function tbPrintCurrent() {
     let scanSrcs = [];
     if (tbRecordFile) { if ((tbRecordFile.type || '').startsWith('image/')) scanSrcs = [await dlBlobToDataURL(await dlCompressImage(tbRecordFile, 1600, 0.85))]; else scanSrcs = await tbPdfToImages(tbRecordFile); }
     let photoSrcs = []; for (const f of tbNewPhotos) photoSrcs.push(await dlBlobToDataURL(await dlCompressImage(f)));
-    const meta = { siteName: String(sn), date, by: (currentUser && currentUser.name) || '', items: [...tbItemsSel], note: v('tb-note') };
+    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items: [...tbItemsSel], hazards: [...tbHazardSel], note: v('tb-note') };
     const blob = await tbGeneratePdfBlob(meta, scanSrcs, photoSrcs);
     window.open(URL.createObjectURL(blob), '_blank');
     if (msg) { msg.textContent = ''; }
@@ -3369,13 +3393,14 @@ async function tbSave() {
     for (const f of tbNewPhotos) { photoSrcs.push(await dlBlobToDataURL(await dlCompressImage(f))); }
     // 產生合併 PDF，只上傳這一份
     if (msg) { msg.textContent = '產生 PDF…'; }
-    const meta = { siteName: String(sn), date, by: (currentUser && currentUser.name) || '', items, note: v('tb-note') };
+    const hazards = [...tbHazardSel];
+    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items, hazards, note: v('tb-note') };
     const pdfBlob = await tbGeneratePdfBlob(meta, scanSrcs, photoSrcs);
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     const folder = await tbEnsureFolder(String(sn));
     const up = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_工具箱會議.pdf`, folder);
     if (tbEditingId && oldPdf && oldPdf.id && oldPdf.id !== up.id) await dlDriveDelete(oldPdf.id);
-    const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length };
+    const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length, hazards };
     const row = { site_id: sid, meet_date: date, items, record_file: null, photos: null, pdf: pdfObj, note: v('tb-note'), created_by: (tbEditingId && oldRec) ? (oldRec.created_by || '') : ((currentUser && currentUser.name) || '') };
     if (msg) { msg.textContent = '儲存中…'; }
     let error;
