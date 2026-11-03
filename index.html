@@ -3358,7 +3358,7 @@ function tbDocHtml(meta) {
         <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:16%;font-weight:700;color:#374151">工程名稱</td>
         <td style="border:1px solid #cbd5e1;padding:9px 12px">${appEsc(meta.projName || meta.siteName || '')}</td>
         <td style="background:#f1f3f5;border:1px solid #cbd5e1;padding:9px 12px;width:12%;font-weight:700;color:#374151">日期</td>
-        <td style="border:1px solid #cbd5e1;padding:9px 12px;width:22%">${appEsc(meta.date || '')}</td>
+        <td style="border:1px solid #cbd5e1;padding:9px 12px;width:22%">${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td>
       </tr>
     </table>
     ${tbSecTitle('施工項目與備註')}
