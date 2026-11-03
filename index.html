@@ -923,7 +923,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <div class="modal-overlay" id="disp-overlay" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal-box" style="width:960px" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title" id="disp-modal-title">記錄</div>
+      <div class="modal-title" id="disp-modal-title">紀錄</div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="printDispatch('disp-modal-body')">📊 匯出 Excel</button>
         <button class="modal-close" onclick="document.getElementById('disp-overlay').classList.remove('open')">✕</button>
@@ -2094,7 +2094,7 @@ async function insEditSave() {
 async function insEditNA() { if (!insEditRef) return; await insSaveDate(insEditRef.siteId, insEditRef.key, 'x'); closeInsEdit(); }
 applyInsLS();
 
-// 工地主任每日派工／支援記錄：{ id, log_date, supervisor, site_id }
+// 工地主任每日派工／支援紀錄：{ id, log_date, supervisor, site_id }
 let supLogs = [];
 
 // 以 id 取得案場（雲端模式下 id 不一定等於陣列索引）
@@ -2547,7 +2547,7 @@ async function dlEnsureSiteFolder(name) {
   if (!res2.ok) throw new Error('建立案場資料夾失敗：' + (d2.error ? d2.error.message : res2.status));
   return d2.id;
 }
-// 找/建某案場資料夾底下的指定子資料夾（如「施工日誌」「工具箱會議記錄」），回傳子資料夾 id
+// 找/建某案場資料夾底下的指定子資料夾（如「施工日誌」「工具箱會議紀錄」），回傳子資料夾 id
 async function dlEnsureSubFolder(siteName, subName) {
   const siteFolder = await dlEnsureSiteFolder(String(siteName));
   const tok = await dlGetDriveToken();
@@ -2561,7 +2561,7 @@ async function dlDriveDelete(id) {
   if (!id) return;
   try { const tok = await dlGetDriveToken(); await fetch(`https://www.googleapis.com/drive/v3/files/${id}?supportsAllDrives=true`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } }); } catch (e) { console.warn('Drive 刪除失敗', e); }
 }
-// 照片記錄可能是舊的 Supabase URL 字串，或新的 Drive 物件 {id,url,view}
+// 照片紀錄可能是舊的 Supabase URL 字串，或新的 Drive 物件 {id,url,view}
 function dlPhotoSrc(p) { return (typeof p === 'string') ? p : (p && (p.url || p.view)) || ''; }
 function dlPhotoLink(p) { return (typeof p === 'string') ? p : (p && (p.view || p.url)) || ''; }
 let dlLogs = [];            // site_daily_log 既有紀錄
@@ -3039,9 +3039,9 @@ async function dlDelete() {
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 
-/* ===== 施工前工具箱會議記錄（第三分頁）=====
+/* ===== 施工前工具箱會議紀錄（第三分頁）=====
    資料表 site_toolbox_meeting：site_id / meet_date / items(jsonb陣列) / record_file(紙本{id,view}) / photos(人員照片[]) / note / created_by
-   權限同施工日誌：全公司可檢視可新增；編輯/刪除限自己（管理員全可）。檔案存 Google 共用硬碟各案場資料夾下的「工具箱會議記錄」子夾。 */
+   權限同施工日誌：全公司可檢視可新增；編輯/刪除限自己（管理員全可）。檔案存 Google 共用硬碟各案場資料夾下的「工具箱會議紀錄」子夾。 */
 let tbLogs = [];
 let tbEditingId = null;
 let _tbReturnSite = null;
@@ -3052,8 +3052,8 @@ let tbItemNotes = {};           // 各施工項目的備註 {項目名稱: 備�
 let tbNewPhotos = [];           // 待上傳的人員照片 File
 let tbPhotoUrls = [];           // 已上傳人員照片物件
 let tbRemovedPhotos = [];       // 編輯時被移除的既有照片（存檔後刪 Drive）
-let tbRecordFile = null;        // 待上傳的紙本記錄 File
-let tbRecordExisting = null;    // 既有紙本記錄 {id,view,url}
+let tbRecordFile = null;        // 待上傳的紙本紀錄 File
+let tbRecordExisting = null;    // 既有紙本紀錄 {id,view,url}
 let tbRecordRemoved = false;    // 是否移除既有紙本
 let tbHazardSel = new Set();     // 已勾選的「施工期間產生危害狀況」
 
@@ -3100,7 +3100,7 @@ function tbShowList() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無工具箱會議紀錄，點右上角「＋ 新增會議紀錄」開始。</div>'}</div>`;
 }
-// 第二層：單一案場的會議記錄清單
+// 第二層：單一案場的會議紀錄清單
 function tbShowSite(sid) {
   const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
   const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
@@ -3298,11 +3298,11 @@ function tbRenderPhotos() {
 }
 function tbRemovePhoto(i) { const p = tbPhotoUrls.splice(i, 1)[0]; if (p) tbRemovedPhotos.push(p); tbRenderPhotos(); }
 function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
-// 找/建該案場資料夾底下的「工具箱會議記錄」子資料夾
+// 找/建該案場資料夾底下的「工具箱會議紀錄」子資料夾
 async function tbEnsureFolder(siteName) {
   return dlEnsureSubFolder(String(siteName), '工具箱會議紀錄');
 }
-// ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
+// ---- 工具箱會議紀錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
 // 官方表單「施工期間產生危害狀況」勾選項（表單可複選、PDF 以 ☑/☐ 呈現）
 const TB_HAZARD_STATUS = ['火花', '可燃性物質', '爆炸性物質', '腐蝕性物質', '毒性物質', '有機溶劑（含油漆）', '割傷', '粉塵', '觸動火警警報', '異常氣味', '活線作業', '撞擊', '異物入眼', '感電', '物體掉落', '挾入', '墜落', '其它'];
 function tbHazardStatusHtml(sel) {
@@ -3623,7 +3623,7 @@ function dlSetMonth(val) {
   if (m) { const y = +m[1], mo = +m[2]; if (mo >= 1 && mo <= 12) dailyLogYm = y + '-' + String(mo).padStart(2, '0'); }
   drawDailyLog();   // 一律重畫，讓輸入框回到「YYYY年MM月」顯示（即使月份沒變或輸入無效）
 }
-// 繳交狀況表單名顯示對照：資料庫沿用爬蟲寫入的「工具箱會議記錄」，畫面統一顯示「工具箱會議紀錄」（不改 DB 值以免比對失效）
+// 繳交狀況表單名顯示對照：資料庫沿用爬蟲寫入的「工具箱會議記錄」(記錄)，畫面統一顯示「工具箱會議紀錄」（不改 DB 值以免比對失效）
 function dlFormLabel(f) { return f === '工具箱會議記錄' ? '工具箱會議紀錄' : f; }
 function drawDailyLog() {
   const cont = document.getElementById('dailylog-container');
@@ -3676,7 +3676,7 @@ function drawDailyLog() {
   const dateCmp2 = (x, y) => { if (!x && !y) return 0; if (!x) return 1; if (!y) return -1; return x.localeCompare(y); };
   const orderedSites = (typeof sites !== 'undefined' ? sites : []).slice().sort((a, b) => (b.pct - a.pct) || dateCmp2(a.start, b.start) || dateCmp2(a.end, b.end));
   const siteRank = r => { const ms = matchSite(r.project); if (!ms) return 9999; const i = orderedSites.indexOf(ms); return i < 0 ? 9999 : i; };
-  const FORM_ORDER = ['施工日誌', '工具箱會議記錄'];
+  const FORM_ORDER = ['施工日誌', '工具箱會議記錄'];   // 注意：此為 daily_log_status DB 的 form 原值（記錄），用於排序比對，勿改成「紀錄」
   const formRank = f => { const i = FORM_ORDER.indexOf(f); return i < 0 ? 99 : i; };
   const shownForms = [...new Set(rows.map(r => r.form))].map(form => ({ form, frows: rows.filter(r => r.form === form && isDispatched(r.project)).sort((a, b) => siteRank(a) - siteRank(b)) })).filter(f => f.frows.length).sort((a, b) => formRank(a.form) - formRank(b.form));
   if (!shownForms.length) {
@@ -3802,7 +3802,7 @@ function appCycleDailyMark(id, day) {
   r.overrides = ov;
   dailyLogDirty.add(id + '|' + day); // 記「變更的格子」，非整列
   _updateDailyCell(id, day, next);   // 只就地更新該格，不整表重繪（避免頁面跳動）
-  // 只有「施工日誌」改成「-」時，工具箱會議記錄同案場同日自動也變「-」（單向，反向不連動）
+  // 只有「施工日誌」改成「-」時，工具箱會議紀錄同案場同日自動也變「-」（單向，反向不連動）
   if (next === '-' && r.form === '施工日誌') {
     const sib = dailyLogRows.find(x => x.ym === r.ym && x.project === r.project && x.form !== r.form);
     if (sib) {
@@ -4270,10 +4270,10 @@ function renderResigned() {
     <tbody>${rows}</tbody></table></div></div>`;
 }
 
-// ===================== 工地主任每日派工／支援記錄 =====================
+// ===================== 工地主任每日派工／支援紀錄 =====================
 function todayStr() { return localDate(new Date()); }
 
-// Supabase 單次回傳上限 1000 筆，分頁抓滿全部記錄
+// Supabase 單次回傳上限 1000 筆，分頁抓滿全部紀錄
 // 先取第一頁並帶回總筆數，其餘頁一次平行抓，避免逐頁序列等待拖慢載入
 async function fetchAllSupLogs() {
   const pageSize = 1000;
@@ -4362,7 +4362,7 @@ const NATIONAL_HOLIDAYS = (() => {
   }
   return set;
 })();
-// 依日期回傳自動預設假別（手動記錄優先，故只用於空白格）；國定假日與週末一律標「週休」，無則回 null
+// 依日期回傳自動預設假別（手動紀錄優先，故只用於空白格）；國定假日與週末一律標「週休」，無則回 null
 function autoOffLabel(ds) {
   if (NATIONAL_HOLIDAYS.has(ds)) return '週休';
   const [y, m, d] = ds.split('-').map(Number);
@@ -4371,13 +4371,13 @@ function autoOffLabel(ds) {
   return null;
 }
 
-// 某筆記錄是否為「支援」（去了非自己負責的案場；特殊項目不算支援）
+// 某筆紀錄是否為「支援」（去了非自己負責的案場；特殊項目不算支援）
 function isSupport(rec) {
   if (rec.site_id == null) return false;
   const s = siteById(rec.site_id);
   return !!(s && !pmHas(s, rec.supervisor));
 }
-// 記錄顯示：案場用短名，特殊項目用 place
+// 紀錄顯示：案場用短名，特殊項目用 place
 function recLabel(rec) {
   if (rec.site_id != null) { const s = siteById(rec.site_id); return s ? (s.label || s.name) : ('#' + rec.site_id); }
   return rec.place || '';
@@ -4408,7 +4408,7 @@ function renderDispatchList() {
   if (!box) return;
   const date = document.getElementById('disp-date').value;
   const recs = supLogs.filter(r => r.log_date === date);
-  if (!recs.length) { box.innerHTML = `<div style="color:var(--muted);font-size:13px">${date || '—'} 尚無記錄</div>`; return; }
+  if (!recs.length) { box.innerHTML = `<div style="color:var(--muted);font-size:13px">${date || '—'} 尚無紀錄</div>`; return; }
   const bySv = {};
   recs.forEach(r => { (bySv[r.supervisor] = bySv[r.supervisor] || []).push(r); });
   box.innerHTML = `<div style="font-weight:700;font-size:13px;margin-bottom:6px">${date} 派工（${recs.length} 筆）</div>` +
@@ -4422,7 +4422,7 @@ function renderDispatchList() {
 }
 
 async function addDispatch() {
-  if (!sb) { alert('需連接雲端才能記錄'); return; }
+  if (!sb) { alert('需連接雲端才能紀錄'); return; }
   const date = document.getElementById('disp-date').value;
   const sv = document.getElementById('disp-sv').value;
   let val = document.getElementById('disp-site').value;
@@ -4437,7 +4437,7 @@ async function addDispatch() {
     : { log_date: date, supervisor: sv, site_id: +val.slice(2), place: null };
   const dup = supLogs.some(r => r.log_date === date && r.supervisor === sv &&
     (row.site_id != null ? r.site_id === row.site_id : r.place === row.place));
-  if (dup) { alert('此筆記錄已存在'); return; }
+  if (dup) { alert('此筆紀錄已存在'); return; }
   const { error } = await sb.from('supervisor_log').insert(row);
   if (error) { alert('儲存失敗：' + error.message + '\n（請確認已建立 supervisor_log 資料表並含 place 欄位）'); return; }
   await reloadSupLogs();
@@ -4465,7 +4465,7 @@ function openSupCalendar(name) {
   const monthKeys = Object.keys(months).sort();
   let bodyHtml;
   if (!monthKeys.length) {
-    bodyHtml = '<div style="color:var(--muted);padding:10px">尚無出勤記錄</div>';
+    bodyHtml = '<div style="color:var(--muted);padding:10px">尚無出勤紀錄</div>';
   } else {
     const th = ['<th style="min-width:42px">月／日</th>'];
     for (let d = 1; d <= 31; d++) th.push(`<th>${d}</th>`);
@@ -4481,7 +4481,7 @@ function openSupCalendar(name) {
       }
       return `<tr>${cells.join('')}</tr>`;
     }).join('');
-    bodyHtml = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">綠色＝支援（非本人負責案場）。共 ${recs.length} 筆記錄。</div>
+    bodyHtml = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">綠色＝支援（非本人負責案場）。共 ${recs.length} 筆紀錄。</div>
       <div style="overflow-x:auto"><table class="rain-grid">
         <thead><tr>${th.join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
@@ -4557,7 +4557,7 @@ function renderDispatchReport(preserveScroll) {
     <button class="disp-nav-btn" onclick="shiftDispMonth(1)" title="下月" aria-label="下月">›</button>
   </div>`;
 
-  // 索引：主任 → 日 → [記錄]
+  // 索引：主任 → 日 → [紀錄]
   const idx = {};
   supLogs.forEach(r => {
     const [ry, rm, rd] = r.log_date.split('-').map(Number);
@@ -4617,7 +4617,7 @@ function renderDispatchReport(preserveScroll) {
   }
 }
 
-// 點格子 → 開啟編輯小視窗（顯示當天記錄，可加/刪地點）
+// 點格子 → 開啟編輯小視窗（顯示當天紀錄，可加/刪地點）
 let _editCell = { name: null, ds: null };
 function openCellEditor(name, ds) {
   if (!can('hr.dispatch')) { alert('無此權限。'); return; }
@@ -4635,7 +4635,7 @@ function renderCellEditor() {
     .slice().sort((a, b) => (a.id || 0) - (b.id || 0));
   const chips = recs.length ? recs.map(r =>
     `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#dcfce7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#16a34a">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
-  ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div>';
+  ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無紀錄</div>';
   document.getElementById('disp-edit-body').innerHTML =
     `<div style="margin-bottom:14px">${chips}</div>
      <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option>${dispatchOptGroups()}</select>`;
@@ -4661,7 +4661,7 @@ async function dispDeleteEditor(id) {
 }
 
 async function dispAdd(name, ds, val) {
-  if (!sb) { alert('需連接雲端才能記錄'); return; }
+  if (!sb) { alert('需連接雲端才能紀錄'); return; }
   const row = val.startsWith('p:')
     ? { log_date: ds, supervisor: name, site_id: null, place: val.slice(2) }
     : { log_date: ds, supervisor: name, site_id: +val.slice(2), place: null };
@@ -4710,7 +4710,7 @@ function printDispatch(srcId) {
       const cell = tr.cells[ci];
       const isHead = !cell || cell.tagName === 'TH';
       const isName = cell && cell.classList.contains('nm');
-      // 保留多筆記錄為多行（<br> → 換行）
+      // 保留多筆紀錄為多行（<br> → 換行）
       let text = cell ? cell.innerText.split('\n').map(s => s.trim()).filter(Boolean).join('\n') : '';
       if (text === '＋') text = '';
       arow.push(text);
@@ -5023,7 +5023,7 @@ function openModal(id) {
         .map(([n, c]) => `<tr><td>${n}</td><td onclick="appShowDispDays(${s.id},'${String(n).replace(/'/g, "\\'")}')" title="點看派工日期（依月份）" style="text-align:right;font-weight:600;cursor:pointer">${+c.toFixed(1)}</td><td style="text-align:right;color:var(--muted)">${(c / tot * 100).toFixed(1)}%</td></tr>`).join('');
       return `<div class="wbs-title" style="margin-top:20px">派工人天統計（累計 ${+total.toFixed(1)} 人天）</div>
         <table class="wbs-table"><thead><tr><th>工地主任</th><th style="text-align:right">人天</th><th style="text-align:right">佔比</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無派工記錄</td></tr>'}</tbody></table>`;
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無派工紀錄</td></tr>'}</tbody></table>`;
     })()}
     ${(() => {
       const _raw = manpowerRowsForSite(s).filter(r => (Number(r.headcount) || 0) > 0);
@@ -5039,7 +5039,7 @@ function openModal(id) {
         }).join('');
       return `<div class="wbs-title" style="margin-top:20px">工別人數統計（累計 ${total.toLocaleString('en-US')} 人）</div>
         <table class="wbs-table"><thead><tr><th>工別</th><th style="text-align:right">累計人數</th><th style="text-align:right">佔比</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無工別人數記錄</td></tr>'}</tbody></table>`;
+        <tbody>${rows || '<tr><td colspan="3" style="color:var(--muted)">尚無工別人數紀錄</td></tr>'}</tbody></table>`;
     })()}
     ${(() => {
       if (typeof appRequests === 'undefined') return '';
@@ -5169,7 +5169,7 @@ async function renderSiteWeather(site) {
   }
 }
 
-// ===================== 施工晴雨表（每日記錄上午/下午天氣）=====================
+// ===================== 施工晴雨表（每日紀錄上午/下午天氣）=====================
 const RAIN_THRESHOLD = 70;  // 降雨機率 ≥ 此值視為無法施工
 const _wx3Cache = {};
 
@@ -5268,10 +5268,10 @@ function extractAMPM(slots, dateStr) {
   return out;
 }
 
-// 僅記錄「當日」上午天氣；不提前記錄未來幾天；已存在的日期不覆蓋（首見即定）
+// 僅紀錄「當日」上午天氣；不提前紀錄未來幾天；已存在的日期不覆蓋（首見即定）
 async function ensureWeatherLog() {
   if (!sb) return;
-  // 以「行政區或縣市」為單位（label），各挑一個代表案場查詢；完工案場不再記錄
+  // 以「行政區或縣市」為單位（label），各挑一個代表案場查詢；完工案場不再紀錄
   const locMap = {};
   sites.forEach(s => { if (s.status === 'done') return; const L = siteLoc(s); if (L.label && !locMap[L.label]) locMap[L.label] = s; });
   const labels = Object.keys(locMap);
@@ -5288,7 +5288,7 @@ async function ensureWeatherLog() {
     try { slots = (await fetchSiteForecast(locMap[label])).data.slots; } catch (e) { continue; }
     const ap = extractAMPM(slots, today);
     if (ap.am.pop === null) continue;  // 無上午資料則略過
-    // 只記錄上午天氣，下午留空
+    // 只紀錄上午天氣，下午留空
     rows.push({ log_date: today, county: label, am_weather: ap.am.weather, am_pop: ap.am.pop, pm_weather: null, pm_pop: null });
   }
   if (rows.length) await sb.from('weather_log').upsert(rows, { onConflict: 'log_date,county', ignoreDuplicates: true });
@@ -5352,7 +5352,7 @@ function buildRainReportHTML(logs, site) {
       cnt[sym]++;
     });
     const monthKeys = Object.keys(months).sort();
-    if (!monthKeys.length) return `<div>${head}${info}<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無記錄</div></div>`;
+    if (!monthKeys.length) return `<div>${head}${info}<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無紀錄</div></div>`;
 
     const th = ['<th style="min-width:42px">月／日</th>'];
     for (let d = 1; d <= 31; d++) th.push(`<th>${d}</th>`);
@@ -5386,7 +5386,7 @@ async function openRainReport(siteId) {
   overlay.classList.add('open');
   body.innerHTML = '<div style="color:var(--muted);padding:20px">載入中…</div>';
   if (!sb) { body.innerHTML = '<div style="padding:20px">需連接雲端才能使用此功能。</div>'; return; }
-  try { await ensureWeatherLog(); } catch (e) { /* 記錄失敗不阻擋報表顯示 */ }
+  try { await ensureWeatherLog(); } catch (e) { /* 紀錄失敗不阻擋報表顯示 */ }
   const { data, error } = await sb.from('weather_log').select('*').order('log_date');
   if (error) {
     body.innerHTML = `<div style="padding:20px;color:var(--danger)">讀取失敗：${error.message}<br><span style="color:var(--muted);font-size:13px">請先在 Supabase 建立 weather_log 資料表（見 supabase-setup.sql）。</span></div>`;
@@ -5536,7 +5536,7 @@ async function renderTaiwanMap() {
     _next.style.cursor = atToday ? 'default' : 'pointer';
   }
   const byLoc = {};
-  // 每位主任「當前時段」的派工記錄：依登記順序第一筆＝上午、第二筆＝下午；
+  // 每位主任「當前時段」的派工紀錄：依登記順序第一筆＝上午、第二筆＝下午；
   // 保留無座標者（休假／北上等）一起排序，下午才能正確落到第二筆（見 curRec）
   const curRec = {};
   activeSupervisors().forEach(sv => {
@@ -5651,7 +5651,7 @@ async function renderTaiwanMap() {
       }
     }
     if (!chosen) { const o = offsetsFor(baseAng, LINE); chosen = { ang: baseAng, depth: LINE, ...o }; }
-    // 記錄本組頭貼座標與白線線段，供後續案場避讓
+    // 紀錄本組頭貼座標與白線線段，供後續案場避讓
     if (canSense) {
       chosen.arr.forEach(p => placedPts.push({ x: baseX + p.mlx, y: baseY + p.mly }));
       placedLines.push({ a: { x: baseX, y: baseY }, b: { x: baseX + chosen.ancX, y: baseY + chosen.ancY } });
@@ -5690,7 +5690,7 @@ async function renderTaiwanMap() {
   const placeColor = p => p === '休假' ? '#dc2626' : (p === '颱風假' ? '#3b82f6' : ((p === '北上' || p === '南下') ? '#f07820' : '#64748b'));
   const seen = new Set();
   const items = [];
-  // 依「當前時段」記錄決定是否列入休假框（上午看第一筆、下午看第二筆），與地圖同步
+  // 依「當前時段」紀錄決定是否列入休假框（上午看第一筆、下午看第二筆），與地圖同步
   activeSupervisors().forEach(sv => {
     const rec = curRec[sv.name];
     if (!rec || rec.site_id != null) return;
@@ -6638,7 +6638,7 @@ async function saveSiteForm() {
   // 依案場地址自動定位地圖座標（失敗則退回縣市中心點）
   const coords = await geocodeAddr(row.addr, row.city);
   if (coords) { row.lng = coords[0]; row.lat = coords[1]; }
-  // 記錄本次修改的細項差異（供操作紀錄顯示；insert 無需比對）
+  // 紀錄本次修改的細項差異（供操作紀錄顯示；insert 無需比對）
   _pendingSiteDiff = editingSiteId !== null ? buildSiteDiff(existing, row) : null;
   const q = editingSiteId !== null
     ? sb.from('sites').update(row).eq('id', editingSiteId)
@@ -6700,8 +6700,8 @@ const EQUIP_GROUP_BASE = EQUIP_GROUPS.map(g => g.idxs.slice()); // 各登記表�
 let equipExtra = [];         // equipment 表：使用者自訂新增的器具
 let equipRemovedRuntime = new Set(); // 被軟刪除者的索引
 let equipRowByIdx = {};      // 索引 → equipment 資料列（可編輯／刪除者）
-let equipLogs = [];          // equipment_borrow 記錄
-let equipPhotos = [];        // equipment_photo 記錄
+let equipLogs = [];          // equipment_borrow 紀錄
+let equipPhotos = [];        // equipment_photo 紀錄
 let _equipBorrowIdx = null;  // 借出 Modal 當前器具索引
 let _equipPhotoIdx = null;   // 照片 Modal 當前器具索引
 
@@ -6716,7 +6716,7 @@ function equipDisplayName(i) {
 }
 
 // ===================== 操作稽核紀錄（audit log）=====================
-// 記錄「非管理員」在網頁上的新增/修改/刪除（管理員自己的動作不記）。攔截 sb.from(table).insert/update/delete/upsert。
+// 紀錄「非管理員」在網頁上的新增/修改/刪除（管理員自己的動作不記）。攔截 sb.from(table).insert/update/delete/upsert。
 const AUDIT_TABLE_NAMES = { sites: '案場', supervisors: '工地主任', cert_expiry: '證照到期', site_insurance: '案場保險', equipment: '器具', equipment_borrow: '器具借用', app_request: '申請單', approvers: '簽核人員', uniforms: '制服領取', supervisor_log: '派工', custom_places: '常用地點', daily_log_status: '施工日誌', app_users: '使用者權限' };
 let auditLog = [];
 let _auditRows = []; // 操作紀錄 modal 目前顯示的列（供點擊跳轉用）
@@ -7145,7 +7145,7 @@ async function loadEquipList() {
       if (r.removed) equipRemovedRuntime.add(i);
     });
   } else {
-    // 尚未遷移：沿用內建清單，自訂器具接在後面（索引延續，不影響既有借用記錄）
+    // 尚未遷移：沿用內建清單，自訂器具接在後面（索引延續，不影響既有借用紀錄）
     EQUIPMENT.length = EQUIP_BASE_LEN;
     EQUIP_GROUPS.forEach((g, gi) => { g.idxs = EQUIP_GROUP_BASE[gi].slice(); });
     rows.forEach(e => {
@@ -7246,7 +7246,7 @@ async function deleteEquipPhoto(id) {
 }
 
 function equipOpenRecord(i) {
-  // 該器具目前未歸還的借出記錄
+  // 該器具目前未歸還的借出紀錄
   return equipLogs.find(r => r.item_id === i && !r.return_date);
 }
 // 解析 note：以「【案場】」標記者拆出案場與備註；舊資料（純文字）整段視為備註
@@ -7426,7 +7426,7 @@ async function confirmEquipBorrow() {
   renderEquip();
 }
 
-// 器具借出歷史：equipment_borrow 全部記錄（含已歸還），可依器具篩選、依借出日由新到舊
+// 器具借出歷史：equipment_borrow 全部紀錄（含已歸還），可依器具篩選、依借出日由新到舊
 let _equipHistFilter = null; // 篩選的 item_id；null＝全部
 function openEquipHistory(itemId) {
   _equipHistFilter = (typeof itemId === 'number') ? itemId : null;
@@ -8019,7 +8019,7 @@ function appDashboardHTML(selYm){
     if(appIsBillable(r)){ const bs=siteByAnyName(r.site_name); if(!(bs && bs.status==='done')){ const cb=Number(r.client_amount)||amt; bySiteBillable[r.site_name||'未指定']=(bySiteBillable[r.site_name||'未指定']||0)+cb; } } // 各案場累計需向客戶請款（完工案場不列）
     if(mk===ym){ if(appIsBillable(r)) billable+=(Number(r.client_amount)||amt); else if(appCostDecided(r)&&!appCostIncluded(r)) absorb+=amt; } // 未決定、原本含在成本者不計入綠源吸收
   });
-  // 未完工案場一律列出（無追加金額者顯示 0）；已有對應記錄則不重複
+  // 未完工案場一律列出（無追加金額者顯示 0）；已有對應紀錄則不重複
   sites.filter(s=>s.status!=='done').forEach(s=>{
     const k=s.label||s.name;
     const exists=Object.keys(bySite).some(rk=> rk===k || rk===s.name || rk===s.label || (s.name&&s.name.includes(rk)) || (s.label&&rk.includes(s.label)) );
@@ -8972,7 +8972,7 @@ function hideAppLoader() {
 setTimeout(hideAppLoader, 8000); // 保險：最多 8 秒一定收起載入畫面
 async function initApp() {
   setupNavWheelScroll(); // 導覽列可用滑鼠滾輪左右捲動
-  setupAudit(); // 攔截寫入以記錄非管理員的操作軌跡
+  setupAudit(); // 攔截寫入以紀錄非管理員的操作軌跡
   initGoogleAuth(); // Google 登入 + 權限（未設定用戶端 ID 或未登入＝全站唯讀）
   if (sb) {
     await loadFromCloud(); // 失敗時自動沿用內建資料
@@ -9000,8 +9000,8 @@ async function initApp() {
     } catch (e) {}
   }, 1200);
   loadManpower(); // 載入施工日誌工別人數（案場明細用；失敗不影響其他功能）
-  ensureWeatherLog(); // 背景記錄各案場「當日上午」晴雨表（不阻擋畫面）
-  Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用記錄與照片
+  ensureWeatherLog(); // 背景紀錄各案場「當日上午」晴雨表（不阻擋畫面）
+  Promise.all([loadEquipList(), loadEquipLogs(), loadEquipPhotos()]).then(() => { if (document.getElementById('page-equip').classList.contains('active')) renderEquip(); }); // 載入器具清單、借用紀錄與照片
   loadUniforms().then(() => { const uc = document.getElementById('uniform-container'); if (uc && !uc.hidden) renderUniforms(); }); // 制服領取紀錄
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
