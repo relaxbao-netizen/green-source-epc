@@ -3304,31 +3304,41 @@ async function tbEnsureFolder(siteName) {
   return dlEnsureSubFolder(String(siteName), '工具箱會議紀錄');
 }
 // 開啟某案場在共用硬碟的工具箱會議紀錄資料夾（直接跳到檔案實際所在的資料夾）
+function tbFolderUrl(id) {
+  const email = (currentUser && currentUser.email) ? `?authuser=${encodeURIComponent(currentUser.email)}` : '';
+  return `https://drive.google.com/drive/folders/${id}${email}`;
+}
+// 若瀏覽器擋了自動開新分頁，就在按鈕旁放一個可點連結
+function tbShowFolderLink(btn, url) {
+  const win = window.open(url, '_blank');
+  if (win) return;
+  if (btn && btn.parentNode) {
+    let a = btn.parentNode.querySelector('a[data-tbfolder]');
+    if (!a) { a = document.createElement('a'); a.dataset.tbfolder = '1'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '📁 點此開啟資料夾'; a.style.cssText = 'margin-left:8px;color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap'; btn.parentNode.insertBefore(a, btn.nextSibling); }
+    a.href = url;
+  } else { window.location.href = url; }
+}
 async function tbOpenSiteFolder(sid, siteName, btn) {
-  const w = window.open('', '_blank'); // 先同步開分頁，避免 await 後被擋彈窗
+  const recs = (tbLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.meet_date).localeCompare(String(a.meet_date)));
+  // 1) 新紀錄已存 folder id → 直接開（同一手勢內，不被擋彈窗）
+  const withFolder = recs.find(r => r.pdf && r.pdf.folder);
+  if (withFolder) { tbShowFolderLink(btn, tbFolderUrl(withFolder.pdf.folder)); return; }
+  // 2) 舊紀錄沒存 folder → 用最新 PDF 查實際父資料夾（需 Drive 授權；查完再開/給連結）
   const old = btn ? btn.textContent : '';
-  if (btn) { btn.textContent = '開啟中…'; btn.disabled = true; }
+  if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
   try {
     const tok = await dlGetDriveToken();
     let folderId;
-    // 優先：用該案場最新一筆紀錄的 PDF 實際所在資料夾（資料夾改名／舊檔也能正確命中）
-    const recs = (tbLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.meet_date).localeCompare(String(a.meet_date)));
     const withPdf = recs.find(r => r.pdf && r.pdf.id);
     if (withPdf) {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.pdf.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
       const d = await res.json();
       if (!res.ok) throw new Error((d && d.error && d.error.message) || ('讀取資料夾失敗 ' + res.status));
       if (d.parents && d.parents.length) folderId = d.parents[0];
-      else throw new Error('找不到該 PDF 的所在資料夾');
-    } else {
-      folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
     }
-    // 帶上登入帳號，避免用瀏覽器預設 Google 帳號開啟而無存取權
-    const email = (currentUser && currentUser.email) ? `?authuser=${encodeURIComponent(currentUser.email)}` : '';
-    const url = `https://drive.google.com/drive/folders/${folderId}${email}`;
-    if (w) w.location = url; else window.open(url, '_blank');
+    if (!folderId) folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
+    tbShowFolderLink(btn, tbFolderUrl(folderId));
   } catch (e) {
-    if (w) w.close();
     alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
   } finally {
     if (btn) { btn.textContent = old; btn.disabled = false; }
@@ -3504,7 +3514,7 @@ async function tbSave() {
     const folder = await tbEnsureFolder(String(sn));
     const up = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_工具箱會議.pdf`, folder);
     if (tbEditingId && oldPdf && oldPdf.id && oldPdf.id !== up.id) await dlDriveDelete(oldPdf.id);
-    const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length, hazards, supervisor, safety, itemNotes };
+    const pdfObj = { view: up.view, id: up.id, folder, np: photoSrcs.length, hazards, supervisor, safety, itemNotes };   // folder＝所在資料夾 id，供「開啟雲端資料夾」直接開
     // 來源圖存回資料庫（Drive 仍只有一份 PDF），編輯時可還原、重存不會掉
     const row = { site_id: sid, meet_date: date, items, record_file: scanSrcs.length ? { srcs: scanSrcs } : null, photos: photoSrcs.length ? photoSrcs : null, pdf: pdfObj, note: noteStr, created_by: (tbEditingId && oldRec) ? (oldRec.created_by || '') : ((currentUser && currentUser.name) || '') };
     if (msg) { msg.textContent = '儲存中…'; }
