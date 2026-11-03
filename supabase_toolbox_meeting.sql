@@ -16,3 +16,6 @@ create table if not exists site_toolbox_meeting (
 );
 
 create index if not exists idx_toolbox_site_date on site_toolbox_meeting (site_id, meet_date desc);
+
+-- Supabase 新表預設會開 RLS，而本專案其他表都是關閉 RLS（anon 直接可寫），故關掉以保持一致：
+alter table site_toolbox_meeting disable row level security;

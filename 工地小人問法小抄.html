@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工地小人 常見問法小抄</title>
+<style>
+  :root{ --g:#059669; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f6f7f9; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Noto Sans TC",system-ui,"PingFang TC","Microsoft JhengHei",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+  .wrap{max-width:900px;margin:0 auto;padding:24px 18px 60px}
+  .head{display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--g);padding-bottom:12px;margin-bottom:6px}
+  .head .emoji{font-size:40px}
+  h1{font-size:22px;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;break-inside:avoid}
+  .card h2{font-size:15px;margin:0 0 8px;color:var(--g);display:flex;align-items:center;gap:7px}
+  .card h2 .n{background:var(--g);color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px}
+  .q{font-size:13px;margin:3px 0;padding-left:16px;position:relative;color:#1e293b}
+  .q::before{content:"»";position:absolute;left:2px;color:var(--g);font-weight:700}
+  .tip{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:12px 16px;margin:16px 0;font-size:13px;color:#065f46}
+  .foot{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
+  .print{position:fixed;right:18px;top:18px;background:var(--g);color:#fff;border:none;border-radius:999px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+  @media print{ body{background:#fff} .print{display:none} .wrap{max-width:none;padding:0} .card{box-shadow:none} @page{margin:12mm} }
+</style>
+</head>
+<body>
+<button class="print" onclick="window.print()">🖨 列印 / 存 PDF</button>
+<div class="wrap">
+  <div class="head"><span class="emoji">👷</span><div><h1>綠源工地小人 · 常見問法小抄</h1></div></div>
+  <p class="sub">點戰情室右下角的工地小人，在輸入框打字即可即時查詢。以下是可以問的例子（講法很自由、口語也行），案場名可用簡稱（例「兆豐」＝兆豐銀行）。</p>
+
+  <div class="tip">💡 懶人用法：直接問「<b>報告一下</b>」或「<b>現在狀況怎樣</b>」，會一次給你整體概況（執行中、落後、需趕工、待開工、完工）。</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="n">1</span>進度 / 落後</h2>
+      <div class="q">哪些案場落後？</div>
+      <div class="q">哪些工地卡住了 / 有沒有拖到的</div>
+      <div class="q">哪個來不及、要注意</div>
+      <div class="q">符合工期的有哪些 / 誰很正常</div>
+      <div class="q">整體平均進度 / 大家做到哪</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span>趕工</h2>
+      <div class="q">需要趕工的工項？</div>
+      <div class="q">哪些要趕 / 哪些急件</div>
+      <div class="q">最嚴重的是哪些</div>
+      <div class="q">哪個跑最快 / 誰最慢</div>
+      <div class="q">哪個快完工了</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span>查某一個案場</h2>
+      <div class="q">台積電AP7 進度 / 做到哪了</div>
+      <div class="q">兆豐 的主任是誰 / 誰在顧</div>
+      <div class="q">兆豐 業主是誰 / 做什麼的</div>
+      <div class="q">兆豐 在哪 / 地址</div>
+      <div class="q">法蘭摩沙 什麼時候完工 / 開工多久了</div>
+      <div class="q">兆豐 容量多少 / 幾個工項</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">4</span>人力 / 主任</h2>
+      <div class="q">誰超載 / 誰最忙 / 誰有空</div>
+      <div class="q">誰案子最多 / 最少</div>
+      <div class="q">各主任帶幾案</div>
+      <div class="q">主任名單 / 有幾位主任</div>
+      <div class="q">吳修原 負責哪些案場</div>
+      <div class="q">我負責哪些案場（需登入）</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">5</span>案場清單 / 數量</h2>
+      <div class="q">現在有幾個案場 / 總共幾個工程</div>
+      <div class="q">全部案場列一下</div>
+      <div class="q">待開工的案場 / 還沒開工的</div>
+      <div class="q">完工的案場 / 做好了哪些</div>
+      <div class="q">儲能案場有哪些 / 光電案場</div>
+      <div class="q">容量最大的案場</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">6</span>地區 / 容量</h2>
+      <div class="q">高雄的案場 / 南部有哪些案子</div>
+      <div class="q">台中案場 / 北部工地</div>
+      <div class="q">光電總容量 / 儲能總容量</div>
+      <div class="q">總裝置量多少</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">7</span>提醒</h2>
+      <div class="q">證照快到期的有誰 / 誰要回訓</div>
+      <div class="q">逾期證照 / 牌快過期的</div>
+      <div class="q">保險到期 / 保單快到期嗎</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">8</span>其他 / 導引</h2>
+      <div class="q">施工日誌 / 週報 / 課程 在哪</div>
+      <div class="q">晴雨表 / 器具借用 / 申請請款</div>
+      <div class="q">今天幾號 / 現在幾點</div>
+      <div class="q">你會什麼 / 能問什麼</div>
+    </div>
+  </div>
+
+  <p class="foot">綠源工程戰情室 · 工地小人問答為本地即時查詢（免費、不需帳號）｜答不出來時會列出可問範例，點一下就能問。</p>
+</div>
+</body>
+</html>
