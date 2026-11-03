@@ -3328,7 +3328,6 @@ function tbDocHtml(meta, scanSrcs, photoSrcs) {
     </table>
     ${secTitle('施工項目')}
     <div style="margin-bottom:18px">${items}</div>
-    ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
     ${secTitle('施工期間產生危害狀況')}
     ${tbHazardStatusHtml(new Set(meta.hazards || []))}
     ${secTitle('危害類型與防護措施')}
@@ -3337,6 +3336,7 @@ function tbDocHtml(meta, scanSrcs, photoSrcs) {
       <div style="flex:1.1">${colLbl('紙本照片')}${imgList(scanSrcs)}</div>
       <div style="flex:1">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
     </div>
+    ${meta.note ? secTitle('備註') + `<div style="font-size:14px;margin-bottom:18px;white-space:pre-wrap">${appEsc(meta.note)}</div>` : ''}
     <div style="display:flex;gap:40px;margin-top:20px;border-top:1px solid #cbd5e1;padding-top:18px;font-size:16px;color:#374151">
       <div style="flex:1">工地主任：${meta.supervisor ? appEsc(meta.supervisor) : '______________'}</div>
       <div style="flex:1">工安人員：${meta.safety ? appEsc(meta.safety) : '______________'}</div>
