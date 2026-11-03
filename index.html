@@ -3136,7 +3136,7 @@ function tbShowForm(logId, presetSite) {
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="tb-site" onchange="tbOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
-        <div class="form-field" style="margin:0"><label>會議日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
         <div style="flex:1"></div>
         <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建記錄）'}</div>
       </div>
