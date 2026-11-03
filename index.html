@@ -3110,12 +3110,12 @@ function tbShowSite(sid) {
     const items = Array.isArray(r.items) ? r.items : [];
     const itemsTxt = items.length ? appEsc(items.join('、')) : '<span style="color:var(--muted)">—</span>';
     const pdfLink = (r.pdf && (r.pdf.view || r.pdf.url)) || (r.record_file && (r.record_file.view || r.record_file.url));
-    const np = (r.pdf && typeof r.pdf.np === 'number') ? r.pdf.np : (Array.isArray(r.photos) ? r.photos.length : 0);
+    const writer = r.created_by ? appEsc(r.created_by) : '<span style="color:var(--muted)">—</span>';
     return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="tbShowForm('${r.id}')"` : ''}>
-      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.meet_date).slice(0, 10))}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.meet_date).slice(0, 10).replace(/-/g, '/'))}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${writer}</td>
       <td style="padding:8px 10px">${itemsTxt}</td>
       <td style="padding:8px 10px;white-space:nowrap">${pdfLink ? `<a href="${pdfLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
-      <td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">${np ? (np + ' 張') : '—'}</td>
       <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
   }).join('')
     : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無會議記錄，點右上角「＋ 新增」開始。</td></tr>`;
@@ -3126,7 +3126,7 @@ function tbShowSite(sid) {
       <button onclick="tbShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">會議日期</th><th style="text-align:left;padding:8px 10px">施工項目</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">人員照片</th><th style="width:70px"></th></tr></thead>
+      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">施工日期</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">填寫人</th><th style="text-align:left;padding:8px 10px">施工項目</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="width:70px"></th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
 }
 function tbFormBack() { if (_tbReturnSite != null) tbShowSite(_tbReturnSite); else tbShowList(); }
