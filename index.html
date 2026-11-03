@@ -3155,8 +3155,8 @@ function tbShowForm(logId, presetSite) {
         <div id="tb-record-box" style="margin-top:10px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
-        <div class="wbs-title" style="margin:0 0 10px">三、工地人員照片（可多張，最多 12 張）</div>
-        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 加入照片<input type="file" accept="image/*" multiple onchange="tbPickPhotos(this.files)" style="display:none"></label>
+        <div class="wbs-title" style="margin:0 0 10px">三、工地人員照片</div>
+        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" onchange="tbPickPhotos(this.files)" style="display:none"></label>
         <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -3215,7 +3215,7 @@ function tbRenderRecord() {
     box.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px"><a href="${tbRecordExisting.view || tbRecordExisting.url}" target="_blank" rel="noopener" style="color:var(--accent)">📄 已上傳的紙本記錄</a><button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></div>`;
   } else box.innerHTML = '<span style="color:var(--muted);font-size:12px">尚未上傳紙本記錄</span>';
 }
-function tbPickPhotos(files) { tbNewPhotos = [...tbNewPhotos, ...Array.from(files)].slice(0, 12 - tbPhotoUrls.length); tbRenderPhotos(); }
+function tbPickPhotos(files) { tbNewPhotos = Array.from(files).slice(0, 1); tbRenderPhotos(); }   // 人員照片只收一張（重新選會取代）
 function tbRenderPhotos() {
   const box = document.getElementById('tb-photo-list'); if (!box) return;
   const ex = tbPhotoUrls.map((p, i) => `<div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="tbRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
