@@ -543,7 +543,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .big-pct-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .wbs-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
 /* 施工日誌填寫表單：所有欄位字體統一（字型/顏色/大小/字重一致） */
-#dl-fill-container input, #dl-fill-container select, #dl-fill-container textarea { font-family: inherit; color: var(--text); font-size: 13px; font-weight: 400; }
+#dl-fill-container input, #dl-fill-container select, #dl-fill-container textarea,
+#dl-toolbox-container input, #dl-toolbox-container select, #dl-toolbox-container textarea { font-family: inherit; color: var(--text); font-size: 13px; font-weight: 400; }
 /* 操作紀錄有新紀錄時，紀錄按鈕底色呼吸（紅↔透明） */
 @keyframes auditFlash { 0%,100% { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.4); } 50% { background: rgba(239,68,68,.75); border-color: rgba(239,68,68,.9); } }
 .audit-flash { animation: auditFlash 1.6s ease-in-out infinite; }
@@ -3132,31 +3133,38 @@ function tbShowForm(logId, presetSite) {
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="tb-site" onchange="tbOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>會議日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建記錄）'}</div>
       </div>
-      <div style="margin-top:16px">
-        <label style="font-size:13px;font-weight:600;color:var(--text)">施工項目（可複選，勾選當天會議涵蓋的工項）</label>
-        <div id="tb-items-box" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <input id="tb-item-new" type="text" placeholder="找不到？自行輸入施工項目" onkeydown="if(event.key==='Enter'){event.preventDefault();tbAddCustomItem();}" style="flex:1;min-width:160px;height:34px;padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box">
+    </div>
+    <div style="margin-top:14px">
+      <div class="card" style="padding:16px 18px;margin-top:12px">
+        <div class="wbs-title" style="margin:0 0 10px">一、施工項目（可複選，勾選當天會議涵蓋的工項）</div>
+        <div id="tb-items-box" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <input id="tb-item-new" type="text" placeholder="找不到？自行輸入施工項目" onkeydown="if(event.key==='Enter'){event.preventDefault();tbAddCustomItem();}" style="flex:1;min-width:160px;height:34px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box">
           <button onclick="tbAddCustomItem()" class="btn-secondary" style="padding:6px 14px;font-size:13px">＋ 加入</button>
         </div>
       </div>
-      <div style="margin-top:18px">
-        <label style="font-size:13px;font-weight:600;color:var(--text)">① 紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</label>
-        <div style="margin-top:8px"><label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label></div>
-        <div id="tb-record-box" style="margin-top:8px"></div>
+      <div class="card" style="padding:16px 18px;margin-top:12px">
+        <div class="wbs-title" style="margin:0 0 10px">二、紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</div>
+        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label>
+        <div id="tb-record-box" style="margin-top:10px"></div>
       </div>
-      <div style="margin-top:18px">
-        <label style="font-size:13px;font-weight:600;color:var(--text)">② 工地人員照片（可多張，最多 12 張）</label>
-        <div style="margin-top:8px"><label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 加入照片<input type="file" accept="image/*" multiple onchange="tbPickPhotos(this.files)" style="display:none"></label></div>
+      <div class="card" style="padding:16px 18px;margin-top:12px">
+        <div class="wbs-title" style="margin:0 0 10px">三、工地人員照片（可多張，最多 12 張）</div>
+        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 加入照片<input type="file" accept="image/*" multiple onchange="tbPickPhotos(this.files)" style="display:none"></label>
         <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
       </div>
-      <div class="form-field" style="margin:16px 0 0"><label>備註（選填）</label><textarea id="tb-note" rows="2" style="font-weight:400">${rec ? appEsc(rec.note || '') : ''}</textarea></div>
-      <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <button onclick="tbSave()" class="btn-primary" style="padding:8px 20px;font-size:14px">💾 儲存</button>
-        ${tbEditingId ? `<button onclick="tbDelete()" class="btn-secondary" style="padding:8px 16px;font-size:13px;color:var(--danger)">🗑 刪除</button>` : ''}
-        <span id="tb-save-msg" style="font-size:13px"></span>
+      <div class="card" style="padding:16px 18px;margin-top:12px">
+        <div class="wbs-title" style="margin:0 0 10px">四、備註（選填）</div>
+        <textarea id="tb-note" rows="2" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:vertical">${rec ? appEsc(rec.note || '') : ''}</textarea>
       </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="tbSave()" class="btn-primary" style="padding:8px 20px;font-size:14px">💾 儲存</button>
+      ${tbEditingId ? `<button onclick="tbDelete()" class="btn-secondary" style="padding:8px 16px;font-size:13px;color:var(--danger)">🗑 刪除</button>` : ''}
+      <span id="tb-save-msg" style="font-size:13px"></span>
     </div>`;
   const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
   tbLoadWbsItems();
