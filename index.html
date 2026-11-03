@@ -3123,6 +3123,7 @@ function tbShowSite(sid) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="tbShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
+      <button onclick="tbOpenSiteFolder('${appEsc(nm).replace(/'/g, "\\'")}', this)" class="btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap">📁 開啟雲端資料夾</button>
       <button onclick="tbShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
@@ -3301,6 +3302,22 @@ function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
 // 找/建該案場資料夾底下的「工具箱會議紀錄」子資料夾
 async function tbEnsureFolder(siteName) {
   return dlEnsureSubFolder(String(siteName), '工具箱會議紀錄');
+}
+// 開啟某案場在共用硬碟的「工具箱會議紀錄」子資料夾（直接跳到該資料夾）
+async function tbOpenSiteFolder(siteName, btn) {
+  const w = window.open('', '_blank'); // 先同步開分頁，避免 await 後被擋彈窗
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '開啟中…'; btn.disabled = true; }
+  try {
+    const id = await tbEnsureFolder(String(siteName));
+    const url = `https://drive.google.com/drive/folders/${id}`;
+    if (w) w.location = url; else window.open(url, '_blank');
+  } catch (e) {
+    if (w) w.close();
+    alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
+  } finally {
+    if (btn) { btn.textContent = old; btn.disabled = false; }
+  }
 }
 // ---- 工具箱會議紀錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
 // 官方表單「施工期間產生危害狀況」勾選項（表單可複選、PDF 以 ☑/☐ 呈現）
