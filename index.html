@@ -3123,7 +3123,7 @@ function tbShowSite(sid) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="tbShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
-      <button onclick="tbOpenSiteFolder('${appEsc(nm).replace(/'/g, "\\'")}', this)" class="btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;color:var(--accent);font-weight:700">📁 開啟雲端資料夾</button>
+      <button onclick="tbOpenSiteFolder('${sid}', '${appEsc(nm).replace(/'/g, "\\'")}', this)" class="btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;color:var(--accent);font-weight:700">📁 開啟雲端資料夾</button>
       <button onclick="tbShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
@@ -3303,14 +3303,24 @@ function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
 async function tbEnsureFolder(siteName) {
   return dlEnsureSubFolder(String(siteName), '工具箱會議紀錄');
 }
-// 開啟某案場在共用硬碟的「工具箱會議紀錄」子資料夾（直接跳到該資料夾）
-async function tbOpenSiteFolder(siteName, btn) {
+// 開啟某案場在共用硬碟的工具箱會議紀錄資料夾（直接跳到檔案實際所在的資料夾）
+async function tbOpenSiteFolder(sid, siteName, btn) {
   const w = window.open('', '_blank'); // 先同步開分頁，避免 await 後被擋彈窗
   const old = btn ? btn.textContent : '';
   if (btn) { btn.textContent = '開啟中…'; btn.disabled = true; }
   try {
-    const id = await tbEnsureFolder(String(siteName));
-    const url = `https://drive.google.com/drive/folders/${id}`;
+    const tok = await dlGetDriveToken();
+    let folderId;
+    // 優先：用該案場最新一筆紀錄的 PDF 實際所在資料夾（資料夾改名／舊檔也能正確命中）
+    const recs = (tbLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.meet_date).localeCompare(String(a.meet_date)));
+    const withPdf = recs.find(r => r.pdf && r.pdf.id);
+    if (withPdf) {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.pdf.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
+      const d = await res.json();
+      if (res.ok && d.parents && d.parents.length) folderId = d.parents[0];
+    }
+    if (!folderId) folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
+    const url = `https://drive.google.com/drive/folders/${folderId}`;
     if (w) w.location = url; else window.open(url, '_blank');
   } catch (e) {
     if (w) w.close();
