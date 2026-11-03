@@ -3061,7 +3061,7 @@ async function renderTbFill() {
   const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
   if (!sb) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用。</div>'; return; }
   if (!isLoggedIn()) {
-    cont.innerHTML = `<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能使用工具箱會議記錄。<br>
+    cont.innerHTML = `<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能使用工具箱會議紀錄。<br>
       <button onclick="devLogin('admin'); showDlTab('toolbox')" style="margin-top:12px;padding:7px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">🤖 以測試帳號檢視（上傳檔案需正式登入）</button></div>`;
     return;
   }
@@ -3087,18 +3087,18 @@ function tbShowList() {
       <div style="font-weight:700;font-size:15px;margin-bottom:10px;min-height:38px">${appEsc(nm)}</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end">
         <div><span style="font-size:26px;font-weight:800;color:var(--accent)">${c}</span><span style="font-size:12px;color:var(--muted);margin-left:3px">筆</span></div>
-        <div style="font-size:12px;color:var(--muted);text-align:right">${last[sid] ? ('最近<br>' + last[sid]) : '尚無記錄'}</div>
+        <div style="font-size:12px;color:var(--muted);text-align:right">${last[sid] ? ('最近<br>' + last[sid]) : '尚無紀錄'}</div>
       </div></div>`;
   }).join('');
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
-      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆工具箱會議記錄・${ids.length} 個案場</div>
+      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆工具箱會議紀錄・${ids.length} 個案場</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;box-sizing:border-box;height:36px;padding:8px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-weight:700;text-decoration:none;white-space:nowrap">📁 開啟雲端資料夾</a>
-        <button onclick="tbShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增會議記錄</button>
+        <button onclick="tbShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增會議紀錄</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無工具箱會議記錄，點右上角「＋ 新增會議記錄」開始。</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無工具箱會議紀錄，點右上角「＋ 新增會議紀錄」開始。</div>'}</div>`;
 }
 // 第二層：單一案場的會議記錄清單
 function tbShowSite(sid) {
@@ -3118,7 +3118,7 @@ function tbShowSite(sid) {
       <td style="padding:8px 10px;white-space:nowrap">${pdfLink ? `<a href="${pdfLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
   }).join('')
-    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無會議記錄，點右上角「＋ 新增」開始。</td></tr>`;
+    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無會議紀錄，點右上角「＋ 新增」開始。</td></tr>`;
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="tbShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
@@ -3134,7 +3134,7 @@ function tbFormBack() { if (_tbReturnSite != null) tbShowSite(_tbReturnSite); el
 function tbShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
   const rec = logId ? (tbLogs || []).find(r => String(r.id) === String(logId)) : null;
-  if (rec && !dlCanEditLog(rec)) { alert('只能編輯自己新增的工具箱會議記錄。'); tbShowSite(rec.site_id); return; }
+  if (rec && !dlCanEditLog(rec)) { alert('只能編輯自己新增的工具箱會議紀錄。'); tbShowSite(rec.site_id); return; }
   tbEditingId = rec ? rec.id : null;
   _tbReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   tbItemsSel = new Set(rec && Array.isArray(rec.items) ? rec.items : []);
@@ -3165,7 +3165,7 @@ function tbShowForm(logId, presetSite) {
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="tb-supervisor" style="font-weight:400">${svOpt(curSup)}</select></div>
         <div class="form-field" style="margin:0"><label>工安人員</label><select id="tb-safety" style="font-weight:400">${svOpt(curSaf)}</select></div>
         <div style="flex:1"></div>
-        <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建記錄）'}</div>
+        <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建紀錄）'}</div>
       </div>
     </div>
     <div style="margin-top:14px">
@@ -3183,7 +3183,7 @@ function tbShowForm(logId, presetSite) {
         <div id="tb-hazard-box" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
-        <div class="wbs-title" style="margin:0 0 10px">三、紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</div>
+        <div class="wbs-title" style="margin:0 0 10px">三、紙本「施工前工具箱會議紀錄」（掃描檔，可為圖片或 PDF）</div>
         <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label>
         <div id="tb-record-box" style="margin-top:10px"></div>
       </div>
@@ -3193,11 +3193,11 @@ function tbShowForm(logId, presetSite) {
         <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
       </div>
     </div>
-    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「工具箱會議 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${tbEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此記錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
+    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「工具箱會議 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${tbEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
     <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <button onclick="tbSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存工具箱會議</button>
       <button onclick="tbPrintCurrent()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
-      ${tbEditingId ? `<button onclick="tbDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此記錄</button>` : ''}
+      ${tbEditingId ? `<button onclick="tbDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="tb-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
   const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
@@ -3287,7 +3287,7 @@ function tbRenderRecord() {
     const thumbs = srcs.length ? srcs.map(sc => `<img src="${sc}" style="width:46px;height:58px;object-fit:cover;border:1px solid var(--border);border-radius:4px">`).join('') : '📄';
     const link = (tbRecordExisting.view || tbRecordExisting.url) ? `<a href="${tbRecordExisting.view || tbRecordExisting.url}" target="_blank" rel="noopener" style="color:var(--accent)">已上傳</a>` : `已上傳紙本（${srcs.length || 1} 頁）`;
     box.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">${thumbs}<span>${link}</span><button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></div>`;
-  } else box.innerHTML = '<span style="color:var(--muted);font-size:12px">尚未上傳紙本記錄</span>';
+  } else box.innerHTML = '<span style="color:var(--muted);font-size:12px">尚未上傳紙本紀錄</span>';
 }
 function tbPickPhotos(files) { tbNewPhotos = Array.from(files).slice(0, 1); tbRenderPhotos(); }   // 人員照片只收一張（重新選會取代）
 function tbRenderPhotos() {
@@ -3300,7 +3300,7 @@ function tbRemovePhoto(i) { const p = tbPhotoUrls.splice(i, 1)[0]; if (p) tbRemo
 function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
 // 找/建該案場資料夾底下的「工具箱會議記錄」子資料夾
 async function tbEnsureFolder(siteName) {
-  return dlEnsureSubFolder(String(siteName), '工具箱會議記錄');
+  return dlEnsureSubFolder(String(siteName), '工具箱會議紀錄');
 }
 // ---- 工具箱會議記錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
 // 官方表單「施工期間產生危害狀況」勾選項（表單可複選、PDF 以 ☑/☐ 呈現）
@@ -3379,7 +3379,7 @@ function tbPhotoDocHtml(meta, scanSrcs, photoSrcs) {
     ? srcs.map(s => `<img src="${s}" referrerpolicy="no-referrer" style="width:100%;max-height:960px;object-fit:contain;border:1px solid #cbd5e1;margin-bottom:8px;display:block">`).join('')
     : '<div style="color:#999;font-size:13px;padding:10px 0">（未上傳）</div>';
   return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000">
-    ${tbSecTitle('施工前工具箱會議記錄 紙本／工地人員照片')}
+    ${tbSecTitle('施工前工具箱會議紀錄 紙本／工地人員照片')}
     <div style="display:flex;gap:16px;margin:0 0 18px;align-items:flex-start">
       <div style="flex:1.1">${colLbl('紙本照片')}${imgList(scanSrcs)}</div>
       <div style="flex:1">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
@@ -3450,7 +3450,7 @@ async function tbSave() {
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const sid = Number(v('tb-site')), date = v('tb-date');
   if (!sid || !date) { if (msg) { msg.textContent = '請選擇案場與日期'; msg.style.color = 'var(--danger)'; } return; }
-  if (tbEditingId) { const old = (tbLogs || []).find(r => r.id === tbEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的記錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  if (tbEditingId) { const old = (tbLogs || []).find(r => r.id === tbEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   const items = [...tbItemsSel];
   const oldRec = tbEditingId ? (tbLogs || []).find(r => r.id === tbEditingId) : null;
   const oldPdf = oldRec ? (oldRec.pdf || null) : null;
@@ -3491,8 +3491,8 @@ async function tbSave() {
 async function tbDelete() {
   if (!tbEditingId) return;
   const rec = (tbLogs || []).find(r => r.id === tbEditingId);
-  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的記錄。'); return; }
-  if (!confirm('確定刪除這筆工具箱會議記錄？（含共用硬碟上的紙本與照片）')) return;
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的紀錄。'); return; }
+  if (!confirm('確定刪除這筆工具箱會議紀錄？（含共用硬碟上的紙本與照片）')) return;
   try {
     await sb.from('site_toolbox_meeting').delete().eq('id', tbEditingId);
     if (rec) {
@@ -3623,6 +3623,8 @@ function dlSetMonth(val) {
   if (m) { const y = +m[1], mo = +m[2]; if (mo >= 1 && mo <= 12) dailyLogYm = y + '-' + String(mo).padStart(2, '0'); }
   drawDailyLog();   // 一律重畫，讓輸入框回到「YYYY年MM月」顯示（即使月份沒變或輸入無效）
 }
+// 繳交狀況表單名顯示對照：資料庫沿用爬蟲寫入的「工具箱會議記錄」，畫面統一顯示「工具箱會議紀錄」（不改 DB 值以免比對失效）
+function dlFormLabel(f) { return f === '工具箱會議記錄' ? '工具箱會議紀錄' : f; }
 function drawDailyLog() {
   const cont = document.getElementById('dailylog-container');
   if (!cont) return;
@@ -3638,7 +3640,7 @@ function drawDailyLog() {
   const monthSel = `<input type="month" id="dl-export-month" value="${dailyLogYm}" onchange="dlSetMonth(this.value)" style="height:36px;padding:6px 10px;font-size:13px;font-weight:700;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box;background:var(--surface);color:inherit">`;
   // 儲存鈕永遠佔位（用 visibility 切換），避免第一次編輯時冒出按鈕擠高版面造成頁面跳動
   const saveBtn = `<button id="daily-save-btn" onclick="appSaveDailyOverrides()" style="padding:5px 14px;font-size:13px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:600;display:${dailyLogDirty.size ? 'inline-flex' : 'none'}">💾 儲存變更（${dailyLogDirty.size}）</button>`;
-  let html = `<div class="section-title no-line" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議記錄 繳交狀況 <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>${saveBtn}${monthSel}</div>`;
+  let html = `<div class="section-title no-line" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">施工日誌＆工具箱會議紀錄 繳交狀況 <span style="flex:1;height:0;border-top:1px solid var(--border)"></span>${saveBtn}${monthSel}</div>`;
   const rows = dailyLogRows.filter(r => r.ym === dailyLogYm);
   if (!rows.length) {
     html += '<div class="card" style="padding:20px;color:var(--muted)">尚無資料。請在本機執行「執行.bat」，跑完會自動上傳到這裡。</div>';
@@ -3719,7 +3721,7 @@ function drawDailyLog() {
     return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`;
   }).join('')
     || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
-  html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(f)}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
+  html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -3740,7 +3742,7 @@ function drawDailyLog() {
         : `<td style="text-align:left;white-space:nowrap">${appEsc(r.project)}</td>`;
       return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}${cells}</tr>`;
     }).join('');
-    html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(form)}</div>
+    html += `<div class="section-title" style="font-size:15px;margin-top:14px">${appEsc(dlFormLabel(form))}</div>
       <div class="card" style="margin-bottom:16px"><div class="daily-scroll" style="overflow-x:auto"><table class="prog-table daily-grid" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   });
   cont.innerHTML = html;
@@ -3778,12 +3780,12 @@ function appShowMissDays(name, form) {
   const line = (f, d) => `${dailyLogYm}-${String(d).padStart(2, '0')}（週${wk[new Date(y, m - 1, d).getDay()]}）${whoOn(d)}`;
   let items, n, sub;
   if (form === '__total__') {
-    const parts = Object.keys(byForm).map(f => `<div style="font-weight:600;margin:6px 0 2px">${appEsc(f)}</div>` + (byForm[f] || []).slice().sort((a, b) => a - b).map(d => line(f, d)).join('<br>'));
+    const parts = Object.keys(byForm).map(f => `<div style="font-weight:600;margin:6px 0 2px">${appEsc(dlFormLabel(f))}</div>` + (byForm[f] || []).slice().sort((a, b) => a - b).map(d => line(f, d)).join('<br>'));
     n = Object.values(byForm).reduce((t, a) => t + a.length, 0);
     items = parts.join(''); sub = '合計';
   } else {
     const days = (byForm[form] || []).slice().sort((a, b) => a - b);
-    n = days.length; items = days.map(d => line(form, d)).join('<br>'); sub = form;
+    n = days.length; items = days.map(d => line(form, d)).join('<br>'); sub = dlFormLabel(form);
   }
   appShowResultModal(`${name}　${sub}缺繳（${n}天）`, `<div style="padding:4px 2px;font-size:14px;line-height:1.9">${items || '—'}</div>`);
 }
