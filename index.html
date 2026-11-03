@@ -983,9 +983,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
   <div id="dl-subtabs" style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
     <button id="dl-tab-status" class="tab-btn active" onclick="showDlTab('status')">📊 繳交狀況</button>
     <button id="dl-tab-fill" class="tab-btn" onclick="showDlTab('fill')">✍️ 填寫施工日誌</button>
+    <button id="dl-tab-toolbox" class="tab-btn" onclick="showDlTab('toolbox')">🧰 工具箱會議</button>
   </div>
   <div id="dailylog-container"></div>
   <div id="dl-fill-container" hidden></div>
+  <div id="dl-toolbox-container" hidden></div>
 </div>
 
 <!-- ===== 器具借出 Modal ===== -->
@@ -2557,12 +2559,15 @@ let _dlFormReturnSite = null; // 填寫表單返回時要回到哪個案場（nu
 let _dlEditRec = null;        // 目前編輯中的紀錄（null＝新增空白，不自動載入當日舊紀錄）
 
 function showDlTab(tab) {
-  const isFill = tab === 'fill';
-  document.getElementById('dailylog-container').hidden = isFill;
-  document.getElementById('dl-fill-container').hidden = !isFill;
-  document.getElementById('dl-tab-status').classList.toggle('active', !isFill);
-  document.getElementById('dl-tab-fill').classList.toggle('active', isFill);
-  if (isFill) renderDlFill(); else { renderDailyLog(); }
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.hidden = !on; };
+  show('dailylog-container', tab === 'status');
+  show('dl-fill-container', tab === 'fill');
+  show('dl-toolbox-container', tab === 'toolbox');
+  const act = (id, on) => { const e = document.getElementById(id); if (e) e.classList.toggle('active', on); };
+  act('dl-tab-status', tab === 'status');
+  act('dl-tab-fill', tab === 'fill');
+  act('dl-tab-toolbox', tab === 'toolbox');
+  if (tab === 'fill') renderDlFill(); else if (tab === 'toolbox') renderTbFill(); else renderDailyLog();
 }
 async function loadDlLogs() {
   if (!sb) return;
@@ -3013,6 +3018,272 @@ async function dlDelete() {
   }
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
+
+/* ===== 施工前工具箱會議記錄（第三分頁）=====
+   資料表 site_toolbox_meeting：site_id / meet_date / items(jsonb陣列) / record_file(紙本{id,view}) / photos(人員照片[]) / note / created_by
+   權限同施工日誌：全公司可檢視可新增；編輯/刪除限自己（管理員全可）。檔案存 Google 共用硬碟各案場資料夾下的「工具箱會議記錄」子夾。 */
+let tbLogs = [];
+let tbEditingId = null;
+let _tbReturnSite = null;
+let tbItemsSel = new Set();     // 已勾選的施工項目名稱
+let tbWbsNames = [];            // 目前案場的 WBS 工項名稱
+let tbCustomItems = [];         // 使用者自行新增的施工項目
+let tbNewPhotos = [];           // 待上傳的人員照片 File
+let tbPhotoUrls = [];           // 已上傳人員照片物件
+let tbRemovedPhotos = [];       // 編輯時被移除的既有照片（存檔後刪 Drive）
+let tbRecordFile = null;        // 待上傳的紙本記錄 File
+let tbRecordExisting = null;    // 既有紙本記錄 {id,view,url}
+let tbRecordRemoved = false;    // 是否移除既有紙本
+
+async function renderTbFill() {
+  const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
+  if (!sb) { cont.innerHTML = '<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用。</div>'; return; }
+  if (!isLoggedIn()) {
+    cont.innerHTML = `<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能使用工具箱會議記錄。<br>
+      <button onclick="devLogin('admin'); showDlTab('toolbox')" style="margin-top:12px;padding:7px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">🤖 以測試帳號檢視（上傳檔案需正式登入）</button></div>`;
+    return;
+  }
+  await loadTbLogs();
+  tbShowList();
+}
+async function loadTbLogs() {
+  if (!sb) return;
+  try { const { data, error } = await sb.from('site_toolbox_meeting').select('*').order('meet_date', { ascending: false }); tbLogs = (!error && data) ? data : []; }
+  catch (e) { tbLogs = []; }
+}
+// 第一層：各案場卡片
+function tbShowList() {
+  const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
+  const all = (tbLogs || []);
+  const cnt = {}, last = {};
+  all.forEach(r => { cnt[r.site_id] = (cnt[r.site_id] || 0) + 1; const d = String(r.meet_date).slice(0, 10); if (!last[r.site_id] || d > last[r.site_id]) last[r.site_id] = d; });
+  const ids = [...new Set(all.map(r => r.site_id))];
+  ids.sort((a, b) => (last[b] || '').localeCompare(last[a] || ''));
+  const cards = ids.map(sid => {
+    const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid); const c = cnt[sid] || 0;
+    return `<div class="card" onclick="tbShowSite('${sid}')" style="cursor:pointer;padding:16px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''">
+      <div style="font-weight:700;font-size:15px;margin-bottom:10px;min-height:38px">${appEsc(nm)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div><span style="font-size:26px;font-weight:800;color:var(--accent)">${c}</span><span style="font-size:12px;color:var(--muted);margin-left:3px">筆</span></div>
+        <div style="font-size:12px;color:var(--muted);text-align:right">${last[sid] ? ('最近<br>' + last[sid]) : '尚無記錄'}</div>
+      </div></div>`;
+  }).join('');
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:13px;color:var(--muted)">共 ${all.length} 筆工具箱會議記錄・${ids.length} 個案場</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;box-sizing:border-box;height:36px;padding:8px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-weight:700;text-decoration:none;white-space:nowrap">📁 開啟雲端資料夾</a>
+        <button onclick="tbShowForm(null)" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增會議記錄</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無工具箱會議記錄，點右上角「＋ 新增會議記錄」開始。</div>'}</div>`;
+}
+// 第二層：單一案場的會議記錄清單
+function tbShowSite(sid) {
+  const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
+  const s = siteById(Number(sid)); const nm = s ? (s.label || s.name) : ('案場#' + sid);
+  const list = (tbLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.meet_date).localeCompare(String(a.meet_date)));
+  const rows = list.length ? list.map(r => {
+    const mine = dlCanEditLog(r);
+    const items = Array.isArray(r.items) ? r.items : [];
+    const itemsTxt = items.length ? appEsc(items.join('、')) : '<span style="color:var(--muted)">—</span>';
+    const rec = r.record_file && (r.record_file.view || r.record_file.url);
+    const np = Array.isArray(r.photos) ? r.photos.length : 0;
+    return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="tbShowForm('${r.id}')"` : ''}>
+      <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.meet_date).slice(0, 10))}</td>
+      <td style="padding:8px 10px">${itemsTxt}</td>
+      <td style="padding:8px 10px;white-space:nowrap">${rec ? `<a href="${rec}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視</a>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">${np ? (np + ' 張') : '—'}</td>
+      <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
+  }).join('')
+    : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此案場尚無會議記錄，點右上角「＋ 新增」開始。</td></tr>`;
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+      <button onclick="tbShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
+      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
+      <button onclick="tbShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
+      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">會議日期</th><th style="text-align:left;padding:8px 10px">施工項目</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">紙本記錄</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">人員照片</th><th style="width:70px"></th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+}
+function tbFormBack() { if (_tbReturnSite != null) tbShowSite(_tbReturnSite); else tbShowList(); }
+// 表單：新增(logId=null) 或 編輯(logId)；presetSite＝新增時預設案場
+function tbShowForm(logId, presetSite) {
+  const cont = document.getElementById('dl-toolbox-container'); if (!cont) return;
+  const rec = logId ? (tbLogs || []).find(r => String(r.id) === String(logId)) : null;
+  if (rec && !dlCanEditLog(rec)) { alert('只能編輯自己新增的工具箱會議記錄。'); tbShowSite(rec.site_id); return; }
+  tbEditingId = rec ? rec.id : null;
+  _tbReturnSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
+  tbItemsSel = new Set(rec && Array.isArray(rec.items) ? rec.items : []);
+  tbCustomItems = []; tbWbsNames = [];
+  tbNewPhotos = []; tbRemovedPhotos = [];
+  tbPhotoUrls = rec && Array.isArray(rec.photos) ? [...rec.photos] : [];
+  tbRecordExisting = rec && rec.record_file ? rec.record_file : null;
+  tbRecordFile = null; tbRecordRemoved = false;
+  const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = formSites.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
+  let extraSiteOpt = '';
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  cont.innerHTML = `
+    <div style="margin-bottom:10px"><button onclick="tbFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場</label><select id="tb-site" onchange="tbOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>會議日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
+      </div>
+      <div style="margin-top:16px">
+        <label style="font-size:13px;font-weight:600;color:var(--text)">施工項目（可複選，勾選當天會議涵蓋的工項）</label>
+        <div id="tb-items-box" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <input id="tb-item-new" type="text" placeholder="找不到？自行輸入施工項目" onkeydown="if(event.key==='Enter'){event.preventDefault();tbAddCustomItem();}" style="flex:1;min-width:160px;height:34px;padding:6px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;box-sizing:border-box">
+          <button onclick="tbAddCustomItem()" class="btn-secondary" style="padding:6px 14px;font-size:13px">＋ 加入</button>
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <label style="font-size:13px;font-weight:600;color:var(--text)">① 紙本「施工前工具箱會議記錄」（掃描檔，可為圖片或 PDF）</label>
+        <div style="margin-top:8px"><label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label></div>
+        <div id="tb-record-box" style="margin-top:8px"></div>
+      </div>
+      <div style="margin-top:18px">
+        <label style="font-size:13px;font-weight:600;color:var(--text)">② 工地人員照片（可多張，最多 12 張）</label>
+        <div style="margin-top:8px"><label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 加入照片<input type="file" accept="image/*" multiple onchange="tbPickPhotos(this.files)" style="display:none"></label></div>
+        <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
+      </div>
+      <div class="form-field" style="margin:16px 0 0"><label>備註（選填）</label><textarea id="tb-note" rows="2" style="font-weight:400">${rec ? appEsc(rec.note || '') : ''}</textarea></div>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button onclick="tbSave()" class="btn-primary" style="padding:8px 20px;font-size:14px">💾 儲存</button>
+        ${tbEditingId ? `<button onclick="tbDelete()" class="btn-secondary" style="padding:8px 16px;font-size:13px;color:var(--danger)">🗑 刪除</button>` : ''}
+        <span id="tb-save-msg" style="font-size:13px"></span>
+      </div>
+    </div>`;
+  const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
+  tbLoadWbsItems();
+  tbRenderPhotos();
+  tbRenderRecord();
+}
+function tbOnSiteChange() { tbItemsSel = new Set(); tbCustomItems = []; tbLoadWbsItems(); }
+function tbLoadWbsItems() {
+  const sel = document.getElementById('tb-site'); const sid = sel ? Number(sel.value) : null;
+  const s = sid != null ? siteById(sid) : null;
+  tbWbsNames = s ? dlWbsItems(s).map(x => x.name) : [];
+  tbCustomItems = [...tbItemsSel].filter(n => !tbWbsNames.includes(n));
+  tbRenderItems();
+}
+function tbRenderItems() {
+  const box = document.getElementById('tb-items-box'); if (!box) return;
+  const names = [...tbWbsNames, ...tbCustomItems.filter(n => !tbWbsNames.includes(n))];
+  if (!names.length) { box.innerHTML = '<span style="color:var(--muted);font-size:12px">此案場尚無 WBS 工項，可用下方欄位自行輸入施工項目。</span>'; return; }
+  box.innerHTML = names.map((n, i) => {
+    const on = tbItemsSel.has(n);
+    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};border-radius:16px;font-size:12px;cursor:pointer;background:${on ? 'rgba(5,150,105,.12)' : 'var(--surface)'}">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleItem(${i})" style="margin:0">${appEsc(n)}</label>`;
+  }).join('');
+}
+function tbToggleItem(i) {
+  const names = [...tbWbsNames, ...tbCustomItems.filter(n => !tbWbsNames.includes(n))];
+  const n = names[i]; if (n == null) return;
+  if (tbItemsSel.has(n)) tbItemsSel.delete(n); else tbItemsSel.add(n);
+  tbRenderItems();
+}
+function tbAddCustomItem() {
+  const inp = document.getElementById('tb-item-new'); if (!inp) return;
+  const v = inp.value.trim(); if (!v) return;
+  if (!tbWbsNames.includes(v) && !tbCustomItems.includes(v)) tbCustomItems.push(v);
+  tbItemsSel.add(v); inp.value = ''; tbRenderItems();
+}
+function tbPickRecord(files) { if (files && files[0]) { tbRecordFile = files[0]; tbRecordRemoved = false; } tbRenderRecord(); }
+function tbRemoveRecord() { if (tbRecordFile) tbRecordFile = null; else if (tbRecordExisting) tbRecordRemoved = true; tbRenderRecord(); }
+function tbRenderRecord() {
+  const box = document.getElementById('tb-record-box'); if (!box) return;
+  if (tbRecordFile) {
+    const isImg = tbRecordFile.type && tbRecordFile.type.startsWith('image/');
+    box.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px dashed var(--accent);border-radius:8px;font-size:12px">${isImg ? `<img src="${URL.createObjectURL(tbRecordFile)}" style="width:40px;height:40px;object-fit:cover;border-radius:4px">` : '📄'}<span>${appEsc(tbRecordFile.name)}</span><button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></div>`;
+  } else if (tbRecordExisting && !tbRecordRemoved) {
+    box.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px"><a href="${tbRecordExisting.view || tbRecordExisting.url}" target="_blank" rel="noopener" style="color:var(--accent)">📄 已上傳的紙本記錄</a><button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></div>`;
+  } else box.innerHTML = '<span style="color:var(--muted);font-size:12px">尚未上傳紙本記錄</span>';
+}
+function tbPickPhotos(files) { tbNewPhotos = [...tbNewPhotos, ...Array.from(files)].slice(0, 12 - tbPhotoUrls.length); tbRenderPhotos(); }
+function tbRenderPhotos() {
+  const box = document.getElementById('tb-photo-list'); if (!box) return;
+  const ex = tbPhotoUrls.map((p, i) => `<div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="tbRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  const pend = tbNewPhotos.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="tbRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  box.innerHTML = (ex + pend) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+}
+function tbRemovePhoto(i) { const p = tbPhotoUrls.splice(i, 1)[0]; if (p) tbRemovedPhotos.push(p); tbRenderPhotos(); }
+function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
+// 找/建該案場資料夾底下的「工具箱會議記錄」子資料夾
+async function tbEnsureFolder(siteName) {
+  const siteFolder = await dlEnsureSiteFolder(String(siteName));
+  const tok = await dlGetDriveToken();
+  const q = encodeURIComponent(`'${siteFolder}' in parents and name='工具箱會議記錄' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  try { const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } }); const d = await res.json(); if (res.ok && d.files && d.files.length) return d.files[0].id; } catch (e) {}
+  const res2 = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true&fields=id', { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '工具箱會議記錄', mimeType: 'application/vnd.google-apps.folder', parents: [siteFolder] }) });
+  const d2 = await res2.json(); if (!res2.ok) throw new Error('建立資料夾失敗：' + (d2.error ? d2.error.message : res2.status)); return d2.id;
+}
+async function tbSave() {
+  const msg = document.getElementById('tb-save-msg');
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const sid = Number(v('tb-site')), date = v('tb-date');
+  if (!sid || !date) { if (msg) { msg.textContent = '請選擇案場與日期'; msg.style.color = 'var(--danger)'; } return; }
+  if (tbEditingId) { const old = (tbLogs || []).find(r => r.id === tbEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的記錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  const items = [...tbItemsSel];
+  try {
+    const s = siteById(sid); const sn = s ? (s.label || s.name) : sid;
+    if (msg) { msg.textContent = '上傳檔案到共用硬碟…'; msg.style.color = 'var(--muted)'; }
+    const folder = await tbEnsureFolder(String(sn));
+    const ymd = String(date).slice(0, 10).replace(/-/g, '');
+    // 紙本記錄
+    let record = (tbRecordExisting && !tbRecordRemoved) ? tbRecordExisting : null;
+    if (tbRecordFile) {
+      const isImg = tbRecordFile.type && tbRecordFile.type.startsWith('image/');
+      const blob = isImg ? await dlCompressImage(tbRecordFile, 1600, 0.82) : tbRecordFile;
+      const ext = isImg ? 'jpg' : ((tbRecordFile.name.split('.').pop() || 'pdf').toLowerCase());
+      const up = await dlDriveUpload(blob, `工具箱會議_${sn}_${ymd}_紙本.${ext}`, folder);
+      record = { id: up.id, view: up.view, url: up.url };
+    }
+    // 人員照片
+    let photos = [...tbPhotoUrls];
+    if (tbNewPhotos.length) {
+      let n = photos.length;
+      for (const f of tbNewPhotos) { const b = await dlCompressImage(f); n++; const up = await dlDriveUpload(b, `工具箱會議_${sn}_${ymd}_人員${n}.jpg`, folder); photos.push({ id: up.id, url: up.url, view: up.view }); }
+    }
+    const row = { site_id: sid, meet_date: date, items, record_file: record, photos, note: v('tb-note'), created_by: (currentUser && currentUser.name) || '' };
+    if (msg) { msg.textContent = '儲存中…'; }
+    let error;
+    if (tbEditingId) {
+      const old = (tbLogs || []).find(r => r.id === tbEditingId);
+      if (tbRecordRemoved && old && old.record_file && old.record_file.id && (!record || record.id !== old.record_file.id)) await dlDriveDelete(old.record_file.id);
+      for (const rp of tbRemovedPhotos) { if (rp && rp.id) await dlDriveDelete(rp.id); }
+      ({ error } = await sb.from('site_toolbox_meeting').update(row).eq('id', tbEditingId));
+    } else ({ error } = await sb.from('site_toolbox_meeting').insert(row));
+    if (error) throw error;
+    if (msg) { msg.textContent = '✅ 已儲存，檔案已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    tbNewPhotos = []; tbRecordFile = null; tbRecordRemoved = false; tbRemovedPhotos = [];
+    await loadTbLogs();
+    setTimeout(() => tbShowSite(sid), 800);
+  } catch (e) {
+    if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_toolbox_meeting 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; }
+  }
+}
+async function tbDelete() {
+  if (!tbEditingId) return;
+  const rec = (tbLogs || []).find(r => r.id === tbEditingId);
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的記錄。'); return; }
+  if (!confirm('確定刪除這筆工具箱會議記錄？（含共用硬碟上的紙本與照片）')) return;
+  try {
+    await sb.from('site_toolbox_meeting').delete().eq('id', tbEditingId);
+    if (rec) {
+      if (rec.record_file && rec.record_file.id) await dlDriveDelete(rec.record_file.id);
+      (Array.isArray(rec.photos) ? rec.photos : []).forEach(p => { if (p && p.id) dlDriveDelete(p.id); });
+    }
+    const backSid = rec ? rec.site_id : null;
+    tbEditingId = null; await loadTbLogs();
+    if (backSid != null) tbShowSite(backSid); else tbShowList();
+  } catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+
 // 綠源 LOGO（公司 LOGO.bmp 轉 JPEG 內嵌，印在施工日誌左上；用 JPEG 因 html2canvas/瀏覽器對此 PNG 解碼不穩）
 const DL_LOGO = 'data:image/jpeg;base64,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';
 // 施工日誌內容 HTML（列印與產 PDF 共用）；photoSrcs＝照片 img src 陣列
