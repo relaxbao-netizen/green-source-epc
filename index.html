@@ -3113,7 +3113,7 @@ function tbShowSite(sid) {
     const writer = r.created_by ? appEsc(r.created_by) : '<span style="color:var(--muted)">—</span>';
     return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="tbShowForm('${r.id}')"` : ''}>
       <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.meet_date).slice(0, 10).replace(/-/g, '/'))}</td>
-      <td style="padding:8px 10px;white-space:nowrap">${writer}</td>
+      <td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">${writer}</td>
       <td style="padding:8px 10px">${itemsTxt}</td>
       <td style="padding:8px 10px;white-space:nowrap">${pdfLink ? `<a href="${pdfLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
