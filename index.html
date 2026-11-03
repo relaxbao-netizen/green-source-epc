@@ -3131,12 +3131,20 @@ function tbShowForm(logId, presetSite) {
   const siteOpts = formSites.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  // 工地主任／工安人員下拉（選自公司主任名單；工地主任預設帶該案場負責主任）
+  const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
+  const defPm = (typeof pmList === 'function' && defSite != null) ? ((pmList(siteById(Number(defSite))) || [])[0] || '') : '';
+  const curSup = (rec && rec.pdf && rec.pdf.supervisor) ? rec.pdf.supervisor : defPm;
+  const curSaf = (rec && rec.pdf && rec.pdf.safety) ? rec.pdf.safety : '';
+  const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="tbFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="tb-site" onchange="tbOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="tb-supervisor" style="font-weight:400">${svOpt(curSup)}</select></div>
+        <div class="form-field" style="margin:0"><label>工安人員</label><select id="tb-safety" style="font-weight:400">${svOpt(curSaf)}</select></div>
         <div style="flex:1"></div>
         <div style="font-size:12px;color:var(--muted)">${tbEditingId ? '（編輯中）' : '（新建記錄）'}</div>
       </div>
@@ -3182,7 +3190,14 @@ function tbShowForm(logId, presetSite) {
   tbRenderPhotos();
   tbRenderRecord();
 }
-function tbOnSiteChange() { tbItemsSel = new Set(); tbCustomItems = []; tbLoadWbsItems(); }
+function tbOnSiteChange() {
+  tbItemsSel = new Set(); tbCustomItems = []; tbLoadWbsItems();
+  const sel = document.getElementById('tb-site'), sup = document.getElementById('tb-supervisor');
+  if (sel && sup && typeof pmList === 'function') {
+    const pm = (pmList(siteById(Number(sel.value))) || [])[0] || '';
+    if (pm) { if (![...sup.options].some(o => o.value === pm)) sup.add(new Option(pm, pm)); sup.value = pm; }
+  }
+}
 function tbLoadWbsItems() {
   const sel = document.getElementById('tb-site'); const sid = sel ? Number(sel.value) : null;
   const s = sid != null ? siteById(sid) : null;
@@ -3323,8 +3338,8 @@ function tbDocHtml(meta, scanSrcs, photoSrcs) {
       <div style="flex:1">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
     </div>
     <div style="display:flex;gap:40px;margin-top:20px;border-top:1px solid #cbd5e1;padding-top:18px;font-size:16px;color:#374151">
-      <div style="flex:1">工地主任：______________</div>
-      <div style="flex:1">工安人員：______________</div>
+      <div style="flex:1">工地主任：${meta.supervisor ? appEsc(meta.supervisor) : '______________'}</div>
+      <div style="flex:1">工安人員：${meta.safety ? appEsc(meta.safety) : '______________'}</div>
     </div>
   </div>`;
 }
@@ -3363,7 +3378,7 @@ async function tbPrintCurrent() {
     let scanSrcs = [];
     if (tbRecordFile) { if ((tbRecordFile.type || '').startsWith('image/')) scanSrcs = [await dlBlobToDataURL(await dlCompressImage(tbRecordFile, 1600, 0.85))]; else scanSrcs = await tbPdfToImages(tbRecordFile); }
     let photoSrcs = []; for (const f of tbNewPhotos) photoSrcs.push(await dlBlobToDataURL(await dlCompressImage(f)));
-    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items: [...tbItemsSel], hazards: [...tbHazardSel], note: v('tb-note') };
+    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items: [...tbItemsSel], hazards: [...tbHazardSel], supervisor: v('tb-supervisor'), safety: v('tb-safety'), note: v('tb-note') };
     const blob = await tbGeneratePdfBlob(meta, scanSrcs, photoSrcs);
     window.open(URL.createObjectURL(blob), '_blank');
     if (msg) { msg.textContent = ''; }
@@ -3394,13 +3409,14 @@ async function tbSave() {
     // 產生合併 PDF，只上傳這一份
     if (msg) { msg.textContent = '產生 PDF…'; }
     const hazards = [...tbHazardSel];
-    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items, hazards, note: v('tb-note') };
+    const supervisor = v('tb-supervisor'), safety = v('tb-safety');
+    const meta = { siteName: String(sn), projName: (s ? s.name : String(sn)), date, items, hazards, supervisor, safety, note: v('tb-note') };
     const pdfBlob = await tbGeneratePdfBlob(meta, scanSrcs, photoSrcs);
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
     const folder = await tbEnsureFolder(String(sn));
     const up = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_工具箱會議.pdf`, folder);
     if (tbEditingId && oldPdf && oldPdf.id && oldPdf.id !== up.id) await dlDriveDelete(oldPdf.id);
-    const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length, hazards };
+    const pdfObj = { view: up.view, id: up.id, np: photoSrcs.length, hazards, supervisor, safety };
     const row = { site_id: sid, meet_date: date, items, record_file: null, photos: null, pdf: pdfObj, note: v('tb-note'), created_by: (tbEditingId && oldRec) ? (oldRec.created_by || '') : ((currentUser && currentUser.name) || '') };
     if (msg) { msg.textContent = '儲存中…'; }
     let error;
