@@ -7589,10 +7589,29 @@ function appBillHandled(r){
 function appBillColor(r){ return appBillHandled(r)?'#0f172a':'#dc2626'; }
 // 「對客戶請款」金額紅/黑字規則說明（提醒相關人）
 const APP_BILL_COLOR_NOTE = '<div style="position:relative;height:0;z-index:20;pointer-events:none">'
-  + '<div style="position:absolute;bottom:6px;left:74%;transform:translateX(-50%);max-width:220px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:6px 10px;font-size:11px;color:#7c2d12;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.08)">'
+  + '<div data-billnote style="position:absolute;bottom:6px;left:74%;transform:translateX(-50%);max-width:220px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:6px 10px;font-size:11px;color:#7c2d12;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.08)">'
   + '💡「對客戶請款」金額<br><b style="color:#dc2626">紅字＝尚未開票／收款</b><br><b style="color:#0f172a">黑字＝已處理</b>'
-  + '<span style="position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:11px;height:11px;background:#fff7ed;border-right:1px solid #fed7aa;border-bottom:1px solid #fed7aa"></span>'
+  + '<span data-billarrow style="position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:11px;height:11px;background:#fff7ed;border-right:1px solid #fed7aa;border-bottom:1px solid #fed7aa"></span>'
   + '</div></div>';
+// 渲染後把說明氣泡／箭頭對準表格的「對客戶請款」欄（寬表會橫捲，固定百分比對不準，故用實際欄位座標）
+function appPositionBillNote(root) {
+  try {
+    const note = root && root.querySelector('[data-billnote]');
+    if (!note) return;
+    const arrow = note.querySelector('[data-billarrow]');
+    const th = [...root.querySelectorAll('th')].find(t => t.textContent.trim() === '對客戶請款');
+    const parent = note.parentElement;
+    if (!th || !arrow || !parent) return;
+    const pr = parent.getBoundingClientRect(), tr = th.getBoundingClientRect();
+    const colCenter = (tr.left - pr.left) + tr.width / 2;   // 欄位中心（相對氣泡容器）
+    const bw = note.offsetWidth || 200, cw = parent.offsetWidth || pr.width, half = bw / 2;
+    const left = Math.max(half + 4, Math.min(cw - half - 4, colCenter));  // 氣泡本體夾在畫面內
+    note.style.left = left + 'px';
+    let ax = colCenter - (left - half);                    // 箭頭指向欄位（在氣泡內的位置）
+    ax = Math.max(12, Math.min(bw - 12, ax));
+    arrow.style.left = ax + 'px';
+  } catch (e) {}
+}
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ const n=Number(amt)||0; let c=[...SIGN_BASE]; if(n>=1000000) c=c.concat(['協理','總經理','董事長']); else if(n>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
@@ -8792,6 +8811,7 @@ function runAppQuery(){
   const rows=appRequests.filter(r=>appQueryFilterPass(r));
   const el=document.getElementById('q-result'); if(!el) return;
   el.innerHTML=appResultTableHTML(rows, false, true); // 查詢中心：流水號降冪（大→小）
+  requestAnimationFrame(()=>appPositionBillNote(el));
 }
 function appGoQueryPending(){
   const n=appRequests.filter(r=>appStatusKey(r)==='pending').length;
@@ -8799,8 +8819,10 @@ function appGoQueryPending(){
 }
 function appShowResultModal(title, bodyHTML){
   document.getElementById('app-result-title').textContent=title;
-  document.getElementById('app-result-body').innerHTML=bodyHTML;
+  const body=document.getElementById('app-result-body');
+  body.innerHTML=bodyHTML;
   document.getElementById('app-result-overlay').classList.add('open');
+  requestAnimationFrame(()=>appPositionBillNote(body));
 }
 
 // ---------- 人員 / 角色 ----------
