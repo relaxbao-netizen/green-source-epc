@@ -7588,7 +7588,7 @@ function appBillHandled(r){
 // 對客戶請款金額顯示色：尚未 key 開票/收款日期＝紅，已處理＝黑
 function appBillColor(r){ return appBillHandled(r)?'#0f172a':'#dc2626'; }
 // 「對客戶請款」金額紅/黑字規則說明（提醒相關人）
-const APP_BILL_COLOR_NOTE = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.7">💡「對客戶請款」金額顏色：<br><b style="color:#dc2626">紅字＝尚未開票／收款</b>（開票或收款日期未填）<br><b style="color:#0f172a">黑字＝已處理</b>（已填開票或收款日期）</div>';
+const APP_BILL_COLOR_NOTE = '<div style="position:relative;display:block;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px 12px;margin:0 0 18px;font-size:12px;color:#7c2d12;line-height:1.7;box-shadow:0 2px 6px rgba(0,0,0,.08)">💡「對客戶請款」金額顏色<br><b style="color:#dc2626">紅字＝尚未開票／收款</b>（開票或收款日期未填）<br><b style="color:#0f172a">黑字＝已處理</b>（已填開票或收款日期）<span style="position:absolute;left:74%;bottom:-7px;width:13px;height:13px;background:#fff7ed;border-right:1px solid #fed7aa;border-bottom:1px solid #fed7aa;transform:rotate(45deg)"></span></div>';
 function appEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function appChain(amt){ const n=Number(amt)||0; let c=[...SIGN_BASE]; if(n>=1000000) c=c.concat(['協理','總經理','董事長']); else if(n>=100000) c=c.concat(['協理','總經理']); return c; }
 // 目前卡在哪個角色/人（僅跑單中）：管理員手動指定(hold_who)優先，否則依目前關卡角色帶出簽核人
