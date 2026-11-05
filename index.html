@@ -225,6 +225,8 @@ nav > * { flex-shrink: 0; }
 #mascot-bubble .mb-back { font-size:12px; color:var(--accent); font-weight:700; cursor:pointer; margin-bottom:6px; }
 #mascot-bubble .mb-q { font-size:12px; font-weight:800; color:var(--text); background:var(--surface2); border-radius:8px; padding:6px 9px; margin-bottom:6px; }
 #mascot-bubble .mb-a { font-size:12.5px; line-height:1.75; color:var(--text); }
+#mascot-bubble .mb-site { color:var(--accent); font-weight:700; cursor:pointer; border-bottom:1px dotted var(--accent); }
+#mascot-bubble .mb-site:hover { background:rgba(5,150,105,.1); border-radius:3px; }
 #mascot-bubble .mb-hr { border:none; border-top:1px solid var(--border); margin:6px 0; }
 #mascot-bubble .mb-exs { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
 #mascot-bubble .mb-ex { font-size:11px; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:3px 9px; cursor:pointer; color:var(--text); }
@@ -9191,7 +9193,9 @@ function mascotAnswer(q) {
   const nm = s => s.label || s.name;
   const sc = (typeof statusDotColor !== 'undefined') ? statusDotColor : { pending:'#64748b', normal:'#16a34a', warn:'#d97706', danger:'#dc2626', done:'#0ea5e9' };
   const esc = appEsc;
-  const listNames = arr => arr.map(nm).map(esc).join('、');
+  // 案場名做成可點連結：點一下收泡泡→開該案場→捲到並閃爍需趕工工項
+  const goSite = s => `<span class="mb-site" onclick="mascotGo(${s.id})">${esc(nm(s))}</span>`;
+  const listNames = arr => arr.map(goSite).join('、');
   // 正規化：全形→半形、小寫（讓 Ａａ０／大小寫／全半形都比得到）
   const toHalf = x => String(x || '').replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/　/g, ' ');
   const Q = toHalf(q).toLowerCase();
@@ -9200,7 +9204,7 @@ function mascotAnswer(q) {
   const qn = normS(q);
   // 最長共同子字串長度（容錯比對：簡稱、漏字、AP7/ap7 都可）
   const lcs = (a, b) => { if (!a || !b) return 0; let m = 0, prev; const dp = new Array(b.length + 1).fill(0); for (let i = 1; i <= a.length; i++) { prev = 0; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : 0; if (dp[j] > m) m = dp[j]; prev = t; } } return m; };
-  const list2 = arr => arr.map(s => `• ${esc(nm(s))}（${statusText[s.status]}）`).join('<br>');
+  const list2 = arr => arr.map(s => `• ${goSite(s)}（${statusText[s.status]}）`).join('<br>');
   // 日期是否已過（供「預計完工日」標示逾期用）
   const isOverdue = d => { if (!d) return false; const t = new Date(String(d).replace(/\//g, '-')); return !isNaN(t) && t < new Date(new Date().toISOString().slice(0, 10)); };
 
@@ -9339,7 +9343,7 @@ function mascotAnswer(q) {
     }
     const matched = matchedAll.slice(0, 3);
     return matched.map(s => {
-      const head = `<b>${esc(nm(s))}</b>`;
+      const head = goSite(s);
       if (has('主任', '負責', '誰做', '誰顧', '誰管', '誰蓋', '誰在做', '誰跑', '誰的工地', '現場誰', '誰盯', 'pm', '工地主任', '負責人', '顧', '在做', '誰在')) return `${head} 工地主任：${esc(pmText(s)) || '—'}`;
       if (has('業主', '客戶', '甲方', '誰的案', '誰發包', '誰出錢', '發包', '哪家', '誰的工程', '誰家的')) return `${head} 業主：${esc(s.owner || '—')}`;
       if (has('業務', '誰談', '誰接', '誰簽', '誰的業務')) return `${head} 案場業務：${esc(s.sales || '—')}`;
@@ -9447,7 +9451,7 @@ function mascotAnswer(q) {
       && !has('證照', '回訓', '執照', '保險', '保單', '投保')) {
     const od = S.filter(s => s.status !== 'done' && s.status !== 'pending' && isOverdue(siteEndDate(s)));
     if (!od.length) return '✅ 目前沒有逾期（超過預計完工日）的進行中案場。';
-    return `逾期（超過預計完工日）${od.length} 案：<br>` + od.map(s => `• ${esc(nm(s))}（預計完工 ${esc(siteEndDate(s))}）`).join('<br>');
+    return `逾期（超過預計完工日）${od.length} 案：<br>` + od.map(s => `• ${goSite(s)}（預計完工 ${esc(siteEndDate(s))}）`).join('<br>');
   }
   // 證照 / 回訓
   if (has('證照', '回訓', '執照', '牌照', '資格', '安衛證', '要考照', '換證', '上課證') || (has('到期', '過期', '逾期', '快到期', '快過期', '失效') && !has('保險', '保單', '投保'))) {
@@ -9476,18 +9480,18 @@ function mascotAnswer(q) {
     if (has('最接近完工', '快完工', '進度最高', '進度最好', '進度最快', '最多進度', '跑最快', '誰最快', '哪個最快', '誰領先', '最前面', '快做完', '誰快好')) {
       if (!actS.length) return '目前沒有進行中的案場。';
       const t = [...actS].sort((a, b) => (b.pct || 0) - (a.pct || 0))[0];
-      return `進度最高：<b>${esc(nm(t))}</b> ${Math.round(t.pct || 0)}%`;
+      return `進度最高：${goSite(t)} ${Math.round(t.pct || 0)}%`;
     }
     if (has('進度最低', '進度最差', '最落後', '最慢', '最少進度', '跑最慢', '誰最慢', '哪個最慢', '誰墊底', '最後面', '最差的', '誰最爛')) {
       if (!actS.length) return '目前沒有進行中的案場。';
       const t = [...actS].sort((a, b) => (a.pct || 0) - (b.pct || 0))[0];
-      return `進度最低：<b>${esc(nm(t))}</b> ${Math.round(t.pct || 0)}%`;
+      return `進度最低：${goSite(t)} ${Math.round(t.pct || 0)}%`;
     }
     if (has('容量最大', '最大案場', '規模最大', '最大的案場', '最大一案', '哪案最大', '最大的工程', '最大的工地', '哪個最大', '最大一個', '工程最大', '工地最大', '案場最大', '哪個工程大', '最大的')) {
       const capOf = s => (s.mw || 0) + (s.skw || 0);
       const t = [...S].sort((a, b) => capOf(b) - capOf(a))[0];
       if (!t) return '沒有案場資料。';
-      return `容量最大：<b>${esc(nm(t))}</b>（光電 ${t.mw || 0} kWp${t.mwh ? `、儲能 ${t.mwh} kWh` : ''}）`;
+      return `容量最大：${goSite(t)}（光電 ${t.mw || 0} kWp${t.mwh ? `、儲能 ${t.mwh} kWh` : ''}）`;
     }
   }
   // 進度排行榜（前幾名）
@@ -9495,7 +9499,7 @@ function mascotAnswer(q) {
     const actS = S.filter(s => s.status !== 'done' && s.status !== 'pending').sort((a, b) => (b.pct || 0) - (a.pct || 0));
     if (!actS.length) return '目前沒有進行中的案場。';
     const n = Math.min(5, actS.length);
-    return `進度排行（前 ${n}）：<br>` + actS.slice(0, n).map((s, i) => `${i + 1}. ${esc(nm(s))} ${Math.round(s.pct || 0)}%`).join('<br>');
+    return `進度排行（前 ${n}）：<br>` + actS.slice(0, n).map((s, i) => `${i + 1}. ${goSite(s)} ${Math.round(s.pct || 0)}%`).join('<br>');
   }
   // 儲能／光電案場清單
   if (has('儲能') && has('案場', '案子', '工地', '工程', '有哪些', '哪些', '清單', '列出', '幾個', '哪幾個') && !has('容量', '多少', '總', 'kw')) {
@@ -9542,7 +9546,7 @@ function mascotAnswer(q) {
   if (has('符合', '正常', '準時', '沒問題', '綠燈', '順利', '跟上', '乖', '穩的', '照進度', '沒落後', '安全的', '沒事的', 'ok的')) {
     const ok = S.filter(s => s.status === 'normal');
     if (!ok.length) return '目前沒有標示為「正常（符合工期）」的案場。';
-    return `符合工期 ${ok.length} 案：<br>` + ok.map(s => '• ' + esc(nm(s))).join('<br>');
+    return `符合工期 ${ok.length} 案：<br>` + ok.map(s => '• ' + goSite(s)).join('<br>');
   }
   // 整體 / 平均進度
   if (has('整體', '平均', '總進度', '大概進度', '全部進度', '完成度', '做到哪', '大概做多少', '平均幾趴', '整體幾趴', '總共做多少')) {
@@ -9572,13 +9576,13 @@ function mascotAnswer(q) {
   if (has('完工', '已完成', '結案', '做完', '完成的', '弄好', '搞定', '交了', '收工', '交屋了', '蓋好', '做好的', '好了的', '完成了')) {
     const done = S.filter(s => s.status === 'done');
     if (!done.length) return '目前沒有已完工的案場。';
-    return `已完工 ${done.length} 案：<br>` + done.map(s => '• ' + esc(nm(s))).join('<br>');
+    return `已完工 ${done.length} 案：<br>` + done.map(s => '• ' + goSite(s)).join('<br>');
   }
   // 待開工
   if (has('待開工', '還沒開工', '尚未開工', '沒動工', '未動工', '還沒動工', '準備開工', '還沒做', '還沒start', '快開工', '即將開工', '沒開始', '等開工', '排程中', '還沒進場')) {
     const pend = S.filter(s => s.status === 'pending');
     if (!pend.length) return '目前沒有待開工的案場。';
-    return `待開工 ${pend.length} 案：<br>` + pend.map(s => '• ' + esc(nm(s))).join('<br>');
+    return `待開工 ${pend.length} 案：<br>` + pend.map(s => '• ' + goSite(s)).join('<br>');
   }
   // 全部案場清單 / 總覽
   if (has('所有案場', '全部案場', '案場清單', '列出案場', '有哪些案場', '案場列表', '所有專案', '全部專案', '所有工地', '全部工地', '所有工程', '全部工程', '列一下', '通通列', '全部列出')) {
