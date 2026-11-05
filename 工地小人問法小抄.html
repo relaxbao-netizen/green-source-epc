@@ -8,75 +8,180 @@
   :root{ --g:#059669; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f6f7f9; }
   *{box-sizing:border-box}
   body{margin:0;font-family:"Noto Sans TC",system-ui,"PingFang TC","Microsoft JhengHei",sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
-  .wrap{max-width:900px;margin:0 auto;padding:24px 18px 60px}
+  .wrap{max-width:960px;margin:0 auto;padding:24px 18px 60px}
   .head{display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--g);padding-bottom:12px;margin-bottom:6px}
   .head .emoji{font-size:40px}
   h1{font-size:22px;margin:0}
-  .sub{color:var(--muted);font-size:13px;margin:2px 0 16px}
+  .sub{color:var(--muted);font-size:13px;margin:2px 0 14px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
   .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;break-inside:avoid}
   .card h2{font-size:15px;margin:0 0 8px;color:var(--g);display:flex;align-items:center;gap:7px}
   .card h2 .n{background:var(--g);color:#fff;font-size:12px;font-weight:700;border-radius:6px;padding:1px 7px}
-  .q{font-size:13px;margin:3px 0;padding-left:16px;position:relative;color:#1e293b}
+  .q{font-size:12.5px;margin:2.5px 0;padding-left:15px;position:relative;color:#1e293b}
   .q::before{content:"»";position:absolute;left:2px;color:var(--g);font-weight:700}
-  .tip{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:12px 16px;margin:16px 0;font-size:13px;color:#065f46}
+  .tip{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:12px 16px;margin:14px 0;font-size:13px;color:#065f46}
+  .note{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:10px 14px;margin:14px 0;font-size:12.5px;color:#7c2d12}
   .foot{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
   .print{position:fixed;right:18px;top:18px;background:var(--g);color:#fff;border:none;border-radius:999px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.15)}
-  @media print{ body{background:#fff} .print{display:none} .wrap{max-width:none;padding:0} .card{box-shadow:none} @page{margin:12mm} }
+  @media print{ body{background:#fff} .print{display:none} .wrap{max-width:none;padding:0} .card{box-shadow:none} @page{margin:10mm} }
 </style>
 </head>
 <body>
 <button class="print" onclick="window.print()">🖨 列印 / 存 PDF</button>
 <div class="wrap">
   <div class="head"><span class="emoji">👷</span><div><h1>綠源工地小人 · 常見問法小抄</h1></div></div>
-  <p class="sub">點戰情室右下角的工地小人，在輸入框打字即可即時查詢。以下是可以問的例子（講法很自由、口語也行），案場名可用簡稱（例「兆豐」＝兆豐銀行）。</p>
+  <p class="sub">點戰情室右下角的工地小人，在輸入框打字即可即時查詢。講法很自由、口語、錯字、全半形都可以；案場名可用簡稱（例「兆豐」＝兆豐銀行、「AP7」＝台積電AP7）。下面依主題列出可以問的問法（同一格裡每一句都是不同問法，混著講也行）。</p>
 
-  <div class="tip">💡 懶人用法：直接問「<b>報告一下</b>」或「<b>現在狀況怎樣</b>」，會一次給你整體概況（執行中、落後、需趕工、待開工、完工）。</div>
+  <div class="tip">💡 懶人用法：直接問「<b>報告一下</b>」「<b>現在狀況怎樣</b>」「<b>概況</b>」，一次給整體摘要（執行中、落後、需趕工、待開工、完工）。<br>把「<b>某案場名</b>」換成你要查的案場、「<b>某人名</b>」換成主任／申請人，就能查個別資料。</div>
 
   <div class="grid">
+
     <div class="card">
-      <h2><span class="n">1</span>進度 / 落後</h2>
+      <h2><span class="n">1</span>進度 / 落後 / 狀況</h2>
       <div class="q">哪些案場落後？</div>
       <div class="q">哪些工地卡住了 / 有沒有拖到的</div>
       <div class="q">哪個來不及、要注意</div>
-      <div class="q">符合工期的有哪些 / 誰很正常</div>
+      <div class="q">有沒有出狀況 / 有問題的案場</div>
+      <div class="q">哪些紅燈 / 黃燈 / 橘燈</div>
+      <div class="q">現在哪些要擔心 / 有危機嗎</div>
+      <div class="q">哪個凸槌了 / 出包了</div>
+      <div class="q">進度順不順 / 大家跟上了嗎</div>
+      <div class="q">即將落後的有哪些</div>
+      <div class="q">警示案場 / 危險案場</div>
       <div class="q">整體平均進度 / 大家做到哪</div>
+      <div class="q">大概做多少 / 完成度多少</div>
+      <div class="q">符合工期的有哪些 / 誰很正常</div>
+      <div class="q">哪些準時 / 沒落後 / 綠燈的</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">2</span>趕工</h2>
+      <h2><span class="n">2</span>趕工 / 急件</h2>
       <div class="q">需要趕工的工項？</div>
       <div class="q">哪些要趕 / 哪些急件</div>
-      <div class="q">最嚴重的是哪些</div>
-      <div class="q">哪個跑最快 / 誰最慢</div>
-      <div class="q">哪個快完工了</div>
+      <div class="q">最嚴重的是哪些 / 最急的</div>
+      <div class="q">哪些要加班 / 要衝的</div>
+      <div class="q">哪些工項落後了</div>
+      <div class="q">火燒屁股的是哪些</div>
+      <div class="q">要催的 / 要盯的工項</div>
+      <div class="q">哪些得趕一下 / 要拼</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">3</span>查某一個案場</h2>
-      <div class="q">台積電AP7 進度 / 做到哪了</div>
+      <h2><span class="n">3</span>進度排行 / 最快最慢</h2>
+      <div class="q">進度排行 / 排名</div>
+      <div class="q">進度前三 / 前五名</div>
+      <div class="q">哪個跑最快 / 誰領先</div>
+      <div class="q">進度最高 / 最好的是哪個</div>
+      <div class="q">哪個快完工了 / 快做完了</div>
+      <div class="q">哪個最接近完工</div>
+      <div class="q">哪個跑最慢 / 誰墊底</div>
+      <div class="q">進度最低 / 最落後的是哪個</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">4</span>逾期</h2>
+      <div class="q">哪些案場逾期？</div>
+      <div class="q">哪些超過完工日了</div>
+      <div class="q">過了預計完工還沒好的</div>
+      <div class="q">延誤完工的有哪些</div>
+      <div class="q">拖過工期的案場</div>
+      <div class="q">該完工了卻還沒完工的</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">5</span>查某案場 · 主任</h2>
       <div class="q">兆豐 的主任是誰 / 誰在顧</div>
-      <div class="q">兆豐 業主是誰 / 做什麼的</div>
-      <div class="q">兆豐 在哪 / 地址</div>
-      <div class="q">法蘭摩沙 什麼時候完工 / 開工多久了</div>
-      <div class="q">兆豐 容量多少 / 幾個工項</div>
+      <div class="q">台積電AP7 誰負責 / 誰蓋的</div>
+      <div class="q">法蘭摩沙 現場誰在盯</div>
+      <div class="q">景碩 誰管 / 誰跑的</div>
+      <div class="q">兆豐 的 PM 是誰</div>
+      <div class="q">創奕學甲 工地主任是誰</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">4</span>人力 / 主任</h2>
-      <div class="q">誰超載 / 誰最忙 / 誰有空</div>
-      <div class="q">誰案子最多 / 最少</div>
-      <div class="q">各主任帶幾案</div>
+      <h2><span class="n">6</span>查某案場 · 業主 / 業務</h2>
+      <div class="q">兆豐 業主是誰 / 甲方是誰</div>
+      <div class="q">台積電AP7 誰發包 / 誰出錢</div>
+      <div class="q">法蘭摩沙 是哪家的案</div>
+      <div class="q">兆豐 業務是誰 / 誰談的</div>
+      <div class="q">景碩 誰接的 / 誰簽的</div>
+      <div class="q">兆豐 做什麼的客戶</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">7</span>查某案場 · 地址 / 類型</h2>
+      <div class="q">兆豐 在哪 / 地址 / 位置</div>
+      <div class="q">台積電AP7 在哪個縣市</div>
+      <div class="q">法蘭摩沙 怎麼去 / 哪個區</div>
+      <div class="q">兆豐 是什麼案 / 哪種工程</div>
+      <div class="q">景碩 是太陽能還是儲能</div>
+      <div class="q">創奕學甲 做什麼的</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">8</span>查某案場 · 開工 / 完工</h2>
+      <div class="q">法蘭摩沙 什麼時候完工</div>
+      <div class="q">兆豐 預計完工日 / 幾號好</div>
+      <div class="q">台積電AP7 什麼時候好 / 何時交</div>
+      <div class="q">景碩 開工了嗎 / 動工了沒</div>
+      <div class="q">兆豐 什麼時候開工 / 幾號進場</div>
+      <div class="q">法蘭摩沙 開工多久了 / 做幾天了</div>
+      <div class="q">兆豐 快好了嗎 / 做完沒</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">9</span>查某案場 · 容量 / 工項</h2>
+      <div class="q">兆豐 容量多少 / 多大</div>
+      <div class="q">台積電AP7 幾 kW / 幾度</div>
+      <div class="q">法蘭摩沙 光電多少 / 儲能多少</div>
+      <div class="q">兆豐 規模多大 / 幾 MW</div>
+      <div class="q">兆豐 幾個工項 / 幾項</div>
+      <div class="q">景碩 有幾個項目</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">10</span>查某案場 · 追加 / 保險</h2>
+      <div class="q">兆豐 有追加單嗎 / 追加多少</div>
+      <div class="q">台積電AP7 請款狀況</div>
+      <div class="q">法蘭摩沙 估驗 / 開票 / 收款</div>
+      <div class="q">兆豐 保險 / 保單到期了嗎</div>
+      <div class="q">景碩 投保狀況</div>
+      <div class="q">兆豐 進度 / 做到哪了（不指定 = 綜合摘要）</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">11</span>人力 / 主任</h2>
+      <div class="q">誰超載 / 誰爆了</div>
+      <div class="q">誰最忙 / 誰最累 / 誰比較忙</div>
+      <div class="q">誰最閒 / 誰有空 / 誰輕鬆</div>
+      <div class="q">誰案子最多 / 帶最多</div>
+      <div class="q">誰案子最少 / 帶最少</div>
+      <div class="q">各主任帶幾案 / 案量分配</div>
       <div class="q">主任名單 / 有幾位主任</div>
+      <div class="q">工地主任名冊 / 團隊有誰</div>
       <div class="q">吳修原 負責哪些案場</div>
+      <div class="q">蕭宏明 帶哪幾案</div>
       <div class="q">我負責哪些案場（需登入）</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">5</span>案場清單 / 數量</h2>
+      <h2><span class="n">12</span>今日派工</h2>
+      <div class="q">今天誰去哪個工地</div>
+      <div class="q">今天派工 / 今天誰出工</div>
+      <div class="q">今天有幾個人上工</div>
+      <div class="q">今天誰上班 / 誰出勤</div>
+      <div class="q">吳修原 今天在哪</div>
+      <div class="q">蕭宏明 今天跑哪 / 去哪個案場</div>
+      <div class="q">今天誰在兆豐</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">13</span>案場清單 / 數量</h2>
       <div class="q">現在有幾個案場 / 總共幾個工程</div>
-      <div class="q">全部案場列一下</div>
+      <div class="q">全部案場列一下 / 通通列出</div>
+      <div class="q">有哪些案場 / 案場列表</div>
+      <div class="q">執行中的有哪些</div>
       <div class="q">待開工的案場 / 還沒開工的</div>
       <div class="q">完工的案場 / 做好了哪些</div>
       <div class="q">儲能案場有哪些 / 光電案場</div>
@@ -84,30 +189,136 @@
     </div>
 
     <div class="card">
-      <h2><span class="n">6</span>地區 / 容量</h2>
-      <div class="q">高雄的案場 / 南部有哪些案子</div>
-      <div class="q">台中案場 / 北部工地</div>
-      <div class="q">光電總容量 / 儲能總容量</div>
-      <div class="q">總裝置量多少</div>
+      <h2><span class="n">14</span>待開工 / 完工</h2>
+      <div class="q">待開工的案場有哪些</div>
+      <div class="q">還沒動工 / 準備開工的</div>
+      <div class="q">排程中 / 等開工的</div>
+      <div class="q">完工的案場 / 已結案的</div>
+      <div class="q">做好了哪些 / 交屋了哪些</div>
+      <div class="q">搞定的 / 收工的有哪些</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">7</span>提醒</h2>
+      <h2><span class="n">15</span>地區 / 縣市</h2>
+      <div class="q">高雄的案場 / 南部有哪些案子</div>
+      <div class="q">台中案場 / 中部工地</div>
+      <div class="q">台北 / 新北 / 北部工地</div>
+      <div class="q">屏東 / 台南 / 嘉義的案場</div>
+      <div class="q">桃園 / 新竹 的案子</div>
+      <div class="q">東部 / 宜蘭 有沒有案場</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">16</span>容量統計</h2>
+      <div class="q">光電總容量 / 儲能總容量</div>
+      <div class="q">總裝置量多少 / 總規模</div>
+      <div class="q">全部光電幾 kWp</div>
+      <div class="q">全部儲能幾 kWh / 幾度</div>
+      <div class="q">容量最大的案場是哪個</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">17</span>證照 / 回訓</h2>
       <div class="q">證照快到期的有誰 / 誰要回訓</div>
       <div class="q">逾期證照 / 牌快過期的</div>
-      <div class="q">保險到期 / 保單快到期嗎</div>
+      <div class="q">哪些執照要換證 / 要考照</div>
+      <div class="q">吳修原 的證照狀況</div>
+      <div class="q">蕭宏明 證照到期了嗎</div>
+      <div class="q">誰的安衛證快失效</div>
     </div>
 
     <div class="card">
-      <h2><span class="n">8</span>其他 / 導引</h2>
-      <div class="q">施工日誌 / 週報 / 課程 在哪</div>
-      <div class="q">晴雨表 / 器具借用 / 申請請款</div>
-      <div class="q">今天幾號 / 現在幾點</div>
-      <div class="q">你會什麼 / 能問什麼</div>
+      <h2><span class="n">18</span>保險</h2>
+      <div class="q">保險到期 / 保單快到期嗎</div>
+      <div class="q">哪些投保快過期</div>
+      <div class="q">哪個案場保險要續</div>
+      <div class="q">兆豐 保險狀況</div>
     </div>
+
+    <div class="card">
+      <h2><span class="n">19</span>追加 / 請款 / 申請</h2>
+      <div class="q">追加款總共多少 / 追加單幾筆</div>
+      <div class="q">需向客戶請款有哪些 / 對客戶請款多少</div>
+      <div class="q">綠源自行吸收多少</div>
+      <div class="q">已含於原成本的有哪些</div>
+      <div class="q">吳修原 的追加單 / 申請單</div>
+      <div class="q">26082 明細（輸入流水號查單）</div>
+      <div class="q">怎麼申請 / 在哪填追加單</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">20</span>未開票 / 未收款</h2>
+      <div class="q">哪些還沒開票 / 還沒收款</div>
+      <div class="q">未開票 / 未收款的請款</div>
+      <div class="q">待開票 / 待收款清單</div>
+      <div class="q">請款還沒處理的有哪些</div>
+      <div class="q">紅字的請款（戰情室表格紅字＝未處理）</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">21</span>施工日誌</h2>
+      <div class="q">本月施工日誌誰還沒交 / 哪些沒上傳</div>
+      <div class="q">怎麼填施工日誌 / 在哪新增</div>
+      <div class="q">施工日誌 PDF 在哪 / 雲端資料夾</div>
+      <div class="q">施工日誌誰可以填 / 誰能改 / 權限</div>
+      <div class="q">施工日誌在哪個分頁</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">22</span>工具箱會議紀錄</h2>
+      <div class="q">工具箱會議在哪填</div>
+      <div class="q">工安會議 / 工具箱會議紀錄</div>
+      <div class="q">工具箱會議 PDF 在哪</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">23</span>器具借用</h2>
+      <div class="q">器具有哪些 / 有幾樣工具</div>
+      <div class="q">哪些器具借出中 / 誰借走了</div>
+      <div class="q">雷射 / 測距儀 / 電表 在誰那</div>
+      <div class="q">扭力板手有沒有借出</div>
+      <div class="q">器具借用在哪登記</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">24</span>制服 / 課程 / 週報 / 晴雨</h2>
+      <div class="q">制服領了幾件 / 各尺寸幾件</div>
+      <div class="q">課程有哪些 / 幾堂課</div>
+      <div class="q">教育訓練 / 養成計畫在哪</div>
+      <div class="q">最新週報 / 本週報告在哪</div>
+      <div class="q">晴雨表 / 某案場下雨幾天</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">25</span>人員 / 離職</h2>
+      <div class="q">離職的有誰 / 誰走了</div>
+      <div class="q">誰離開公司了</div>
+      <div class="q">現在有幾位工地主任在職</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">26</span>公司 / 系統 / 日期</h2>
+      <div class="q">公司在哪 / 辦公室地址</div>
+      <div class="q">南部辦公室在哪</div>
+      <div class="q">這是什麼系統 / 戰情室做什麼</div>
+      <div class="q">今天幾號 / 今天星期幾</div>
+      <div class="q">現在幾點 / 現在時間</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">27</span>打招呼 / 幫助</h2>
+      <div class="q">你好 / 嗨 / 在嗎</div>
+      <div class="q">你是誰 / 自我介紹</div>
+      <div class="q">你會什麼 / 能問什麼 / 怎麼用</div>
+      <div class="q">謝謝 / 辛苦了</div>
+      <div class="q">報告一下 / 現在狀況怎樣 / 概況</div>
+    </div>
+
   </div>
 
-  <p class="foot">綠源工程戰情室 · 工地小人問答為本地即時查詢（免費、不需帳號）｜答不出來時會列出可問範例，點一下就能問。</p>
+  <div class="note">📌 小提醒：上面只是「代表問法」，實際可問的講法有上百種——口語、簡稱、漏字、錯字大多都聽得懂。問不到時小人會列出可點的範例，點一下就能問；真的卡住就先問「報告一下」看整體概況。</div>
+
+  <p class="foot">綠源工程戰情室 · 工地小人問答為本地即時查詢（免費、不需帳號）｜答案讀的是戰情室現有資料，隨資料更新。</p>
 </div>
 </body>
 </html>

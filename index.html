@@ -9164,9 +9164,26 @@ function mascotAsk() {
   inp.value = '';
 }
 function mascotExample(q) { const inp = document.getElementById('mascot-q'); if (inp) { inp.value = q; mascotAsk(); } }
+// 可問範例題庫（從中隨機抽幾題當 chip 顯示，讓使用者每次看到不同問法）
+const MASCOT_EX_POOL = [
+  '哪些案場落後？', '需要趕工的工項？', '最嚴重的是哪些？', '整體平均進度？', '進度排行前三？', '哪個快完工了？', '哪些案場逾期？',
+  '台積電AP7 進度？', '兆豐 的主任是誰？', '兆豐 業主是誰？', '兆豐 在哪？', '法蘭摩沙 預計完工？', '兆豐 容量多少？', '兆豐 幾個工項？', '兆豐 開工多久了？',
+  '誰超載？', '誰最忙？', '誰最閒？', '各主任帶幾案？', '主任名單？', '吳修原 負責哪些案場？', '今天誰去哪個工地？',
+  '現在有幾個案場？', '全部案場列一下', '待開工的案場？', '完工的案場？', '儲能案場有哪些？', '容量最大的案場？', '光電/儲能總容量？',
+  '高雄的案場？', '台中的案場？',
+  '證照快到期的有誰？', '逾期證照有誰？', '保險快到期嗎？',
+  '追加款總共多少？', '需向客戶請款有哪些？', '哪些還沒開票收款？', '26082 明細',
+  '本月施工日誌誰還沒交？', '器具有哪些？', '哪些器具借出中？', '制服領了幾件？',
+  '離職的有誰？', '今天幾號？', '你會什麼？', '報告一下'
+];
+function mascotPickEx(n) {
+  const a = MASCOT_EX_POOL.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; }
+  return a.slice(0, n);
+}
 function mascotHelpHTML(unknown) {
   const head = unknown ? '我不太確定你的問題 🤔 這些我可以馬上回答：' : '直接打字問我吧，例如：';
-  const ex = ['哪些案場落後？', '需要趕工的工項？', '台積電AP7 進度？', '兆豐 的主任是誰？', '法蘭摩沙 預計完工？', '誰超載？', '證照快到期的有誰？', '光電/儲能總容量？', '待開工的案場？', '整體平均進度？', '現在有幾個案場？'];
+  const ex = mascotPickEx(12);
   return head + '<div class="mb-exs">' + ex.map(e => `<span class="mb-ex" onclick="mascotExample('${e.replace(/'/g, "\\'")}')">${e}</span>`).join('') + '</div>';
 }
 function mascotAnswer(q) {
@@ -9245,6 +9262,14 @@ function mascotAnswer(q) {
     return '教育訓練課程在導覽列「課程園地」，現場工程師養成計畫共 10 堂課。';
   }
   if (has('晴雨', '天氣', '下雨', '降雨', '氣象', '會不會下雨', '天候')) return '各案場施工晴雨統計：開啟該案場詳情後，點裡面的「施工晴雨表」即可查看。';
+  // 公司 / 辦公室
+  if (has('公司在哪', '公司地址', '辦公室在哪', '辦公室地址', '總公司', '公司位置', '辦公室位置', '南部辦公室', '汐止辦公室', '大寮辦公室', '公司怎麼去', '辦公室怎麼去', '公司在哪裡', '辦公室在哪裡')) {
+    return '綠源（EPC 工程部）：<br>• 總公司在新北市汐止區<br>• 南部辦公室在高雄市大寮區<br>詳細地址與電話請洽行政。';
+  }
+  // 這是什麼系統 / 戰情室
+  if (has('什麼系統', '這是什麼網', '戰情室是什麼', '這個網站', '這網站', '這個平台', '什麼平台', '這系統做什麼', '這是哪個系統', '戰情室做什麼')) {
+    return '這是「綠源工程戰情室」—— 彙整各案場工程進度、WBS 工期、人力派工、證照保險、追加請款、施工日誌等的管理看板。想查什麼直接問我 👷';
+  }
   // 制服領取
   if (has('制服', '衣服', '領衣', '領裝備', '制服領取')) {
     const uni = (typeof uniforms !== 'undefined') ? uniforms : [];
@@ -9282,7 +9307,7 @@ function mascotAnswer(q) {
     return act.length ? `你（${esc(String(me.name).split(/\s+/)[0])}）負責 ${act.length} 案：<br>${list2(act)}` : `${esc(myName)} 目前沒有進行中的案場。`;
   }
   // 今日派工 / 某主任今天在哪
-  if (has('今天', '今日') && has('在哪', '去哪', '哪個案場', '派工', '位置', '在哪裡', '跑哪', '哪個工地', '去哪裡')) {
+  if (has('今天', '今日') && has('在哪', '去哪', '哪個案場', '派工', '位置', '在哪裡', '跑哪', '哪個工地', '去哪裡', '出工', '上工', '上班', '出勤', '誰去', '誰出', '誰上班', '幾個人', '幾人', '誰在工地')) {
     const today = new Date().toISOString().slice(0, 10);
     const logs = (typeof supLogs !== 'undefined') ? supLogs : [];
     const place = r => r.site_id != null ? (siteById(r.site_id) ? nm(siteById(r.site_id)) : '?') : (r.place || '?');
@@ -9381,6 +9406,16 @@ function mascotAnswer(q) {
       return l.length ? `${rk}的案場 ${l.length} 案：<br>${list2(l)}` : `目前${rk}沒有案場。`;
     }
   }
+  // 未開票／未收款（待處理）的對客戶請款清單
+  if (has('未開票', '未收款', '沒開票', '沒收款', '待開票', '待收款', '還沒請款', '請款未處理', '未處理的請款', '紅字的請款', '哪些還沒開票', '哪些還沒收款', '哪些沒開票', '哪些沒收款')
+      || (has('開票', '收款') && has('未', '還沒', '沒開', '沒收', '待處理', '尚未', '哪些沒', '誰沒', '還沒處理'))) {
+    const reqs = (typeof appRequests !== 'undefined' ? appRequests : []).filter(r => r.status !== 'rejected' && appIsBillable(r));
+    if (!reqs.length) return '目前沒有需向客戶請款的追加單。';
+    const un = reqs.filter(r => (typeof appBillHandled === 'function') ? !appBillHandled(r) : true);
+    if (!un.length) return '✅ 需向客戶請款的單都已開票／收款（都已處理）。';
+    const sum = un.reduce((a, r) => a + (Number(r.client_amount) || Number(appEffTotal(r)) || 0), 0);
+    return `尚未開票／收款（待處理）${un.length} 筆，對客戶金額合計 NT$ ${appMoney(sum)}：<br>` + un.slice(0, 12).map(r => `• ${esc(siteShortName(r.site_name))}（${esc(r.serial_no || '')}）NT$ ${appMoney(Number(r.client_amount) || appEffTotal(r) || 0)}`).join('<br>') + (un.length > 12 ? `<br>…等共 ${un.length} 筆` : '');
+  }
   // 追加單 / 請款 / 申請
   if (has('追加', '請款', '追加款', '追加單', '估驗', '請購', '報帳', '開票', '收款', '吸收', '已含', '原成本', '綠源吸收') || has('申請')) {
     const reqs = (typeof appRequests !== 'undefined' ? appRequests : []).filter(r => r.status !== 'rejected');
@@ -9405,6 +9440,14 @@ function mascotAnswer(q) {
     // 總覽
     const total = reqs.reduce((a, r) => a + totOf(r), 0);
     return `追加／申請單共 ${reqs.length} 筆，追加金額合計 NT$ ${appMoney(total)}。<br>其中需向客戶請款 ${bill.length} 筆（對客戶 NT$ ${appMoney(billSum)}）。<br>明細與開票／收款請見「工程/物料申請」分頁。`;
+  }
+  // 逾期案場（已過預計完工日、尚未完工）；需含案場/完工語境以免與證照逾期混淆
+  if (has('逾期', '超過完工', '過了完工', '延誤完工', '拖過完工', '該完工了', '過了交期', '超過預計完工', '超過工期', '拖過工期')
+      && has('案場', '案子', '工地', '工程', '完工', '交期', '工期', '哪些', '哪個', '幾案', '幾個')
+      && !has('證照', '回訓', '執照', '保險', '保單', '投保')) {
+    const od = S.filter(s => s.status !== 'done' && s.status !== 'pending' && isOverdue(siteEndDate(s)));
+    if (!od.length) return '✅ 目前沒有逾期（超過預計完工日）的進行中案場。';
+    return `逾期（超過預計完工日）${od.length} 案：<br>` + od.map(s => `• ${esc(nm(s))}（預計完工 ${esc(siteEndDate(s))}）`).join('<br>');
   }
   // 證照 / 回訓
   if (has('證照', '回訓', '執照', '牌照', '資格', '安衛證', '要考照', '換證', '上課證') || (has('到期', '過期', '逾期', '快到期', '快過期', '失效') && !has('保險', '保單', '投保'))) {
@@ -9446,6 +9489,13 @@ function mascotAnswer(q) {
       if (!t) return '沒有案場資料。';
       return `容量最大：<b>${esc(nm(t))}</b>（光電 ${t.mw || 0} kWp${t.mwh ? `、儲能 ${t.mwh} kWh` : ''}）`;
     }
+  }
+  // 進度排行榜（前幾名）
+  if (has('排行', '排名', '前三', '前幾', '前3', 'top', '名次', '進度排', '排序', '前五', '前5', '進度前', '誰前面')) {
+    const actS = S.filter(s => s.status !== 'done' && s.status !== 'pending').sort((a, b) => (b.pct || 0) - (a.pct || 0));
+    if (!actS.length) return '目前沒有進行中的案場。';
+    const n = Math.min(5, actS.length);
+    return `進度排行（前 ${n}）：<br>` + actS.slice(0, n).map((s, i) => `${i + 1}. ${esc(nm(s))} ${Math.round(s.pct || 0)}%`).join('<br>');
   }
   // 儲能／光電案場清單
   if (has('儲能') && has('案場', '案子', '工地', '工程', '有哪些', '哪些', '清單', '列出', '幾個', '哪幾個') && !has('容量', '多少', '總', 'kw')) {
@@ -9549,7 +9599,7 @@ function mascotAnswer(q) {
     const avg = act.length ? Math.round(act.reduce((a, s) => a + (s.pct || 0), 0) / act.length) : 0;
     const rush = (typeof mascotRushItems === 'function') ? mascotRushItems().length : 0;
     const head = `這題我沒完全聽懂 🤔 我是戰情室資料小幫手，先給你目前概況：<br>• 執行中 <b>${act.length}</b> 案（平均約 ${avg}%）、進度落後 <b>${S.filter(s => s.status === 'danger').length}</b> 案、即將落後 <b>${S.filter(s => s.status === 'warn').length}</b> 案、需趕工 <b>${rush}</b> 項<br>換個說法再問我，例如：`;
-    const ex = ['哪些案場落後？', '台積電AP7 進度？', '兆豐 的主任是誰？', '誰超載？', '追加款總共多少？', '證照快到期的有誰？'];
+    const ex = (typeof mascotPickEx === 'function') ? mascotPickEx(8) : ['哪些案場落後？', '台積電AP7 進度？', '兆豐 的主任是誰？', '誰超載？', '追加款總共多少？', '證照快到期的有誰？'];
     return head + '<div class="mb-exs">' + ex.map(e => `<span class="mb-ex" onclick="mascotExample('${e.replace(/'/g, "\\'")}')">${e}</span>`).join('') + '</div>';
   }
 }
