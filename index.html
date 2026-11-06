@@ -9462,6 +9462,19 @@ function mascotAnswer(q) {
     const applicants = [...new Set(reqs.map(r => r.applicant).filter(Boolean))];
     const who = applicants.find(a => normS(a).length >= 2 && qn.includes(normS(a)));
     if (who) { const rs = reqs.filter(r => r.applicant === who); const t = rs.reduce((a, r) => a + totOf(r), 0); return `${esc(who)} 的追加／申請單 ${rs.length} 筆，合計 NT$ ${appMoney(t)}。`; }
+    // 追加最多（案場 / 申請人）排行
+    if (has('最多', '排行', '排名', '前幾', '前三', '誰最多', '哪個最多', '最常')) {
+      const bySite = has('案場', '工地', '工程', '哪案', '哪個案', '哪個工');
+      const by = {}; reqs.forEach(r => { const k = bySite ? (siteShortName(r.site_name) || r.site_name || '未指定') : (r.applicant || '未指定'); by[k] = (by[k] || 0) + 1; });
+      const top = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      return `追加／申請單最多的${bySite ? '案場' : '人'}：<br>` + top.map(([k, n], i) => `${i + 1}. ${esc(k)}（${n} 筆）`).join('<br>');
+    }
+    // 申請人清單
+    if (has('申請人') && has('有誰', '哪些', '名單', '幾位', '幾個', '誰', '多少人', '有哪些', '名冊')) {
+      const by = {}; reqs.forEach(r => { const k = r.applicant || '未指定'; by[k] = (by[k] || 0) + 1; });
+      const arr = Object.entries(by).sort((a, b) => b[1] - a[1]);
+      return `申請人共 ${arr.length} 位（依筆數）：<br>` + clampList(arr.map(([k, n]) => `• ${esc(k)}（${n} 筆）`), 10);
+    }
     const bill = reqs.filter(appIsBillable);
     const billSum = bill.reduce((a, r) => a + num(r.client_amount || 0), 0);
     // 需向客戶請款清單
@@ -9554,7 +9567,7 @@ function mascotAnswer(q) {
     return `目前設置容量：<br>• 光電 <b>${fmtCap(kw, 'kWp')}</b>（${pv.length} 案）<br>• 儲能 <b>${fmtCap(kwh, 'kWh')}</b>（${st.length} 案）`;
   }
   // 主任名單 / 有幾位主任
-  if (has('主任', '負責', '人員', 'pm') && has('名單', '有誰', '哪些人', '幾位', '幾個人', '名字', '是誰', '有幾個', '多少人', '名冊', '團隊')) {
+  if (has('主任', '負責', '人員', 'pm') && has('名單', '有誰', '哪些人', '幾位', '幾個人', '名字', '是誰', '有幾個', '多少人', '名冊', '團隊', '幾個', '多少', '有幾', '幾名')) {
     const svs = [...activeSupervisors().filter(s => s.role !== '工程部主管')].sort(byWorkload);
     return `目前工地主任 ${svs.length} 位：<br>` + clampList(svs.map(sv => `• ${goPm(sv.name)}（${activeSitesOf(sv).length} 案）`), 10);
   }
