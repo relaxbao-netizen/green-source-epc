@@ -193,12 +193,15 @@ nav > * { flex-shrink: 0; }
 
 /* ===== 👷 工地小人（首頁右下角，點一下看今日速報） ===== */
 #mascot { position: fixed; right: 20px; bottom: 20px; width: 80px; height: 90px; cursor: pointer; z-index: 900; filter: drop-shadow(0 4px 8px rgba(0,0,0,.18)); -webkit-tap-highlight-color: transparent; }
-#mascot-svg { display: block; width: 100%; height: 100%; animation: mascotBob 2.6s ease-in-out infinite; transform-origin: 50% 90%; transition: transform .15s; }
-#mascot:hover #mascot-svg { transform: scale(1.06); }
-#mascot-arm { transform-origin: 46px 41px; }
-#mascot:hover #mascot-arm { animation: mascotWave .55s ease-in-out infinite; }
-@keyframes mascotBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
-@keyframes mascotWave { 0%,100%{transform:rotate(-120deg)} 50%{transform:rotate(-155deg)} }
+#mascot-svg { display: block; width: 100%; height: 100%; animation: mascotBob 3s ease-in-out infinite; transform-origin: 50% 92%; transition: transform .18s; }
+#mascot:hover #mascot-svg { transform: scale(1.08); }
+#mascot-arm { transform-origin: 46.5px 41px; }
+#mascot:hover #mascot-arm { animation: mascotWave .5s ease-in-out infinite; }
+#mascot-shine { animation: mascotShine 5s ease-in-out infinite; transform-origin: 30px 18px; }
+@keyframes mascotBob { 0%,100%{transform:translateY(0) rotate(-1.6deg)} 50%{transform:translateY(-5px) rotate(1.6deg)} }
+@keyframes mascotWave { 0%,100%{transform:rotate(-116deg)} 50%{transform:rotate(-160deg)} }
+@keyframes mascotShine { 0%,70%,100%{opacity:.55} 82%{opacity:1} }
+@media (prefers-reduced-motion: reduce){ #mascot-svg,#mascot-arm,#mascot-shine{ animation:none !important; } }
 #mascot-bubble {
   position: absolute; right: 2px; bottom: 90px; width: 256px; max-width: 76vw;
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
@@ -1327,28 +1330,42 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 <div id="mascot" title="點綠源工地小人｜可直接問我問題">
   <div id="mascot-bubble" onclick="event.stopPropagation()"></div>
   <svg id="mascot-svg" onclick="toggleMascot(event)" width="66" height="74" viewBox="0 0 66 74" xmlns="http://www.w3.org/2000/svg" aria-label="工地小人">
+    <defs>
+      <linearGradient id="msVest" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12b886"/><stop offset="1" stop-color="#047857"/></linearGradient>
+      <linearGradient id="msHat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e5ecf2"/></linearGradient>
+      <radialGradient id="msSkin" cx="42%" cy="36%" r="70%"><stop offset="0" stop-color="#ffe6c6"/><stop offset="1" stop-color="#f8c99a"/></radialGradient>
+    </defs>
     <ellipse cx="33" cy="70" rx="17" ry="3.2" fill="rgba(0,0,0,.10)"/>
     <!-- 身體/背心 -->
-    <rect x="21" y="38" width="24" height="25" rx="6" fill="#059669"/>
-    <rect x="25.5" y="38" width="3" height="25" fill="#fde047"/>
-    <rect x="37.5" y="38" width="3" height="25" fill="#fde047"/>
-    <rect x="21" y="47" width="24" height="3" fill="#fde047"/>
+    <rect x="20.5" y="38" width="25" height="25.5" rx="7" fill="url(#msVest)"/>
+    <path d="M28 38 h10 l-5 4.5 z" fill="#065f46"/>
+    <rect x="25.3" y="38" width="3" height="25.5" fill="#fde047"/>
+    <rect x="37.7" y="38" width="3" height="25.5" fill="#fde047"/>
+    <rect x="20.5" y="47" width="25" height="3" fill="#fde047"/>
     <!-- 左手（固定垂下） -->
-    <rect x="17" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="20" cy="58" r="3.4" fill="#fcd9a8"/>
+    <rect x="16.5" y="40" width="6" height="16" rx="3" fill="url(#msVest)"/><circle cx="19.5" cy="58" r="3.4" fill="url(#msSkin)"/>
+    <!-- 脖子 -->
+    <rect x="30" y="34" width="6" height="5" rx="1.5" fill="#f1bd8c"/>
     <!-- 頭 -->
-    <circle cx="33" cy="26" r="11" fill="#fcd9a8"/>
+    <circle cx="33" cy="26" r="11" fill="url(#msSkin)"/>
+    <!-- 耳朵 -->
+    <circle cx="22.4" cy="27" r="2.1" fill="#f1bd8c"/><circle cx="43.6" cy="27" r="2.1" fill="#f1bd8c"/>
+    <!-- 腮紅 -->
+    <ellipse cx="26.6" cy="29.4" rx="2.4" ry="1.5" fill="#fb9b9b" opacity=".5"/>
+    <ellipse cx="39.4" cy="29.4" rx="2.4" ry="1.5" fill="#fb9b9b" opacity=".5"/>
     <!-- 安全帽（白色） -->
-    <path d="M20 23 a13 8.5 0 0 1 26 0 z" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
-    <rect x="18" y="22" width="30" height="4.2" rx="2.1" fill="#e2e8f0" stroke="#cbd5e1" stroke-width=".6"/>
-    <rect x="31.5" y="12.5" width="3" height="5" rx="1.5" fill="#cbd5e1"/>
-    <!-- 臉（會眨眼） -->
-    <ellipse cx="29" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
-    <ellipse cx="37" cy="26" rx="1.7" ry="1.7" fill="#0f172a"><animate attributeName="ry" values="1.7;1.7;0.15;1.7" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse>
+    <path d="M20 23 a13 8.8 0 0 1 26 0 z" fill="url(#msHat)" stroke="#cbd5e1" stroke-width="1"/>
+    <path id="mascot-shine" d="M25 18.5 a9 6 0 0 1 9.5 -2.2" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+    <rect x="17.5" y="22" width="31" height="4.4" rx="2.2" fill="#eef2f6" stroke="#cbd5e1" stroke-width=".6"/>
+    <rect x="31.5" y="12" width="3" height="5" rx="1.5" fill="#cbd5e1"/>
+    <!-- 眼睛（會眨眼）＋高光 -->
+    <g><ellipse cx="29" cy="26.3" rx="1.9" ry="1.9" fill="#0f172a"><animate attributeName="ry" values="1.9;1.9;0.12;1.9" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse><circle cx="29.7" cy="25.6" r=".6" fill="#fff"/></g>
+    <g><ellipse cx="37" cy="26.3" rx="1.9" ry="1.9" fill="#0f172a"><animate attributeName="ry" values="1.9;1.9;0.12;1.9" keyTimes="0;0.93;0.965;1" dur="4.5s" repeatCount="indefinite"/></ellipse><circle cx="37.7" cy="25.6" r=".6" fill="#fff"/></g>
     <!-- 嘴（偶爾笑得更開；點擊時變 O） -->
-    <path id="mascot-mouth" d="M29 31 q4 3.2 8 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"><animate attributeName="d" values="M29 31 q4 3.2 8 0;M29 31 q4 3.2 8 0;M28 31 q5 4.8 10 0;M29 31 q4 3.2 8 0" keyTimes="0;0.6;0.78;1" dur="6s" repeatCount="indefinite"/></path>
+    <path id="mascot-mouth" d="M29.5 31 q3.5 3.2 7 0" stroke="#0f172a" stroke-width="1.5" fill="none" stroke-linecap="round"><animate attributeName="d" values="M29.5 31 q3.5 3.2 7 0;M29.5 31 q3.5 3.2 7 0;M28.5 31 q4.5 4.8 9 0;M29.5 31 q3.5 3.2 7 0" keyTimes="0;0.6;0.78;1" dur="6s" repeatCount="indefinite"/></path>
     <ellipse id="mascot-mouth-o" cx="33" cy="32" rx="2.3" ry="2.7" fill="#e23b3b" stroke="#0f172a" stroke-width="1.2" opacity="0"></ellipse>
     <!-- 右手（滑過時抬起揮動，放最後蓋在身體上） -->
-    <g id="mascot-arm"><rect x="43" y="40" width="6" height="16" rx="3" fill="#059669"/><circle cx="46" cy="58" r="3.4" fill="#fcd9a8"/></g>
+    <g id="mascot-arm"><rect x="43.5" y="40" width="6" height="16" rx="3" fill="url(#msVest)"/><circle cx="46.5" cy="58" r="3.4" fill="url(#msSkin)"/></g>
   </svg>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
