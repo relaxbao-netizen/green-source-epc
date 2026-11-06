@@ -646,6 +646,15 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .kli-bar-fill { height: 100%; border-radius: 3px; }
 .kli-pct { font-size: 13px; font-weight: 700; width: 38px; text-align: right; }
 
+/* 對客戶請款說明氣泡：桌機浮動指向欄位；手機改一般整行提示 */
+.bill-note-wrap { position: relative; height: 0; z-index: 20; pointer-events: none; }
+.bill-note { position: absolute; bottom: 6px; left: 74%; max-width: 220px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 9px; padding: 6px 10px; font-size: 11px; color: #7c2d12; line-height: 1.5; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.bill-note-arrow { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%) rotate(45deg); width: 11px; height: 11px; background: #fff7ed; border-right: 1px solid #fed7aa; border-bottom: 1px solid #fed7aa; }
+@media(max-width:600px) {
+  .bill-note-wrap { position: static; height: auto; pointer-events: auto; margin: 0 0 10px; }
+  .bill-note { position: static; max-width: none; left: auto !important; bottom: auto; }
+  .bill-note-arrow { display: none; }
+}
 @media(max-width:960px) {
   .kpi-row { grid-template-columns: repeat(3,1fr); }
   .main-grid { grid-template-columns: 1fr; }
@@ -7609,14 +7618,15 @@ function appBillHandled(r){
 // 對客戶請款金額顯示色：尚未 key 開票/收款日期＝紅，已處理＝黑
 function appBillColor(r){ return appBillHandled(r)?'#0f172a':'#dc2626'; }
 // 「對客戶請款」金額紅/黑字規則說明（提醒相關人）
-const APP_BILL_COLOR_NOTE = '<div style="position:relative;height:0;z-index:20;pointer-events:none">'
-  + '<div data-billnote style="position:absolute;bottom:6px;left:74%;transform:translateX(-50%);max-width:220px;background:#fff7ed;border:1px solid #fed7aa;border-radius:9px;padding:6px 10px;font-size:11px;color:#7c2d12;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.08)">'
+const APP_BILL_COLOR_NOTE = '<div class="bill-note-wrap">'
+  + '<div class="bill-note" data-billnote>'
   + '💡「對客戶請款」金額<br><b style="color:#dc2626">紅字＝尚未開票／收款</b><br><b style="color:#0f172a">黑字＝已處理</b>'
-  + '<span data-billarrow style="position:absolute;left:50%;bottom:-6px;transform:translateX(-50%) rotate(45deg);width:11px;height:11px;background:#fff7ed;border-right:1px solid #fed7aa;border-bottom:1px solid #fed7aa"></span>'
+  + '<span class="bill-note-arrow" data-billarrow></span>'
   + '</div></div>';
-// 渲染後把說明氣泡／箭頭對準表格的「對客戶請款」欄（寬表會橫捲，固定百分比對不準，故用實際欄位座標）
+// 渲染後把說明氣泡／箭頭對準表格的「對客戶請款」欄（寬表會橫捲，固定百分比對不準，故用實際欄位座標）；手機改為一般整行提示，不浮動
 function appPositionBillNote(root) {
   try {
+    if (window.innerWidth <= 600) return;   // 手機：用 CSS 的靜態整行提示，不做絕對定位
     const note = root && root.querySelector('[data-billnote]');
     if (!note) return;
     const arrow = note.querySelector('[data-billarrow]');
