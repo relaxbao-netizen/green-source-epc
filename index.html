@@ -1153,6 +1153,9 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <input type="date" id="ins-edit-input" style="width:100%;box-sizing:border-box;padding:9px 10px;margin-top:5px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--font)">
       <button class="btn-primary" style="width:100%;margin-top:18px" onclick="insEditSave()">💾 儲存到期日</button>
       <button class="btn-secondary" style="width:100%;margin-top:8px" onclick="insEditNA()">無此保險</button>
+      <div style="border-top:1px solid var(--border);margin:14px 0 10px"></div>
+      <button id="ins-edit-nowarn" class="btn-secondary" style="width:100%" onclick="insEditToggleNoWarn()"></button>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">開啟後：此保險即使快到期也不跳警示（適用「工期內就會完工、不需續約」）。設定存在本機瀏覽器。</div>
     </div>
   </div>
 </div>
@@ -1993,6 +1996,15 @@ function applyInsLS() {
 function writeInsLS(id) {
   try { const o = JSON.parse(localStorage.getItem(INS_LS_KEY) || '{}'); o[id] = insData[id]; localStorage.setItem(INS_LS_KEY, JSON.stringify(o)); } catch (e) {}
 }
+// 「工期內完工·免續約提醒」：標記某案某保險即使快到期也不跳警示（存瀏覽器 localStorage）
+let insNoWarn = {};
+function applyInsNoWarn() { try { insNoWarn = JSON.parse(localStorage.getItem('gs_ins_nowarn') || '{}'); } catch (e) { insNoWarn = {}; } }
+function insNW(siteId, key) { return !!insNoWarn[siteId + '|' + key]; }
+function setInsNoWarn(siteId, key, on) {
+  const k = siteId + '|' + key;
+  if (on) insNoWarn[k] = true; else delete insNoWarn[k];
+  try { localStorage.setItem('gs_ins_nowarn', JSON.stringify(insNoWarn)); } catch (e) {}
+}
 async function loadInsurance() {
   if (!sb) return;
   try { const { data, error } = await sb.from('site_insurance').select('*'); if (error || !data) return; data.forEach(r => { insData[r.site_id] = { a: r.a, b: r.b }; }); } catch (e) {}
@@ -2016,7 +2028,7 @@ function insAlerts() {
   const items = [];
   insSites().forEach(s => INS_META.forEach(m => {
     const st = insStatus((insData[s.id] || {})[m.key]);
-    if (st.has && (st.level === 'expired' || st.level === 'soon')) items.push({ site: s, key: m.key, label: m.label, st });
+    if (st.has && (st.level === 'expired' || st.level === 'soon') && !insNW(s.id, m.key)) items.push({ site: s, key: m.key, label: m.label, st });
   }));
   return items.sort((a, b) => a.st.days - b.st.days);
 }
@@ -2048,6 +2060,7 @@ function renderInsTable() {
       let inner;
       if (!st.has) inner = `<span style="color:#cbd5e1">—</span>`;
       else if (st.level === 'ok') inner = `<div style="font-weight:600">${st.ymd}</div>`;
+      else if (insNW(s.id, m.key)) inner = `<div style="font-weight:600">${st.ymd}</div><div class="cert-pill" style="background:#94a3b8" title="已設為工期內完工、免續約提醒">工期內完工·免提醒</div>`;
       else { const txt = st.level === 'expired' ? `已逾期 ${st.durText}` : `剩 ${st.durText}`; inner = `<div style="font-weight:600;color:${CERT_COLORS[st.level]}">${st.ymd}</div><div class="cert-pill" style="background:${CERT_COLORS[st.level]}">${txt}</div>`; }
       const edit = can('ins.edit') ? ` onclick="insEditCell(${s.id},'${m.key}')" title="點擊編輯到期日"` : '';
       return `<td class="cert-cell${can('ins.edit') ? ' editable' : ''}" data-ins="${s.id}|${m.key}" style="text-align:center;white-space:nowrap"${edit}>${inner}</td>`;
@@ -2110,8 +2123,24 @@ function insEditCell(siteId, key) {
   const inp = document.getElementById('ins-edit-input');
   const cur = insParse((insData[siteId] || {})[key]).date;
   if (cur) { const p = n => String(n).padStart(2, '0'); inp.value = `${cur.getFullYear()}-${p(cur.getMonth() + 1)}-${p(cur.getDate())}`; } else inp.value = '';
+  insEditSyncNoWarnBtn();
   document.getElementById('ins-edit-overlay').classList.add('open');
   setTimeout(() => inp.focus(), 50);
+}
+function insEditSyncNoWarnBtn() {
+  const btn = document.getElementById('ins-edit-nowarn'); if (!btn || !insEditRef) return;
+  const on = insNW(insEditRef.siteId, insEditRef.key);
+  btn.textContent = on ? '🔔 恢復此保險的續約提醒' : '🔕 工期內完工·免續約提醒';
+  btn.style.color = on ? 'var(--accent)' : '';
+  btn.style.fontWeight = on ? '700' : '';
+}
+function insEditToggleNoWarn() {
+  if (!insEditRef) return;
+  const { siteId, key } = insEditRef;
+  setInsNoWarn(siteId, key, !insNW(siteId, key));
+  insEditSyncNoWarnBtn();
+  if (typeof renderInsTable === 'function') renderInsTable();
+  if (typeof renderInsReminder === 'function') renderInsReminder();
 }
 function closeInsEdit() { document.getElementById('ins-edit-overlay').classList.remove('open'); insEditRef = null; }
 async function insEditSave() {
@@ -2123,6 +2152,7 @@ async function insEditSave() {
 }
 async function insEditNA() { if (!insEditRef) return; await insSaveDate(insEditRef.siteId, insEditRef.key, 'x'); closeInsEdit(); }
 applyInsLS();
+applyInsNoWarn();
 
 // 工地主任每日派工／支援紀錄：{ id, log_date, supervisor, site_id }
 let supLogs = [];
