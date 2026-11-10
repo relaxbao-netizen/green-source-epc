@@ -3999,17 +3999,21 @@ const DL_PDF_STYLE = `<style>
     .dlpdf .tb{table-layout:fixed}
     .dlpdf .tb th{background:#e9edf1;color:#374151;font-weight:500}
     .dlpdf .tb th,.dlpdf .tb td{padding:6px 8px;text-align:center;word-break:break-word}
+    .dlpdf .tb tbody td{height:26px}
     .dlpdf .tb tbody tr:nth-child(even){background:#f8f9fa}
     .dlpdf .note td{padding:6px 8px;height:24px;text-align:left}
     .dlpdf .sign td{padding:6px;text-align:center;vertical-align:middle}
     .dlpdf .sign .lbl{font-weight:700;background:#e9edf1;color:#374151}
     .dlpdf .sign .nm{height:32px;vertical-align:middle}
   </style>`;
-// 第一頁：施工日誌內容（一、二表格只顯示實際有填的列，不補空白格）
+// 第一頁：施工日誌內容（一、二表格至少補到 3 列並固定列高，沒填也不萎縮）
 function dlLogContentHtml(r) {
   const cell = v => appEsc(v || '');
-  const items = (r.items && r.items.length) ? r.items : [{}];
-  const workers = (r.workers && r.workers.length) ? r.workers : [{}];
+  // 一、二表格補到最少列數，沒填也維持表格高度不萎縮
+  const items = (r.items && r.items.length) ? r.items.slice() : [];
+  while (items.length < 3) items.push({});
+  const workers = (r.workers && r.workers.length) ? r.workers.slice() : [];
+  while (workers.length < 3) workers.push({});
   const itemRows = items.map(it => `<tr><td style="text-align:left">${cell(it.name)}</td><td>${cell(it.today)}</td><td>${cell(it.unit)}</td><td>${cell(it.cum)}</td><td>${cell(it.hours)}</td><td style="text-align:left">${cell(it.note)}</td></tr>`).join('');
   const workerRows = workers.map(w => `<tr><td style="text-align:left">${cell(w.trade)}</td><td>${cell(w.today)}</td><td>${cell(w.cum)}</td><td style="text-align:left">${cell(w.note)}</td></tr>`).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
@@ -4044,7 +4048,7 @@ function dlLogPhotoHtml(photoSrcs, caps) {
   const photos = (photoSrcs || []).slice(0, 6);
   const cs = caps || [];
   // 每格 4:3 橫式：外層 div 用 padding-bottom:75% 鎖比例，照片置中填滿；一律白底。每格加明顯粗框、cell 間留白，讓每張照片清楚區分；照片下方帶文字說明
-  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:6px;vertical-align:top;background:#fff;border:none"><div style="position:relative;width:100%;padding-bottom:75%;border:2px solid #4b5563;box-sizing:border-box;background:#fff">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div>${has ? `<div style="text-align:center;font-size:13px;margin-top:4px;min-height:16px">${appEsc(cs[i] || '')}</div>` : ''}</td>`; });
+  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:6px;vertical-align:top;background:#fff;border:none"><div style="position:relative;width:100%;padding-bottom:75%;border:2px solid #4b5563;box-sizing:border-box;background:#fff">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div><div style="text-align:center;font-size:13px;margin-top:4px;min-height:18px">${has ? appEsc(cs[i] || '') : ''}</div></td>`; });
   const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
   return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:20px">工進照片</h1><table style="table-layout:fixed;border:none">${photoRows}</table></div>`;
 }
