@@ -2672,46 +2672,61 @@ async function renderScFill() {
   await loadScRecords();
   scShowList();
 }
+// 第一層：案場清單（先分案場）
 function scShowList() {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
-  const cnt = key => (scLogs || []).filter(r => r.sc_type === key).length;
-  const cards = SC_TYPES.map(t => `<div class="card" onclick="scOpenType('${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="flex:1"><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${cnt(t.key)} 筆</div></div></div>`).join('');
+  const activeSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const cntBySite = {}; (scLogs || []).forEach(r => { cntBySite[r.site_id] = (cntBySite[r.site_id] || 0) + 1; });
+  const cards = activeSites.map(s => `<div class="card" onclick="scSiteView('${s.id}')" style="cursor:pointer;padding:16px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><div style="font-weight:700;font-size:15px;min-height:38px">${appEsc(s.label || s.name)}</div><div style="font-size:12px;color:var(--muted)">${cntBySite[s.id] || 0} 筆檢查表</div></div>`).join('');
   cont.innerHTML = `
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">工程自主檢查表　共規劃 11 項，已建立 ${SC_TYPES.length} 項。點項目開始填寫。</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">工程自主檢查表（共規劃 11 項，已建立 ${SC_TYPES.length} 項）。先選案場，再選檢查項目。</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">目前沒有進行中的案場。</div>'}</div>`;
+}
+// 第二層：該案場的各檢查項目
+function scSiteView(siteId) {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  const s = siteById(Number(siteId)); const nm = s ? (s.label || s.name) : ('案場#' + siteId);
+  const cntByType = key => (scLogs || []).filter(r => String(r.site_id) === String(siteId) && r.sc_type === key).length;
+  const cards = SC_TYPES.map(t => `<div class="card" onclick="scTypeView('${siteId}','${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="flex:1"><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${cntByType(t.key)} 筆</div></div></div>`).join('');
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+      <button onclick="scShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
+      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
+      <div style="width:90px"></div>
+    </div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:10px">選擇檢查項目：</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">檢查項目將陸續建立。</div>'}</div>`;
 }
-function scOpenType(key) { if (SC_TYPES.some(x => x.key === key)) scTypeView(key); }
-// 共用：某檢查項目的記錄清單
-function scTypeView(key) {
+// 第三層：該案場該項目的記錄清單
+function scTypeView(siteId, key) {
   const t = SC_TYPES.find(x => x.key === key); if (!t) return;
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
-  const list = (scLogs || []).filter(r => r.sc_type === key).sort((a, b) => String(b.check_date).localeCompare(String(a.check_date)));
+  const s = siteById(Number(siteId)); const nm = s ? (s.label || s.name) : ('案場#' + siteId);
+  const list = (scLogs || []).filter(r => String(r.site_id) === String(siteId) && r.sc_type === key).sort((a, b) => String(b.check_date).localeCompare(String(a.check_date)));
   const rows = list.length ? list.map(r => {
     const mine = dlCanEditLog(r);
-    const s = siteById(Number(r.site_id)); const nm = s ? (s.label || s.name) : ('案場#' + r.site_id);
     const pdfLink = r.pdf && (r.pdf.view || r.pdf.url);
     return `<tr style="border-top:1px solid var(--border)${mine ? ';cursor:pointer' : ''}"${mine ? ` onclick="scEditRec('${key}','${r.id}')"` : ''}>
       <td style="padding:8px 10px;white-space:nowrap">${appEsc(String(r.check_date).slice(0, 10))}</td>
-      <td style="padding:8px 10px">${appEsc(nm)}</td>
       <td style="padding:8px 10px;white-space:nowrap;color:var(--muted)">${appEsc(r.created_by || '') || '—'}</td>
       <td style="padding:8px 10px;white-space:nowrap">${pdfLink ? `<a href="${pdfLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--accent)">📄 檢視 PDF</a>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td style="padding:8px 10px;text-align:right">${mine ? '<span style="color:var(--accent);font-weight:600">編輯 ›</span>' : '<span style="color:var(--muted);font-size:12px">僅檢視</span>'}</td></tr>`;
-  }).join('') : `<tr><td colspan="5" style="padding:16px;color:var(--muted)">此項目尚無紀錄，點右上角「＋ 新增」開始。</td></tr>`;
+  }).join('') : `<tr><td colspan="4" style="padding:16px;color:var(--muted)">此項目尚無紀錄，點右上角「＋ 新增」開始。</td></tr>`;
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
-      <button onclick="scShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回項目</button>
-      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${t.icon || '📋'} ${appEsc(t.title)}</div>
-      <button onclick="scNewRec('${key}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+      <button onclick="scSiteView('${siteId}')" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回項目</button>
+      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}　${t.icon || '📋'} ${appEsc(t.title)}</div>
+      <button onclick="scNewRec('${siteId}','${key}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
-    <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">檢驗日期</th><th style="text-align:left;padding:8px 10px">案場</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">填表人</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="width:70px"></th></tr></thead>
+    <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px">
+      <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">檢驗日期</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">填表人</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="width:70px"></th></tr></thead>
       <tbody>${rows}</tbody></table></div></div>`;
 }
-function scNewRec(key) { const t = SC_TYPES.find(x => x.key === key); if (t && t.form) t.form(null); }
+function scNewRec(siteId, key) { const t = SC_TYPES.find(x => x.key === key); if (t && t.form) t.form(null, siteId); }
 function scEditRec(key, id) {
   const t = SC_TYPES.find(x => x.key === key); const rec = (scLogs || []).find(r => String(r.id) === String(id)); if (!rec) return;
   if (!dlCanEditLog(rec)) { alert('只能編輯自己新增的紀錄。'); return; }
-  if (t && t.form) t.form(rec);
+  if (t && t.form) t.form(rec, rec.site_id);
 }
 // 共用儲存：產 PDF→上傳 Drive→寫入 site_selfcheck（刪舊 PDF）
 async function scSaveRecord(opts) {
@@ -2749,12 +2764,12 @@ const SC_BRACKET_Q = [
   '檢驗結果是否合格？'
 ];
 let scBrEditingId = null;
-function scBracketForm(rec) {
+function scBracketForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
   scBrEditingId = rec ? rec.id : null;
   const d = (rec && rec.data) ? rec.data : {};
   const checks = d.checks || {};
-  const defSite = rec ? rec.site_id : null;
+  const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
   const siteOpts = formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
@@ -2764,7 +2779,7 @@ function scBracketForm(rec) {
   const yn = (i, val) => `<label style="margin-right:16px;font-size:13px;cursor:pointer"><input type="radio" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''} style="margin-right:4px">Yes</label><label style="font-size:13px;cursor:pointer"><input type="radio" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''} style="margin-right:4px">No</label>`;
   const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}</div>`; }).join('');
   cont.innerHTML = `
-    <div style="margin-bottom:10px"><button onclick="scTypeView('bracket')" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div style="margin-bottom:10px"><button onclick="scTypeView('${defSite}','bracket')" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
@@ -2814,7 +2829,7 @@ async function scBracketSave() {
   try {
     await scSaveRecord({ key: 'bracket', siteId, checkDate, data, note: '', pdfHtml: scBracketPdfHtml(scBracketMeta(siteId, checkDate, data)), editingId: scBrEditingId, msgEl: msg });
     if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
-    setTimeout(() => scTypeView('bracket'), 800);
+    setTimeout(() => scTypeView(siteId, 'bracket'), 800);
   } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
 }
 async function scBracketPrint() {
@@ -2832,7 +2847,8 @@ async function scBracketDelete() {
     if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id);
     const { error } = await sb.from('site_selfcheck').delete().eq('id', scBrEditingId);
     if (error) throw error;
-    await loadScRecords(); scTypeView('bracket');
+    const _sid = rec ? rec.site_id : null;
+    await loadScRecords(); scTypeView(_sid, 'bracket');
   } catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 function scBracketPdfHtml(meta) {
