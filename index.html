@@ -556,8 +556,11 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 /* 自主檢查表 Yes/No 切換膠囊 */
 .sc-yn { display: inline-flex; gap: 8px; }
 .sc-yn input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
-.sc-yn label { cursor: pointer; padding: 6px 20px; border: 1.5px solid var(--border); border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--muted); user-select: none; transition: all .12s ease; }
-.sc-yn label:hover { border-color: #94a3b8; background: var(--surface2); }
+.sc-yn label { cursor: pointer; padding: 6px 20px; border: 1.5px solid var(--border); border-radius: 999px; font-size: 13px; font-weight: 700; user-select: none; transition: all .12s ease; }
+.sc-yn label.sc-yn-yes { color: #23a46c; border-color: #9fd9bd; }
+.sc-yn label.sc-yn-no { color: #d75858; border-color: #efbaba; }
+.sc-yn label.sc-yn-yes:hover { background: #eafaf1; border-color: #23a46c; }
+.sc-yn label.sc-yn-no:hover { background: #fdeeee; border-color: #d75858; }
 .sc-yn label:active { transform: scale(.96); }
 .sc-yn input:focus-visible + label { outline: 2px solid var(--accent2); outline-offset: 1px; }
 .sc-yn input:checked + label.sc-yn-yes { background: #23a46c; border-color: #23a46c; color: #fff; }
