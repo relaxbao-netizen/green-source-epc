@@ -3068,7 +3068,7 @@ async function dlLoadForm() {
   const dayDiff = (a, b) => { const x = new Date(toISO(a)), y = new Date(toISO(b)); return (a && b && !isNaN(x) && !isNaN(y)) ? Math.max(0, Math.round((y - x) / 86400000) + 1) : ''; };
   const contractDays = existing && existing.contract_days != null ? existing.contract_days : dayDiff(start, end);
   const cumDays = existing && existing.cum_days != null ? existing.cum_days : dayDiff(start, date);
-  const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（編輯此筆日誌）' : '（新建日誌）';
+  const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（編輯此筆施工日誌）' : '（新建施工日誌）';
   const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   _dlWbsNames = dlWbsItems(s).map(x => x.name);
