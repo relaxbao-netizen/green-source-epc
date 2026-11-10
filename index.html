@@ -2770,8 +2770,17 @@ function dlRenderUsage() {
   el.innerHTML = `<span style="font-size:12px;color:var(--muted)">📄 儲存產生「施工日誌 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${extra}</span>`;
 }
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
-let _dlForceSupDefault = false;   // 案場變更時：工地主任重設為該案預設（其它重繪保留現選）
+let _dlForceSupDefault = false;   // 案場變更時：工地主任重設為預設（其它重繪保留現選）
 async function dlOnSiteChange() { _dlForceSupDefault = true; await dlLoadForm(); }
+// 工地主任預設＝登入帳號：把登入者對到在職主任名單（對不到就用登入者姓名本身）
+function dlLoginSupName() {
+  if (typeof currentUser === 'undefined' || !currentUser || !currentUser.name) return '';
+  const my = String(currentUser.name).split('@')[0].split('_')[0].trim();
+  const myN = my.replace(/\s/g, '');
+  const list = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
+  const hit = list.find(n => { const f = String(n).split(/\s+/)[0].replace(/\s/g, ''); return f && (myN.includes(f) || f.includes(myN)); });
+  return hit || my;
+}
 async function dlLoadForm() {
   const body = document.getElementById('dl-form-body'); if (!body) return;
   const sid = Number(document.getElementById('dl-site').value);
@@ -2810,12 +2819,12 @@ async function dlLoadForm() {
   // 頂欄「工地主任」下拉：選項＝在職主任，預設帶該案主任（新建帶該案第一位 PM；編輯沿用原值）；
   // 案場變更才重設預設；只改日期等重繪時保留使用者目前選的
   const _dlSvSel = document.getElementById('dl-supervisor');
-  const _firstPm = (typeof pmList === 'function' ? (pmList(s) || []) : [])[0] || '';
+  const _defSup = dlLoginSupName() || ((typeof pmList === 'function' ? (pmList(s) || []) : [])[0] || '');  // 預設＝登入帳號（對不到主任名單時退回該案 PM）
   const _prevSel = _dlSvSel ? _dlSvSel.value : '';
   let _dlCurSup;
-  if (_dlForceSupDefault) _dlCurSup = _firstPm;
+  if (_dlForceSupDefault) _dlCurSup = _defSup;
   else if (_prevSel) _dlCurSup = _prevSel;
-  else _dlCurSup = existing ? (existing.supervisor || '') : _firstPm;
+  else _dlCurSup = existing ? (existing.supervisor || '') : _defSup;
   _dlForceSupDefault = false;
   if (_dlSvSel) {
     const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
