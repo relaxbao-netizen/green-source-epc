@@ -7757,6 +7757,13 @@ async function appReloadRender(){
     const mo = document.getElementById('modal-overlay');
     if (mo && mo.classList.contains('open') && _openSiteModalId != null && typeof openModal === 'function') openModal(_openSiteModalId);
   } catch (e) {}
+  try {
+    const ro = document.getElementById('app-result-overlay');
+    if (ro && ro.classList.contains('open') && typeof _appResultRender === 'function') {
+      const rb = document.getElementById('app-result-body');
+      if (rb) { rb.innerHTML = _appResultRender(); requestAnimationFrame(() => appPositionBillNote(rb)); }
+    }
+  } catch (e) {}
   try { window.scrollTo(0, y); } catch (e) {}
 }
 
@@ -7915,14 +7922,15 @@ function appQueryOnChange(){
   runAppQuery();
 }
 function appGoQuerySite(name){
-  const rows=appRequests.filter(r=>r.site_name===name);
-  appShowResultModal(`${name}（${rows.length}筆）`, appBillableTableHTML(rows));
+  const filt=()=>appRequests.filter(r=>r.site_name===name);
+  appShowResultModal(`${name}（${filt().length}筆）`, ()=>appBillableTableHTML(filt()));
 }
 // 點入案場 → 看該案場需向客戶請款的明細與累計金額
 function appGoQuerySiteBillable(name){
-  const rows=appRequests.filter(r=>r.site_name===name && r.status!=='rejected' && appIsBillable(r));
+  const filt=()=>appRequests.filter(r=>r.site_name===name && r.status!=='rejected' && appIsBillable(r));
+  const rows=filt();
   const total=rows.reduce((s,r)=>s+(Number(r.client_amount)||Number(appEffTotal(r))||0),0);
-  appShowResultModal(`${siteShortName(name)}　需向客戶請款 NT$ ${appMoney(total)}（${rows.length}筆）`, appBillableTableHTML(rows));
+  appShowResultModal(`${siteShortName(name)}　需向客戶請款 NT$ ${appMoney(total)}（${rows.length}筆）`, ()=>appBillableTableHTML(filt()));
 }
 // 請款明細專用表：無工程名稱欄，金額後加「需向客戶請款」紅字欄
 function appBillableTableHTML(rows){
@@ -7953,12 +7961,12 @@ function appReqMatchSite(r, s){
 }
 function appGoQuerySiteForSite(siteId){
   const s=siteById(siteId); if(!s) return;
-  const rows=appRequests.filter(r=>appReqMatchSite(r,s));
-  appShowResultModal(`${s.label||s.name}（${rows.length}筆）`, appBillableTableHTML(rows));
+  const filt=()=>appRequests.filter(r=>appReqMatchSite(r,s));
+  appShowResultModal(`${s.label||s.name}（${filt().length}筆）`, ()=>appBillableTableHTML(filt()));
 }
 function appGoQueryMonthKey(k){
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
-  appShowResultModal(`${k}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
+  appShowResultModal(`${k}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 function appTrendSVG(byMonth){
   const keys = Object.keys(byMonth).sort();
@@ -7987,16 +7995,16 @@ function appBillSplit(b,a,ym){
     <div style="background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;margin:3px 0;cursor:pointer" onclick="appGoQueryBillSplit('${ym}',false)"><div style="height:100%;width:${a/t*100}%;background:#dc2626"></div></div></div>`;
 }
 function appGoQueryBillSplit(ym,billable){
-  const rows=appRequests.filter(r=>r.status!=='rejected' && (r.apply_date||r.created_at||'').slice(0,7)===ym && appIsBillable(r)===billable);
-  appShowResultModal(`${ym}　${billable?'需向客戶請款':'綠源自行吸收'}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>r.status!=='rejected' && (r.apply_date||r.created_at||'').slice(0,7)===ym && appIsBillable(r)===billable);
+  appShowResultModal(`${ym}　${billable?'需向客戶請款':'綠源自行吸收'}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 function appGoQueryMonthStatus(ym,statusKey){
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && appStatusKey(r)===statusKey);
-  appShowResultModal(`${ym}　${STATUS_LABELS[statusKey]}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===ym && appStatusKey(r)===statusKey);
+  appShowResultModal(`${ym}　${STATUS_LABELS[statusKey]}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 function appGoQueryStatus(statusKey){
-  const rows=appRequests.filter(r=>appStatusKey(r)===statusKey);
-  appShowResultModal(`${STATUS_LABELS[statusKey]}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>appStatusKey(r)===statusKey);
+  appShowResultModal(`${STATUS_LABELS[statusKey]}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 function appSelectedExportYm(){
   const inp=document.getElementById('app-export-month');
@@ -8005,20 +8013,20 @@ function appSelectedExportYm(){
 }
 function appGoQueryMonth(){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
-  appShowResultModal(`${k}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k);
+  appShowResultModal(`${k}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 // 已核准件數卡片：只列該月已核准
 function appGoQueryMonthApproved(){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.approved_date||'').slice(0,7)===k && r.status==='approved');
-  appShowResultModal(`${k}　已核准（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.approved_date||'').slice(0,7)===k && r.status==='approved');
+  appShowResultModal(`${k}　已核准（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 // 追加金額卡片：列該月計入金額的單（排除遭退回）
 function appGoQueryMonthAmount(){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected');
-  appShowResultModal(`${k}　追加明細（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected');
+  appShowResultModal(`${k}　追加明細（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 // 該月各案場追加金額（只含該月有追加、排除遭退回）
 function appMonthBySite(ym){
@@ -8028,8 +8036,8 @@ function appMonthBySite(ym){
 }
 function appGoQueryMonthSite(name){
   const k=appSelectedExportYm();
-  const rows=appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected' && (r.site_name||'未指定')===name);
-  appShowResultModal(`${k}　${name}（${rows.length}筆）`, appResultTableHTML(rows, true));
+  const filt=()=>appRequests.filter(r=>(r.apply_date||r.created_at||'').slice(0,7)===k && r.status!=='rejected' && (r.site_name||'未指定')===name);
+  appShowResultModal(`${k}　${name}（${filt().length}筆）`, ()=>appResultTableHTML(filt(), true));
 }
 // 月份選擇改變時，整張儀表板（含圖一、追加明細、KPI）依選擇月份重繪
 function appMonthCardRefresh(){
@@ -8890,12 +8898,15 @@ function runAppQuery(){
 }
 function appGoQueryPending(){
   const n=appRequests.filter(r=>appStatusKey(r)==='pending').length;
-  appShowResultModal(`跑單中（${n}筆）`, appSignListHTML());
+  appShowResultModal(`跑單中（${n}筆）`, ()=>appSignListHTML());
 }
+// bodyHTML 可傳字串或「函式」；傳函式時會記住它，之後申請單有變更可即時重算重繪（appReloadRender 會呼叫）
+let _appResultRender = null;
 function appShowResultModal(title, bodyHTML){
+  _appResultRender = (typeof bodyHTML === 'function') ? bodyHTML : null;
   document.getElementById('app-result-title').textContent=title;
   const body=document.getElementById('app-result-body');
-  body.innerHTML=bodyHTML;
+  body.innerHTML = _appResultRender ? _appResultRender() : bodyHTML;
   document.getElementById('app-result-overlay').classList.add('open');
   requestAnimationFrame(()=>appPositionBillNote(body));
 }
