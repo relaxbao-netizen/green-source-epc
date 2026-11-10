@@ -560,8 +560,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .sc-yn label:hover { border-color: #94a3b8; background: var(--surface2); }
 .sc-yn label:active { transform: scale(.96); }
 .sc-yn input:focus-visible + label { outline: 2px solid var(--accent2); outline-offset: 1px; }
-.sc-yn input:checked + label.sc-yn-yes { background: #dcfce7; border-color: #86efac; color: #15803d; }
-.sc-yn input:checked + label.sc-yn-no { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+.sc-yn input:checked + label.sc-yn-yes { background: #2fb37a; border-color: #2fb37a; color: #fff; }
+.sc-yn input:checked + label.sc-yn-no { background: #e26a6a; border-color: #e26a6a; color: #fff; }
 /* 操作紀錄有新紀錄時，紀錄按鈕底色呼吸（紅↔透明） */
 @keyframes auditFlash { 0%,100% { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.4); } 50% { background: rgba(239,68,68,.75); border-color: rgba(239,68,68,.9); } }
 .audit-flash { animation: auditFlash 1.6s ease-in-out infinite; }
@@ -2801,7 +2801,7 @@ function scBracketForm(rec, presetSite) {
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
-  const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✓ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✗ No</label></div>`;
+  const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✘ No</label></div>`;
   const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}</div>`; }).join('');
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scShowList()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
