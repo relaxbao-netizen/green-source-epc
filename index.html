@@ -2681,22 +2681,21 @@ function scShowList() {
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <div style="font-size:13px;color:var(--muted)">工程自主檢查表（共規劃 11 項，已建立 ${SC_TYPES.length} 項）</div>
-      <button onclick="scPickSite()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增檢查表</button>
+      <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增檢查表</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無檢查表，點右上角「＋ 新增檢查表」開始。</div>'}</div>`;
 }
-// 新建：先挑案場（列所有進行中案場）→ 進該案場的項目清單
-function scPickSite() {
+// 新建：直接選檢查項目（案場在表單裡的下拉選，不另設選案場畫面）
+function scPickType() {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
-  const activeSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
-  const cards = activeSites.map(s => `<div class="card" onclick="scSiteView('${s.id}')" style="cursor:pointer;padding:16px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><div style="font-weight:700;font-size:15px;min-height:38px">${appEsc(s.label || s.name)}</div></div>`).join('');
+  const cards = SC_TYPES.map(t => `<div class="card" onclick="scNewRec('', '${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div></div>`).join('');
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="scShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button>
-      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">選擇案場</div>
+      <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">選擇檢查項目</div>
       <div style="width:70px"></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">目前沒有進行中的案場。</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">檢查項目將陸續建立。</div>'}</div>`;
 }
 // 第二層：該案場的各檢查項目
 function scSiteView(siteId) {
@@ -2785,9 +2784,9 @@ function scBracketForm(rec, presetSite) {
   scBrEditingId = rec ? rec.id : null;
   const d = (rec && rec.data) ? rec.data : {};
   const checks = d.checks || {};
-  const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
+  const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
   const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
-  const siteOpts = formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
@@ -2795,7 +2794,7 @@ function scBracketForm(rec, presetSite) {
   const yn = (i, val) => `<label style="margin-right:16px;font-size:13px;cursor:pointer"><input type="radio" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''} style="margin-right:4px">Yes</label><label style="font-size:13px;cursor:pointer"><input type="radio" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''} style="margin-right:4px">No</label>`;
   const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}</div>`; }).join('');
   cont.innerHTML = `
-    <div style="margin-bottom:10px"><button onclick="scTypeView('${defSite}','bracket')" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scShowList()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
