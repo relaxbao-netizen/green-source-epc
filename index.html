@@ -2750,7 +2750,7 @@ function dlShowForm(logId, presetSite) {
     <div style="margin-bottom:10px"><button onclick="dlFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="dl-date" value="${rec ? String(rec.log_date).slice(0, 10) : localDate(new Date())}" onchange="dlLoadForm()"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="dl-supervisor" style="font-weight:400"></select></div>
         <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
@@ -2770,17 +2770,6 @@ function dlRenderUsage() {
   el.innerHTML = `<span style="font-size:12px;color:var(--muted)">📄 儲存產生「施工日誌 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${extra}</span>`;
 }
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
-let _dlForceSupDefault = false;   // 案場變更時：工地主任重設為預設（其它重繪保留現選）
-async function dlOnSiteChange() { _dlForceSupDefault = true; await dlLoadForm(); }
-// 工地主任預設＝登入帳號：把登入者對到在職主任名單（對不到就用登入者姓名本身）
-function dlLoginSupName() {
-  if (typeof currentUser === 'undefined' || !currentUser || !currentUser.name) return '';
-  const my = String(currentUser.name).split('@')[0].split('_')[0].trim();
-  const myN = my.replace(/\s/g, '');
-  const list = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
-  const hit = list.find(n => { const f = String(n).split(/\s+/)[0].replace(/\s/g, ''); return f && (myN.includes(f) || f.includes(myN)); });
-  return hit || my;
-}
 async function dlLoadForm() {
   const body = document.getElementById('dl-form-body'); if (!body) return;
   const sid = Number(document.getElementById('dl-site').value);
@@ -2818,14 +2807,10 @@ async function dlLoadForm() {
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
   // 頂欄「工地主任」下拉：選項＝在職主任，預設帶該案主任（新建帶該案第一位 PM；編輯沿用原值）；
   // 案場變更才重設預設；只改日期等重繪時保留使用者目前選的
+  // 工地主任不自動帶入，一律手動選：新建空白（請選擇）、編輯沿用原值、重繪保留現選
   const _dlSvSel = document.getElementById('dl-supervisor');
-  const _defSup = dlLoginSupName() || ((typeof pmList === 'function' ? (pmList(s) || []) : [])[0] || '');  // 預設＝登入帳號（對不到主任名單時退回該案 PM）
   const _prevSel = _dlSvSel ? _dlSvSel.value : '';
-  let _dlCurSup;
-  if (_dlForceSupDefault) _dlCurSup = _defSup;
-  else if (_prevSel) _dlCurSup = _prevSel;
-  else _dlCurSup = existing ? (existing.supervisor || '') : _defSup;
-  _dlForceSupDefault = false;
+  const _dlCurSup = _prevSel ? _prevSel : (existing ? (existing.supervisor || '') : '');
   if (_dlSvSel) {
     const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
     _dlSvSel.innerHTML = `<option value="">請選擇</option>` + svList.map(n => `<option ${n === _dlCurSup ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (_dlCurSup && !svList.includes(_dlCurSup) ? `<option selected>${appEsc(_dlCurSup)}</option>` : '');
