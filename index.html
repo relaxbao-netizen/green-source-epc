@@ -1001,10 +1001,12 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
     <button id="dl-tab-status" class="tab-btn active" onclick="showDlTab('status')">📊 繳交狀況</button>
     <button id="dl-tab-fill" class="tab-btn" onclick="showDlTab('fill')">✍️ 施工日誌</button>
     <button id="dl-tab-toolbox" class="tab-btn" onclick="showDlTab('toolbox')">🧰 工具箱會議紀錄</button>
+    <button id="dl-tab-selfcheck" class="tab-btn" onclick="showDlTab('selfcheck')">📋 自主檢查表</button>
   </div>
   <div id="dailylog-container"></div>
   <div id="dl-fill-container" hidden></div>
   <div id="dl-toolbox-container" hidden></div>
+  <div id="dl-selfcheck-container" hidden></div>
 </div>
 
 <!-- ===== 器具借出 Modal ===== -->
@@ -2636,11 +2638,37 @@ function showDlTab(tab) {
   show('dailylog-container', tab === 'status');
   show('dl-fill-container', tab === 'fill');
   show('dl-toolbox-container', tab === 'toolbox');
+  show('dl-selfcheck-container', tab === 'selfcheck');
   const act = (id, on) => { const e = document.getElementById(id); if (e) e.classList.toggle('active', on); };
   act('dl-tab-status', tab === 'status');
   act('dl-tab-fill', tab === 'fill');
   act('dl-tab-toolbox', tab === 'toolbox');
-  if (tab === 'fill') renderDlFill(); else if (tab === 'toolbox') renderTbFill(); else renderDailyLog();
+  act('dl-tab-selfcheck', tab === 'selfcheck');
+  if (tab === 'fill') renderDlFill(); else if (tab === 'toolbox') renderTbFill(); else if (tab === 'selfcheck') renderScFill(); else renderDailyLog();
+}
+// ===================== 自主檢查表（第四子分頁）=====================
+// 11 個檢查項目，每項表單不同，逐步建立。每個項目＝{ key, title, icon, open(cont) }
+const SC_TYPES = [];   // 之後逐一加入各檢查項目
+function renderScFill() {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  if (typeof isLoggedIn === 'function' && !isLoggedIn()) {
+    cont.innerHTML = `<div class="card" style="padding:20px;color:var(--muted)">請先用公司 Google 帳號登入，才能使用自主檢查表。<br>
+      <button onclick="devLogin('admin'); showDlTab('selfcheck')" style="margin-top:12px;padding:7px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);cursor:pointer;font-family:inherit">🤖 以測試帳號檢視（上傳檔案需正式登入）</button></div>`;
+    return;
+  }
+  scShowList();
+}
+function scShowList() {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  const cards = SC_TYPES.map(t => `<div class="card" onclick="scOpenType('${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div></div>`).join('');
+  cont.innerHTML = `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">工程自主檢查表　共規劃 11 項，已建立 ${SC_TYPES.length} 項。點項目開始填寫。</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">檢查項目將陸續建立。</div>'}</div>`;
+}
+function scOpenType(key) {
+  const t = SC_TYPES.find(x => x.key === key); if (!t) return;
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  if (typeof t.open === 'function') t.open(cont);
 }
 async function loadDlLogs() {
   if (!sb) return;
