@@ -2672,7 +2672,8 @@ function scEnsureFolder(siteName) { return dlEnsureSubFolder(String(siteName), '
 async function scGeneratePdfBlob(html) {
   if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
   const { jsPDF } = window.jspdf; const pdf = new jsPDF('p', 'mm', 'a4');
-  dlAddCanvasToPdf(pdf, await dlCanvasOf(html), false);
+  const pages = Array.isArray(html) ? html.filter(Boolean) : [html];   // 支援多頁（如扭力照片另起一頁）
+  for (let i = 0; i < pages.length; i++) dlAddCanvasToPdf(pdf, await dlCanvasOf(pages[i]), i > 0);
   return pdf.output('blob');
 }
 async function renderScFill() {
@@ -2694,9 +2695,9 @@ function scShowList() {
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <div style="font-size:13px;color:var(--muted)">工程自主檢查表（共規劃 11 項，已建立 ${SC_TYPES.length} 項）</div>
-      <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增檢查表</button>
+      <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增自主檢查表</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無檢查表，點右上角「＋ 新增檢查表」開始。</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無檢查表，點右上角「＋ 新增自主檢查表」開始。</div>'}</div>`;
 }
 // 新建：直接選檢查項目（案場在表單裡的下拉選，不另設選案場畫面）
 function scPickType() {
@@ -2792,11 +2793,15 @@ const SC_BRACKET_Q = [
   '檢驗結果是否合格？'
 ];
 let scBrEditingId = null;
+let scBrKept = [];   // 編輯時沿用的扭力檢測照片 {src(dataURL), caption}
+let scBrNew = [];    // 本次新選的扭力檢測照片 {file, caption}
 function scBracketForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
   scBrEditingId = rec ? rec.id : null;
   const d = (rec && rec.data) ? rec.data : {};
   const checks = d.checks || {};
+  scBrNew = [];
+  scBrKept = (d.torque_photos || []).map(p => ({ src: (typeof p === 'string' ? p : p.src), caption: (p && p.caption) || '' })).filter(p => p.src);
   const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
   const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
   const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
@@ -2807,7 +2812,7 @@ function scBracketForm(rec, presetSite) {
   const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✘ No</label></div>`;
   const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}</div>`; }).join('');
   cont.innerHTML = `
-    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scShowList()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
@@ -2815,7 +2820,7 @@ function scBracketForm(rec, presetSite) {
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
         <div class="form-field" style="margin:0"><label>審核</label><select id="sc-reviewer" style="font-weight:400">${svOpt(d.reviewer || '')}</select></div>
         <div style="flex:1"></div>
-        <div style="font-size:12px;color:var(--muted)">${scBrEditingId ? '（編輯中）' : '（新建支架及固定座檢查表）'}</div>
+        <div style="font-size:12px;color:var(--muted)">${scBrEditingId ? '（編輯中）' : '（新建支架及固定座 自主檢查表）'}</div>
       </div>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -2823,8 +2828,10 @@ function scBracketForm(rec, presetSite) {
       ${qRows}
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">扭力參考值</div>
-      <input id="sc-torque" value="${appEsc(d.torque_ref || '')}" placeholder="如：舊廠步道夾具 40.8N.m" style="width:100%;height:34px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box">
+      <div class="wbs-title" style="margin:0 0 4px">扭力參考值（檢測照片）</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">插入扭力檢測照片，並於每張下方填寫說明（例：舊廠步道夾具 40.8N.m）。照片會另起一頁列在 PDF 第二頁。</div>
+      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
+      <div id="sc-torque-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">依檢驗結果採取改善措施之內容</div>
@@ -2838,16 +2845,56 @@ function scBracketForm(rec, presetSite) {
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
   const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  scBrRenderPhotos();
+}
+// ---- 扭力檢測照片（比照施工日誌：來源圖以 dataURL 存庫，編輯可還原、產 PDF 免 CORS）----
+function scBrSyncCaptions() {
+  scBrKept.forEach((p, i) => { const e = document.getElementById('sc-cap-k-' + i); if (e) p.caption = e.value; });
+  scBrNew.forEach((p, i) => { const e = document.getElementById('sc-cap-n-' + i); if (e) p.caption = e.value; });
+}
+function scBrPickPhotos(files) {
+  scBrSyncCaptions();
+  const room = 6 - (scBrKept.length + scBrNew.length);
+  Array.from(files).slice(0, Math.max(0, room)).forEach(f => scBrNew.push({ file: f, caption: '' }));
+  scBrRenderPhotos();
+}
+function scBrRemoveKept(i) { scBrSyncCaptions(); scBrKept.splice(i, 1); scBrRenderPhotos(); }
+function scBrRemoveNew(i) { scBrSyncCaptions(); scBrNew.splice(i, 1); scBrRenderPhotos(); }
+function scBrRenderPhotos() {
+  const box = document.getElementById('sc-torque-photo-list'); if (!box) return;
+  const cap = (kind, i, val) => `<input id="sc-cap-${kind}-${i}" value="${appEsc(val || '')}" placeholder="照片說明（例：舊廠步道夾具 40.8N.m）" style="width:150px;max-width:100%;margin-top:5px;font-size:12px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">`;
+  const kept = scBrKept.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${p.src}" style="width:110px;height:82px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="scBrRemoveKept(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('k', i, p.caption)}</div>`).join('');
+  const neu = scBrNew.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(p.file)}" style="width:110px;height:82px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="scBrRemoveNew(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, p.caption)}</div>`).join('');
+  box.innerHTML = (kept + neu) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+}
+// 解析出要存庫/產 PDF 的照片陣列：沿用的 + 新選的（壓縮→dataURL），各帶 caption
+async function scBrResolvePhotos() {
+  scBrSyncCaptions();
+  const out = scBrKept.map(p => ({ src: p.src, caption: (p.caption || '').trim() }));
+  for (const p of scBrNew) { const blob = await dlCompressImage(p.file); out.push({ src: await dlBlobToDataURL(blob), caption: (p.caption || '').trim() }); }
+  return out.slice(0, 6);
 }
 function scBracketCollect() {
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const checks = {}; for (let i = 1; i <= 8; i++) { const r = document.querySelector(`input[name="scq${i}"]:checked`); checks[i] = r ? r.value : ''; }
-  const data = { checks, pull_value: v('sc-pull'), torque_ref: v('sc-torque'), improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
+  const data = { checks, pull_value: v('sc-pull'), improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
   return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data };
 }
 function scBracketMeta(siteId, checkDate, data) {
   const s = siteById(Number(siteId));
-  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap: (s && s.mw) ? (s.mw + ' kWp') : '', date: checkDate, data };
+  // 容量＝比照進度表「光電設置容量／儲能設置容量」兩欄，依案場實際內容帶入
+  let cap = '—';
+  if (s) {
+    const pv = s.mw ? (s.mw + ' kWp') : '';
+    const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
+    cap = (pv && st) ? ('光電 ' + pv + '；儲能 ' + st) : (pv || st || '—');
+  }
+  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, date: checkDate, data };
+}
+function scBracketPdfPages(meta) {
+  const pages = [scBracketPdfHtml(meta)];
+  if ((meta.data.torque_photos || []).length) pages.push(scBracketPhotoPageHtml(meta));
+  return pages;
 }
 async function scBracketSave() {
   const msg = document.getElementById('sc-save-msg');
@@ -2855,7 +2902,9 @@ async function scBracketSave() {
   if (!siteId || !checkDate) { if (msg) { msg.textContent = '請選擇案場與檢驗日期'; msg.style.color = 'var(--danger)'; } return; }
   if (scBrEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scBrEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   try {
-    await scSaveRecord({ key: 'bracket', siteId, checkDate, data, note: '', pdfHtml: scBracketPdfHtml(scBracketMeta(siteId, checkDate, data)), editingId: scBrEditingId, msgEl: msg });
+    if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
+    data.torque_photos = await scBrResolvePhotos();
+    await scSaveRecord({ key: 'bracket', siteId, checkDate, data, note: '', pdfHtml: scBracketPdfPages(scBracketMeta(siteId, checkDate, data)), editingId: scBrEditingId, msgEl: msg });
     if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
     setTimeout(() => scTypeView(siteId, 'bracket'), 800);
   } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
@@ -2863,7 +2912,7 @@ async function scBracketSave() {
 async function scBracketPrint() {
   const { siteId, checkDate, data } = scBracketCollect();
   if (!siteId || !checkDate) { alert('請選擇案場與檢驗日期'); return; }
-  try { const blob = await scGeneratePdfBlob(scBracketPdfHtml(scBracketMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
+  try { data.torque_photos = await scBrResolvePhotos(); const blob = await scGeneratePdfBlob(scBracketPdfPages(scBracketMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
   catch (e) { alert('產生失敗：' + (e.message || e)); }
 }
 async function scBracketDelete() {
@@ -2912,13 +2961,30 @@ function scBracketPdfHtml(meta) {
         <th style="border:1px solid #333;padding:7px 8px;width:14%">備註</th>
       </tr>
       ${bodyRows}
-      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">扭力參考值：${appEsc(d.torque_ref || '')}</td></tr>
+      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">扭力參考值：${appEsc((d.torque_photos || []).map(p => p.caption).filter(Boolean).join('　'))}</td></tr>
       <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">依檢驗結果採取改善措施之內容：<br><div style="min-height:30px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr>
     </table>
     <div style="display:flex;gap:40px;margin-top:18px;font-size:15px;color:#374151">
       <div style="flex:1">審　核：${d.reviewer ? appEsc(d.reviewer) : '______________'}</div>
       <div style="flex:1">工地主任：${d.supervisor ? appEsc(d.supervisor) : '______________'}</div>
     </div>
+    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+  </div>`;
+}
+// 扭力檢測照片頁（PDF 第二頁）：每列 2 張，照片下方帶文字說明
+function scBracketPhotoPageHtml(meta) {
+  const ph = (meta.data.torque_photos || []);
+  const cell = p => `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%"><img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain"></div></div><div style="text-align:center;font-size:14px;margin-top:5px">${appEsc(p.caption || '')}</div></td>`;
+  let rows = '';
+  for (let i = 0; i < ph.length; i += 2) rows += `<tr>${cell(ph[i])}${ph[i + 1] ? cell(ph[i + 1]) : '<td style="width:50%;border:none"></td>'}</tr>`;
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
+    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
+      <img src="${DL_LOGO}" style="height:44px">
+      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">支架及固定座 自主檢查表</div>
+      <div style="width:110px"></div>
+    </div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px">扭力檢測照片</div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:none">${rows}</table>
     <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
   </div>`;
 }
@@ -3033,8 +3099,9 @@ function dlShowForm(logId, presetSite) {
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="dl-date" value="${rec ? String(rec.log_date).slice(0, 10) : localDate(new Date())}" onchange="dlLoadForm()"></div>
-        <div class="form-field" style="margin:0"><label>工地主任</label><select id="dl-supervisor" style="font-weight:400"></select></div>
         <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="dl-supervisor" style="font-weight:400"></select></div>
+        <div class="form-field" style="margin:0"><label>審核</label><select id="dl-reviewer" style="font-weight:400"></select></div>
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
       </div>
@@ -3061,7 +3128,8 @@ async function dlLoadForm() {
   // 照片來源圖存在 photos.srcs（資料庫，Drive 只放 PDF）；舊資料若 photos 本身是陣列則相容沿用
   dlPhotoUrls = existing && existing.photos && Array.isArray(existing.photos.srcs) ? existing.photos.srcs.slice()
     : (existing && Array.isArray(existing.photos) ? existing.photos.slice() : []);
-  _dlNewFiles = []; _dlRemovedUrls = [];
+  _dlPhotoCaps = (existing && existing.photos && Array.isArray(existing.photos.caps)) ? existing.photos.caps.slice() : dlPhotoUrls.map(() => '');
+  _dlNewFiles = []; _dlRemovedUrls = []; _dlNewCaps = [];
   const start = (typeof siteStartDate === 'function' ? siteStartDate(s) : '') || s.contract_start || '';
   const end = (typeof siteEndDate === 'function' ? siteEndDate(s) : '') || s.end || '';
   const toISO = d => (d || '').replace(/\//g, '-');
@@ -3095,6 +3163,13 @@ async function dlLoadForm() {
   if (_dlSvSel) {
     const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
     _dlSvSel.innerHTML = `<option value="">請選擇</option>` + svList.map(n => `<option ${n === _dlCurSup ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (_dlCurSup && !svList.includes(_dlCurSup) ? `<option selected>${appEsc(_dlCurSup)}</option>` : '');
+  }
+  // 頂欄「審核」下拉：新建空白、編輯沿用原值、重繪保留現選（人員＝工程部可審核者）
+  const _dlRvSel = document.getElementById('dl-reviewer');
+  const _prevRev = _dlRvSel ? _dlRvSel.value : '';
+  const _dlCurRev = _prevRev ? _prevRev : _rev;
+  if (_dlRvSel) {
+    _dlRvSel.innerHTML = '<option value="">請選擇</option>' + reviewerPeople.map(n => `<option value="${appEsc(n)}" ${n === _dlCurRev ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (_dlCurRev && !reviewerPeople.includes(_dlCurRev) ? `<option value="${appEsc(_dlCurRev)}" selected>${appEsc(_dlCurRev)}</option>` : '');
   }
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
@@ -3137,8 +3212,7 @@ async function dlLoadForm() {
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><input id="dl-notify" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.notify_sub : '')}"></div>
-      <div class="form-field" style="margin:0 0 10px"><label>四、待協調及追蹤事項</label><input id="dl-coord" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.coordinate : '')}"></div>
-      <div class="form-field" style="margin:0"><label>審核</label><select id="dl-reviewer" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-weight:400">${reviewerOpts}</select></div>
+      <div class="form-field" style="margin:0"><label>四、待協調及追蹤事項</label><input id="dl-coord" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.coordinate : '')}"></div>
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -3256,6 +3330,8 @@ async function dlFillWeather(s, date) {
 // 照片：選檔後暫存預覽；儲存時上傳 Supabase Storage
 let _dlNewFiles = [];
 let _dlRemovedUrls = [];   // 本次編輯中被移除、待一併從 Storage 刪除的照片 URL
+let _dlPhotoCaps = [];     // 既有照片的說明（對齊 dlPhotoUrls）
+let _dlNewCaps = [];       // 新選照片的說明（對齊 _dlNewFiles）
 // 刪除照片：Drive 物件→刪 Drive；舊的 Supabase URL 字串→刪 Storage
 async function dlStorageRemove(list) {
   if (!list || !list.length) return;
@@ -3267,18 +3343,25 @@ async function dlStorageRemove(list) {
     }
   }
 }
+function dlSyncPhotoCaps() {
+  dlPhotoUrls.forEach((p, i) => { const e = document.getElementById('dl-cap-e-' + i); if (e) _dlPhotoCaps[i] = e.value; });
+  _dlNewFiles.forEach((f, i) => { const e = document.getElementById('dl-cap-n-' + i); if (e) _dlNewCaps[i] = e.value; });
+}
 function dlPickPhotos(files) {
-  _dlNewFiles = [..._dlNewFiles, ...Array.from(files)].slice(0, 6 - dlPhotoUrls.length);
+  dlSyncPhotoCaps();
+  const room = 6 - (dlPhotoUrls.length + _dlNewFiles.length);
+  Array.from(files).slice(0, Math.max(0, room)).forEach(f => { _dlNewFiles.push(f); _dlNewCaps.push(''); });
   dlRenderPhotos();
 }
 function dlRenderPhotos() {
   const box = document.getElementById('dl-photo-list'); if (!box) return;
-  const existing = dlPhotoUrls.map((p, i) => `<div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
-  const pending = _dlNewFiles.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
+  const cap = (kind, i, val) => `<input id="dl-cap-${kind}-${i}" value="${appEsc(val || '')}" placeholder="照片說明" style="width:90px;margin-top:4px;font-size:12px;padding:3px 5px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">`;
+  const existing = dlPhotoUrls.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('e', i, _dlPhotoCaps[i])}</div>`).join('');
+  const pending = _dlNewFiles.map((f, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, _dlNewCaps[i])}</div>`).join('');
   box.innerHTML = existing + pending || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
 }
-function dlRemovePhoto(i) { const u = dlPhotoUrls.splice(i, 1)[0]; if (u) _dlRemovedUrls.push(u); dlRenderPhotos(); }
-function dlRemoveNewPhoto(i) { _dlNewFiles.splice(i, 1); dlRenderPhotos(); }
+function dlRemovePhoto(i) { dlSyncPhotoCaps(); const u = dlPhotoUrls.splice(i, 1)[0]; _dlPhotoCaps.splice(i, 1); if (u) _dlRemovedUrls.push(u); dlRenderPhotos(); }
+function dlRemoveNewPhoto(i) { dlSyncPhotoCaps(); _dlNewFiles.splice(i, 1); _dlNewCaps.splice(i, 1); dlRenderPhotos(); }
 // 上傳前壓縮：長邊縮到 1280px、JPEG 0.7（一張 3MB → 約 200~300KB，省 Storage）
 function dlCompressImage(file, maxDim = 1280, quality = 0.7) {
   return new Promise(resolve => {
@@ -3343,12 +3426,16 @@ async function dlSave() {
   try {
     const s = siteById(rec.site_id); const sn = s ? (s.label || s.name) : rec.site_id;
     // 1) 產生 PDF（含照片）
-    let pdfBlob, allSrcs;
+    let pdfBlob, allSrcs, allCaps;
     try {
+      dlSyncPhotoCaps();
       const keptSrcs = dlPhotoUrls.map(dlPhotoSrc).filter(Boolean);   // 編輯時沿用先前照片
+      const keptCaps = keptSrcs.map((_, i) => _dlPhotoCaps[i] || '');
       const newSrcs = await dlPhotoDataUrls();                        // 本次新選的照片
+      const newCaps = _dlNewFiles.map((_, i) => _dlNewCaps[i] || '');
       allSrcs = [...keptSrcs, ...newSrcs].slice(0, 6);
-      pdfBlob = await dlGeneratePdfBlob(rec, allSrcs);
+      allCaps = [...keptCaps, ...newCaps].slice(0, 6);
+      pdfBlob = await dlGeneratePdfBlob(rec, allSrcs, allCaps);
     }
     catch (pe) { if (msg) { msg.textContent = 'PDF 產生失敗：' + (pe.message || pe); msg.style.color = 'var(--danger)'; } return; }
     // 2) 上傳 PDF 到 Google 共用硬碟
@@ -3356,7 +3443,7 @@ async function dlSave() {
     let drive;
     try { const folderId = await dlEnsureSubFolder(String(sn), '施工日誌'); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, folderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
-    rec.photos = { pdf: drive.view, id: drive.id, srcs: allSrcs };   // 來源圖一併存庫，編輯時可還原
+    rec.photos = { pdf: drive.view, id: drive.id, srcs: allSrcs, caps: allCaps };   // 來源圖與說明一併存庫，編輯時可還原
     rec.created_by = (currentUser && currentUser.name) || '';
     // 3) 存資料庫（編輯時先刪舊 PDF）
     let error;
@@ -3953,24 +4040,27 @@ function dlLogContentHtml(r) {
   </div>`;
 }
 // 第二頁：工進照片（固定 6 格框框；每格純白底，覆蓋斑馬紋保持一致）
-function dlLogPhotoHtml(photoSrcs) {
+function dlLogPhotoHtml(photoSrcs, caps) {
   const photos = (photoSrcs || []).slice(0, 6);
-  // 每格 4:3 橫式：外層 div 用 padding-bottom:75% 鎖比例，照片置中填滿；一律白底。每格加明顯粗框、cell 間留白，讓每張照片清楚區分
-  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:6px;vertical-align:middle;background:#fff;border:none"><div style="position:relative;width:100%;padding-bottom:75%;border:2px solid #4b5563;box-sizing:border-box;background:#fff">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div></td>`; });
+  const cs = caps || [];
+  // 每格 4:3 橫式：外層 div 用 padding-bottom:75% 鎖比例，照片置中填滿；一律白底。每格加明顯粗框、cell 間留白，讓每張照片清楚區分；照片下方帶文字說明
+  const photoCells = Array(6).fill(0).map((_, i) => { const has = !!photos[i]; return `<td style="padding:6px;vertical-align:top;background:#fff;border:none"><div style="position:relative;width:100%;padding-bottom:75%;border:2px solid #4b5563;box-sizing:border-box;background:#fff">${has ? `<img src="${photos[i]}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div>${has ? `<div style="text-align:center;font-size:13px;margin-top:4px;min-height:16px">${appEsc(cs[i] || '')}</div>` : ''}</td>`; });
   const photoRows = `<tr>${photoCells[0]}${photoCells[1]}</tr><tr>${photoCells[2]}${photoCells[3]}</tr><tr>${photoCells[4]}${photoCells[5]}</tr>`;
   return DL_PDF_STYLE + `<div class="dlpdf"><h1 style="font-size:20px">工進照片</h1><table style="table-layout:fixed;border:none">${photoRows}</table></div>`;
 }
 // 本機列印用：內容 + 分頁 + 照片
-function dlLogInnerHtml(r, photoSrcs) {
-  return dlLogContentHtml(r) + '<div style="page-break-before:always"></div>' + dlLogPhotoHtml(photoSrcs);
+function dlLogInnerHtml(r, photoSrcs, caps) {
+  return dlLogContentHtml(r) + '<div style="page-break-before:always"></div>' + dlLogPhotoHtml(photoSrcs, caps);
 }
 function dlBlobToDataURL(b) { return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(''); r.readAsDataURL(b); }); }
 async function dlPhotoDataUrls() { const out = []; for (const f of _dlNewFiles) { const b = await dlCompressImage(f); out.push(await dlBlobToDataURL(b)); } return out; }
 // 本機列印（瀏覽器列印對話框）
 function dlPrintCurrent() {
+  dlSyncPhotoCaps();
   const r = dlCollect();
-  const srcs = _dlNewFiles.map(f => URL.createObjectURL(f));
-  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>施工日誌 ${appEsc(r.log_date)}</title><style>@page{size:A4;margin:12mm}body{margin:0}</style></head><body>${dlLogInnerHtml(r, srcs)}</body></html>`;
+  const srcs = [...dlPhotoUrls.map(dlPhotoSrc).filter(Boolean), ..._dlNewFiles.map(f => URL.createObjectURL(f))].slice(0, 6);
+  const caps = [...dlPhotoUrls.map((_, i) => _dlPhotoCaps[i] || ''), ..._dlNewFiles.map((_, i) => _dlNewCaps[i] || '')].slice(0, 6);
+  const html = `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><title>施工日誌 ${appEsc(r.log_date)}</title><style>@page{size:A4;margin:12mm}body{margin:0}</style></head><body>${dlLogInnerHtml(r, srcs, caps)}</body></html>`;
   const w = window.open('', '_blank'); if (!w) { alert('請允許彈出視窗以列印'); return; }
   w.document.write(html); w.document.close(); w.focus();
   setTimeout(() => { try { w.print(); } catch (e) {} }, 500);
@@ -4001,12 +4091,12 @@ function dlAddCanvasToPdf(pdf, canvas, newPage) {
   while (heightLeft > 0) { position = heightLeft - imgH; pdf.addPage(); pdf.addImage(imgData, 'JPEG', 0, position, pw, imgH); heightLeft -= ph; }
 }
 // 產生施工日誌 PDF Blob：第1頁內容、照片一律另起新頁(第2頁)
-async function dlGeneratePdfBlob(r, photoSrcs) {
+async function dlGeneratePdfBlob(r, photoSrcs, caps) {
   if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p', 'mm', 'a4');
   dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogContentHtml(r)), false);   // 內容（第1頁起）
-  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs)), true); // 照片頁（固定6格，另起新頁）
+  dlAddCanvasToPdf(pdf, await dlCanvasOf(dlLogPhotoHtml(photoSrcs, caps)), true); // 照片頁（固定6格＋說明，另起新頁）
   return pdf.output('blob');
 }
 // 月份輸入：自由打數字(10/11/12 都可)，按 Enter 或點別處才套用；接受 2026/10、2026-10、202610
