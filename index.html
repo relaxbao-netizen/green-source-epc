@@ -2750,8 +2750,9 @@ function dlShowForm(logId, presetSite) {
     <div style="margin-bottom:10px"><button onclick="dlFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
       <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="dl-date" value="${rec ? String(rec.log_date).slice(0, 10) : localDate(new Date())}" onchange="dlLoadForm()"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="dl-supervisor" style="font-weight:400"></select></div>
         <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
         <div style="flex:1"></div>
         <div id="dl-history-hint" style="font-size:12px;color:var(--muted)"></div>
@@ -2769,6 +2770,8 @@ function dlRenderUsage() {
   el.innerHTML = `<span style="font-size:12px;color:var(--muted)">📄 儲存產生「施工日誌 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${extra}</span>`;
 }
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
+let _dlForceSupDefault = false;   // 案場變更時：工地主任重設為該案預設（其它重繪保留現選）
+async function dlOnSiteChange() { _dlForceSupDefault = true; await dlLoadForm(); }
 async function dlLoadForm() {
   const body = document.getElementById('dl-form-body'); if (!body) return;
   const sid = Number(document.getElementById('dl-site').value);
@@ -2804,7 +2807,20 @@ async function dlLoadForm() {
   const _revExtra = (_rev && !reviewerPeople.includes(_rev)) ? `<option value="${appEsc(_rev)}" selected>${appEsc(_rev)}</option>` : '';
   const reviewerOpts = '<option value="">請選擇</option>' + _revExtra + reviewerPeople.map(n => `<option value="${appEsc(n)}" ${n === _rev ? 'selected' : ''}>${appEsc(n)}</option>`).join('');
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
-  const supVal = existing ? (existing.supervisor || '') : pmText(s);
+  // 頂欄「工地主任」下拉：選項＝在職主任，預設帶該案主任（新建帶該案第一位 PM；編輯沿用原值）；
+  // 案場變更才重設預設；只改日期等重繪時保留使用者目前選的
+  const _dlSvSel = document.getElementById('dl-supervisor');
+  const _firstPm = (typeof pmList === 'function' ? (pmList(s) || []) : [])[0] || '';
+  const _prevSel = _dlSvSel ? _dlSvSel.value : '';
+  let _dlCurSup;
+  if (_dlForceSupDefault) _dlCurSup = _firstPm;
+  else if (_prevSel) _dlCurSup = _prevSel;
+  else _dlCurSup = existing ? (existing.supervisor || '') : _firstPm;
+  _dlForceSupDefault = false;
+  if (_dlSvSel) {
+    const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
+    _dlSvSel.innerHTML = `<option value="">請選擇</option>` + svList.map(n => `<option ${n === _dlCurSup ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (_dlCurSup && !svList.includes(_dlCurSup) ? `<option selected>${appEsc(_dlCurSup)}</option>` : '');
+  }
   // 唯讀顯示列（值存在 hidden input，供儲存/列印讀取）
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
@@ -2815,7 +2831,6 @@ async function dlLoadForm() {
       <input type="hidden" id="dl-end" value="${appEsc(endISO)}">
       <input type="hidden" id="dl-cdays" value="${contractDays != null && contractDays !== '' ? contractDays : ''}">
       <input type="hidden" id="dl-udays" value="${cumDays != null && cumDays !== '' ? cumDays : ''}">
-      <input type="hidden" id="dl-supervisor" value="${appEsc(supVal)}">
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
