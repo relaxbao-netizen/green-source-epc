@@ -4738,9 +4738,17 @@ function renderCellEditor() {
   const chips = recs.length ? recs.map(r =>
     `<span style="display:inline-flex;align-items:center;gap:6px;background:${isSupport(r) ? '#dcfce7' : '#f1f5f9'};border-radius:14px;padding:5px 12px;margin:3px;font-size:13px">${recFullName(r)}${isSupport(r) ? '<b style="color:#16a34a">支援</b>' : ''}<span style="cursor:pointer;color:#94a3b8;font-weight:700" onclick="dispDeleteEditor(${r.id})">✕</span></span>`
   ).join('') : '<div style="color:var(--muted);font-size:13px;padding:4px 0">尚無紀錄</div>';
+  // 前一天排程預覽（供「複製前一天」按鈕）
+  const pds = dispPrevDs(ds);
+  const prevRecs = supLogs.filter(r => r.supervisor === name && r.log_date === pds).slice().sort((a, b) => (a.id || 0) - (b.id || 0));
+  const prevTxt = prevRecs.length ? prevRecs.map(recLabel).join('、') : '';
+  const copyBtn = prevRecs.length
+    ? `<button class="btn-secondary" style="width:100%;margin-top:12px" onclick="dispCopyPrevDay()">📋 複製前一天（${pds.slice(5).replace('-', '/')}：${appEsc(prevTxt)}）</button>`
+    : `<div style="margin-top:12px;font-size:12px;color:var(--muted);text-align:center">前一天（${pds.slice(5).replace('-', '/')}）無排程可複製</div>`;
   document.getElementById('disp-edit-body').innerHTML =
     `<div style="margin-bottom:14px">${chips}</div>
-     <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option>${dispatchOptGroups()}</select>`;
+     <select id="disp-edit-sel" style="width:100%"><option value="">＋ 新增地點…</option>${dispatchOptGroups()}</select>
+     ${copyBtn}`;
   document.getElementById('disp-edit-sel').onchange = function () {
     if (!this.value) return;
     if (this.value === '__other__') {
@@ -4756,6 +4764,33 @@ function renderCellEditor() {
 async function dispAddEditor(val) {
   await dispAdd(_editCell.name, _editCell.ds, val);
   renderCellEditor();
+}
+// 前一天日期字串
+function dispPrevDs(ds) {
+  const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() - 1);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+// 一鍵複製前一天的排程到目前這格（多筆一起、自動去重）
+async function dispCopyPrevDay() {
+  if (!can('hr.dispatch')) { alert('無此權限。'); return; }
+  if (!sb) { alert('需連接雲端才能紀錄'); return; }
+  const { name, ds } = _editCell; if (!name || !ds) return;
+  const pds = dispPrevDs(ds);
+  const prevRecs = supLogs.filter(r => r.supervisor === name && r.log_date === pds);
+  if (!prevRecs.length) { alert(`前一天（${pds.slice(5).replace('-', '/')}）沒有排程可複製。`); return; }
+  let added = 0;
+  for (const r of prevRecs) {
+    const row = (r.site_id != null) ? { log_date: ds, supervisor: name, site_id: r.site_id, place: null } : { log_date: ds, supervisor: name, site_id: null, place: r.place };
+    const dup = supLogs.some(x => x.log_date === ds && x.supervisor === name && (row.site_id != null ? x.site_id === row.site_id : x.place === row.place));
+    if (dup) continue;
+    const { error } = await sb.from('supervisor_log').insert(row);
+    if (error) { alert('複製失敗：' + error.message); break; }
+    added++;
+  }
+  await reloadSupLogs();
+  renderCellEditor();
+  renderDispatchReport(true);
 }
 async function dispDeleteEditor(id) {
   await dispDelete(id);
