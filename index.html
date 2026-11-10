@@ -5024,9 +5024,11 @@ function wbsGanttHTML(s) {
 }
 
 // ===================== MODAL =====================
+let _openSiteModalId = null;   // 目前開著的案場詳情 id（供申請單變更後同步刷新）
 function openModal(id) {
   const s = siteById(id);
   if (!s) return;
+  _openSiteModalId = id;
   const pctColor = progressColor(s.pct, s.status);
 
   document.getElementById('modal-title').textContent = s.name;
@@ -5526,6 +5528,7 @@ function closeModal(e) {
 }
 function closeModalDirect() {
   document.getElementById('modal-overlay').classList.remove('open');
+  _openSiteModalId = null;
 }
 
 // ===================== KPI LIST MODAL =====================
@@ -7707,7 +7710,7 @@ async function appSaveHoldNote(id){
   const {error}=await sb.from('app_request').update({hold_note:note, hold_who:who}).eq('id',id);
   if(error){ alert('儲存失敗：'+error.message); return; }
   const r=appRequests.find(x=>x.id===id); if(r){ r.hold_note=note; r.hold_who=who; }
-  await loadApprovalData(); renderApproval(); appViewReq(id);
+  await appReloadRender(); appViewReq(id);
 }
 function appTier(amt){ if(amt==null) return '待定'; const n=Number(amt)||0; return n>=1000000?'100萬以上':n>=100000?'10萬~100萬':'10萬以下'; }
 function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
@@ -7744,6 +7747,17 @@ async function loadApprovalData(){
       client_bills: Array.isArray(r.client_bills)?r.client_bills:[],
     }));
   }catch(e){ console.warn('簽核資料載入失敗',e); }
+}
+// 新增／修改／刪除後統一重載並同步各畫面：重繪申請頁、保留捲動位置、若案場詳情彈窗開著也一起刷新（它也顯示該案追加/請款）
+async function appReloadRender(){
+  const y = window.scrollY;
+  await loadApprovalData();
+  if (typeof renderApproval === 'function') renderApproval();
+  try {
+    const mo = document.getElementById('modal-overlay');
+    if (mo && mo.classList.contains('open') && _openSiteModalId != null && typeof openModal === 'function') openModal(_openSiteModalId);
+  } catch (e) {}
+  try { window.scrollTo(0, y); } catch (e) {}
 }
 
 function showAppSection(sec, btn){
@@ -8580,7 +8594,7 @@ async function doAppSign(action){
   const {error}=await sb.from('app_request').update({sign_chain:chain, cur_step:cur, status}).eq('id',r.id);
   if(error){ err.textContent='更新失敗：'+error.message; err.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 async function appDeleteReq(id){
   if (!isAdmin()) { alert('僅管理員可刪單。'); return; }
@@ -8588,7 +8602,7 @@ async function appDeleteReq(id){
   const {error}=await sb.from('app_request').delete().eq('id',id);
   if(error){ alert('刪除失敗：'+error.message); return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 function appToggleStatusMenu(){
   const m=document.getElementById('app-status-menu'); if(!m) return;
@@ -8630,7 +8644,7 @@ async function appChangeStatus(id, status){
   const {error}=await sb.from('app_request').update(patch).eq('id',id);
   if(error){ alert('更新狀態失敗：'+error.message); return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 
 // ---------- 檢視 ----------
@@ -8785,7 +8799,7 @@ async function appSaveEdit(id){
     const {error:err2}=await sb.from('app_request').update(upd2).eq('id',id);
     if(err2){ const e=document.getElementById('e-err'); if(e){e.textContent='儲存失敗：'+err2.message; e.style.display='block';} return; }
     document.getElementById('app-sign-overlay').classList.remove('open');
-    await loadApprovalData(); renderApproval(); return;
+    await appReloadRender(); return;
   }
   const bill=g('e-cost')==='需向客戶請款';
   const _etv=String(g('e-total')).trim();
@@ -8811,7 +8825,7 @@ async function appSaveEdit(id){
   const {error}=await sb.from('app_request').update(upd).eq('id',id);
   if(error){ const e=document.getElementById('e-err'); e.textContent='儲存失敗：'+error.message; e.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 
 // 只開放開票／收款時間模式：鎖定上半部欄位與原因說明（廠商/明細由各自 render 處理）
@@ -8933,14 +8947,14 @@ async function saveApprover(){
   else res=await sb.from('approvers').insert(rec);
   if(res.error){ err.textContent='儲存失敗：'+res.error.message; err.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 async function delApprover(id){
   if (!can('approval.people')) { alert('無此權限。'); return; }
   if(!confirm('確認刪除此人員？')) return;
   const {error}=await sb.from('approvers').delete().eq('id',id);
   if(error){ alert('刪除失敗：'+error.message); return; }
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
 }
 
 // ---------- 匯入歷史申請（貼上試算表） ----------
@@ -9063,7 +9077,7 @@ async function doAppImport(){
   const {error}=await sb.from('app_request').insert(fresh);
   if(error){ err.textContent='匯入失敗：'+error.message; err.style.display='block'; return; }
   document.getElementById('app-sign-overlay').classList.remove('open');
-  await loadApprovalData(); renderApproval();
+  await appReloadRender();
   alert('已匯入 '+fresh.length+' 筆歷史申請。');
 }
 
