@@ -3294,12 +3294,17 @@ function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnS
 // 開啟某案場在共用硬碟的「施工日誌」子資料夾（直接跳到檔案實際所在位置；沿用工具箱的開窗/連結工具）
 async function dlOpenSiteFolder(sid, siteName, btn) {
   const recs = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+  // 1) 已存 folder id → 同一手勢內直接開（不經 await，不被擋彈窗）
+  const withFolder = recs.find(r => r.photos && r.photos.folder);
+  if (withFolder) { tbShowFolderLink(btn, tbFolderUrl(withFolder.photos.folder)); return; }
+  // 2) 舊紀錄沒存 folder → 用最新 PDF 查實際父資料夾（需 Drive 授權）
   const old = btn ? btn.textContent : '';
   if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
+  let opened = true;
   try {
     const tok = await dlGetDriveToken();
     let folderId;
-    const withPdf = recs.find(r => r.photos && r.photos.id);   // 用最新 PDF 查其實際父資料夾
+    const withPdf = recs.find(r => r.photos && r.photos.id);
     if (withPdf) {
       const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.photos.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
       const d = await res.json();
@@ -3307,11 +3312,11 @@ async function dlOpenSiteFolder(sid, siteName, btn) {
       if (d.parents && d.parents.length) folderId = d.parents[0];
     }
     if (!folderId) folderId = await dlEnsureSubFolder(String(siteName), '施工日誌'); // 尚無紀錄：找/建子資料夾
-    tbShowFolderLink(btn, tbFolderUrl(folderId));
+    opened = tbShowFolderLink(btn, tbFolderUrl(folderId));
   } catch (e) {
     alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
   } finally {
-    if (btn) { btn.textContent = old; btn.disabled = false; }
+    if (btn && opened) { btn.textContent = old; btn.disabled = false; }   // 被擋彈窗時按鈕已變成連結，不還原
   }
 }
 // 表單檢視：新增(logId=null) 或 編輯既有(logId)；presetSite＝新增時預設案場
@@ -3675,10 +3680,10 @@ async function dlSave() {
     catch (pe) { if (msg) { msg.textContent = 'PDF 產生失敗：' + (pe.message || pe); msg.style.color = 'var(--danger)'; } return; }
     // 2) 上傳 PDF 到 Google 共用硬碟
     if (msg) { msg.textContent = '上傳 PDF 到共用硬碟…'; }
-    let drive;
-    try { const folderId = await dlEnsureSubFolder(String(sn), '施工日誌'); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, folderId); }
+    let drive, driveFolderId;
+    try { driveFolderId = await dlEnsureSubFolder(String(sn), '施工日誌'); const ymd = String(rec.log_date).slice(0, 10).replace(/-/g, ''); drive = await dlDriveUpload(pdfBlob, `${sn}_${ymd}_施工日誌.pdf`, driveFolderId); }
     catch (de) { if (msg) { msg.textContent = 'PDF 上傳 Drive 失敗：' + (de.message || de); msg.style.color = 'var(--danger)'; } return; }
-    rec.photos = { pdf: drive.view, id: drive.id, srcs: allSrcs, caps: allCaps };   // 來源圖與說明一併存庫，編輯時可還原
+    rec.photos = { pdf: drive.view, id: drive.id, folder: driveFolderId, srcs: allSrcs, caps: allCaps };   // folder＝所在資料夾 id(供一鍵開啟)；來源圖與說明一併存庫，編輯時可還原
     rec.created_by = (currentUser && currentUser.name) || '';
     // 3) 存資料庫（編輯時先刪舊 PDF）
     let error;
@@ -3979,15 +3984,13 @@ function tbFolderUrl(id) {
   const email = (currentUser && currentUser.email) ? `?authuser=${encodeURIComponent(currentUser.email)}` : '';
   return `https://drive.google.com/drive/folders/${id}${email}`;
 }
-// 若瀏覽器擋了自動開新分頁，就在按鈕旁放一個可點連結
+// 嘗試開新分頁；被擋就把「同一顆按鈕」變成可直接點開的連結（不另外多一顆）。回傳是否已成功開啟
 function tbShowFolderLink(btn, url) {
   const win = window.open(url, '_blank');
-  if (win) return;
-  if (btn && btn.parentNode) {
-    let a = btn.parentNode.querySelector('a[data-tbfolder]');
-    if (!a) { a = document.createElement('a'); a.dataset.tbfolder = '1'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '📁 點此開啟資料夾'; a.style.cssText = 'margin-left:8px;color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap'; btn.parentNode.insertBefore(a, btn.nextSibling); }
-    a.href = url;
-  } else { window.location.href = url; }
+  if (win) return true;
+  if (btn) { btn.textContent = '📁 點此開啟資料夾'; btn.disabled = false; btn.onclick = (e) => { if (e) e.preventDefault(); window.open(url, '_blank'); }; }
+  else { window.location.href = url; }
+  return false;
 }
 async function tbOpenSiteFolder(sid, siteName, btn) {
   const recs = (tbLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.meet_date).localeCompare(String(a.meet_date)));
@@ -3997,6 +4000,7 @@ async function tbOpenSiteFolder(sid, siteName, btn) {
   // 2) 舊紀錄沒存 folder → 用最新 PDF 查實際父資料夾（需 Drive 授權；查完再開/給連結）
   const old = btn ? btn.textContent : '';
   if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
+  let opened = true;
   try {
     const tok = await dlGetDriveToken();
     let folderId;
@@ -4008,11 +4012,11 @@ async function tbOpenSiteFolder(sid, siteName, btn) {
       if (d.parents && d.parents.length) folderId = d.parents[0];
     }
     if (!folderId) folderId = await tbEnsureFolder(String(siteName)); // 該案場尚無紀錄：找/建子資料夾
-    tbShowFolderLink(btn, tbFolderUrl(folderId));
+    opened = tbShowFolderLink(btn, tbFolderUrl(folderId));
   } catch (e) {
     alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
   } finally {
-    if (btn) { btn.textContent = old; btn.disabled = false; }
+    if (btn && opened) { btn.textContent = old; btn.disabled = false; }   // 被擋彈窗時按鈕已變成連結，不還原
   }
 }
 // ---- 工具箱會議紀錄 PDF（封面參考官方表單＋紙本掃描＋人員照片，全走 html2canvas→jsPDF 點陣，中文免字型） ----
