@@ -3301,7 +3301,7 @@ function dlShowForm(logId, presetSite) {
   const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   // 新增可選任一進行中案場（全公司皆可填）
   const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
-  const siteOpts = formSites.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   cont.innerHTML = `
@@ -3331,9 +3331,10 @@ function dlRenderUsage() {
 // 選案場/日期後：自動帶入表頭並載入（若已有該日紀錄則帶出）
 async function dlLoadForm() {
   const body = document.getElementById('dl-form-body'); if (!body) return;
-  const sid = Number(document.getElementById('dl-site').value);
+  const siteRaw = document.getElementById('dl-site').value;
+  const sid = Number(siteRaw);
   const date = document.getElementById('dl-date').value;
-  const s = siteById(sid); if (!s || !date) { body.innerHTML = ''; return; }
+  const s = siteRaw ? siteById(sid) : null; if (!s || !date) { body.innerHTML = ''; return; }
   const existing = _dlEditRec;   // 只載入「明確要編輯的那筆」，新增一律空白
   dlEditingId = existing ? existing.id : null;
   // 照片來源圖存在 photos.srcs（資料庫，Drive 只放 PDF）；舊資料若 photos 本身是陣列則相容沿用
@@ -3795,7 +3796,7 @@ function tbShowForm(logId, presetSite) {
   tbRecordFile = null; tbRecordRemoved = false;
   const defSite = rec ? rec.site_id : (presetSite != null ? presetSite : null);
   const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
-  const siteOpts = formSites.map(s => `<option value="${s.id}">${appEsc(s.label || s.name)}</option>`).join('');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
   let extraSiteOpt = '';
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}">${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   // 工地主任／工安人員下拉（選自公司主任名單；工地主任預設帶該案場負責主任）
@@ -3863,8 +3864,7 @@ function tbOnSiteChange() {
   }
 }
 function tbLoadWbsItems() {
-  const sel = document.getElementById('tb-site'); const sid = sel ? Number(sel.value) : null;
-  const s = sid != null ? siteById(sid) : null;
+  const sel = document.getElementById('tb-site'); const s = (sel && sel.value) ? siteById(Number(sel.value)) : null;
   tbWbsNames = s ? dlWbsItems(s).map(x => x.name) : [];
   tbCustomItems = [...tbItemsSel].filter(n => !tbWbsNames.includes(n));
   tbRenderItems();
