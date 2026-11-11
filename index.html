@@ -9578,6 +9578,45 @@ async function initApp() {
   loadUniforms().then(() => { const uc = document.getElementById('uniform-container'); if (uc && !uc.hidden) renderUniforms(); }); // 制服領取紀錄
   // 定時重繪地圖，讓主任頭貼於中午自動切換上午/下午位置
   setInterval(() => { try { renderTaiwanMap(); } catch (e) {} }, 10 * 60 * 1000);
+  startAutoRefresh(); // 自動背景同步：別人改了資料，這裡會自動更新，不用手動刷新
+}
+// ===================== 自動背景刷新（多人即時同步，不用手動重整）=====================
+// 每 25 秒靜默重抓主資料並重繪；「有彈窗開著 / 游標在輸入框 / 分頁沒在看」時暫緩，且資料沒變就不重繪（避免畫面抖動）
+let _autoRefreshBusy = false;
+let _lastSitesSig = null, _lastApprSig = null;
+function _sitesSig() {
+  try { return JSON.stringify((sites || []).map(s => { const { pct, status, ...rest } = s; return rest; })); } catch (e) { return '' + Date.now(); }
+}
+function _apprSig() {
+  try { return JSON.stringify(typeof appRequests !== 'undefined' ? appRequests : []); } catch (e) { return '' + Date.now(); }
+}
+function _autoRefreshBlocked() {
+  if (document.hidden) return true;                                  // 分頁沒在看
+  if (document.querySelector('.modal-overlay.open')) return true;    // 有彈窗／編輯視窗開著
+  const ae = document.activeElement;
+  if (ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName || ''))) return true; // 正在打字／填表
+  return false;
+}
+async function autoRefreshTick() {
+  if (!sb || _autoRefreshBusy || _autoRefreshBlocked()) return;
+  _autoRefreshBusy = true;
+  try {
+    await loadFromCloud();                       // 重抓案場主資料
+    const sig = _sitesSig();
+    if (sig !== _lastSitesSig) { _lastSitesSig = sig; rerenderAll(); }  // 有變才重繪（KPI／首頁／地圖／進度表等）
+    const onAppr = document.getElementById('page-approval') && document.getElementById('page-approval').classList.contains('active');
+    if (onAppr) {
+      await loadApprovalData();
+      const asig = _apprSig();
+      if (asig !== _lastApprSig) { _lastApprSig = asig; if (typeof renderApproval === 'function') renderApproval(); }
+    }
+  } catch (e) { /* 靜默，下一輪再試 */ }
+  finally { _autoRefreshBusy = false; }
+}
+function startAutoRefresh() {
+  _lastSitesSig = _sitesSig(); _lastApprSig = _apprSig();
+  setInterval(autoRefreshTick, 25000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefreshTick(); }); // 切回分頁馬上同步一次
 }
 initApp();
 // ===================== 👷 工地小人：今日戰情速報 =====================
