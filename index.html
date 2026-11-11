@@ -2891,7 +2891,7 @@ function scSiteCap(s) {
   if (!s) return { cap: '—', capLabel: '容量' };
   const pv = s.mw ? (s.mw + ' kWp') : '';
   const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
-  if (pv && st) return { cap: '光電 ' + pv + '；儲能 ' + st, capLabel: '容量' };
+  if (pv && st) return { cap: '光電 ' + pv + '<br>儲能 ' + st, capLabel: '容量' };   // 兩者皆有→上下兩行
   if (pv) return { cap: pv, capLabel: '光電容量' };
   if (st) return { cap: st, capLabel: '儲能容量' };
   return { cap: '—', capLabel: '容量' };
@@ -2941,8 +2941,14 @@ async function scBracketDelete() {
 function scBracketPdfHtml(meta) {
   const d = meta.data || {};
   const contentOf = i => { let c = SC_BRACKET_Q[i - 1]; if (i === 6) c += `（拉力檢驗值：${d.pull_value || ''}）`; return appEsc(c); };
-  const torque = appEsc((d.torque_photos || []).map(p => p.caption).filter(Boolean).join('　'));
-  const extraRows = `<tr><td colspan="4" style="padding:7px 9px;text-align:left">扭力參考值：${torque}</td></tr>`;
+  // 扭力參考值＝固定參考表（一般螺絲/六角螺絲，比照官方表單）
+  const tc = (v, hdr) => `<td style="border:1px solid #cbd5e1;padding:4px 12px;text-align:center${hdr ? ';background:#f1f3f5;color:#374151' : ''}">${v}</td>`;
+  const torqueTable = `<table style="border-collapse:collapse;font-size:13px;margin-top:6px">
+    <tr><td colspan="5" style="border:1px solid #cbd5e1;background:#e9edf1;color:#374151;padding:4px 10px;font-weight:600">一般螺絲（六角螺絲）</td></tr>
+    <tr>${tc('規格', 1)}${tc('M6')}${tc('M8')}${tc('M10')}${tc('M12')}</tr>
+    <tr>${tc('N-m', 1)}${tc('6.7')}${tc('16.4')}${tc('32')}${tc('56')}</tr>
+  </table>`;
+  const extraRows = `<tr><td colspan="3" style="padding:7px 9px;text-align:left">扭力參考值：${torqueTable}</td></tr>`;
   return scChecklistPdfHtml({ title: '支架及固定座', questions: SC_BRACKET_Q, meta, d, contentOf, extraRows });
 }
 // 扭力檢測照片頁（PDF 第二頁）：每列 2 張，照片下方帶文字說明
@@ -3069,7 +3075,7 @@ function scChecklistPdfHtml(opts) {
   const checks = d.checks || {};
   const contentOf = opts.contentOf || (i => appEsc(Q[i - 1]));
   const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
-  const bodyRows = Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${Q.length}" style="text-align:center;font-weight:600;color:#374151;padding:7px 4px;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="padding:7px 9px;text-align:left;line-height:1.5">${i}. ${contentOf(i)}</td><td style="padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="padding:7px 9px;text-align:left">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
+  const bodyRows = Q.map((q, idx) => { const i = idx + 1; return `<tr><td style="padding:7px 9px;text-align:left;line-height:1.5">${i}. ${contentOf(i)}</td><td style="padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="padding:7px 9px;text-align:left">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
       <img src="${DL_LOGO}" style="height:46px">
@@ -3077,14 +3083,14 @@ function scChecklistPdfHtml(opts) {
       <div style="width:120px"></div>
     </div>
     <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
-      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${appEsc(meta.cap || '')}</td></tr>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${meta.cap || ''}</td></tr>
       <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
     </table>
     <div class="sec">現場施工／完工檢驗</div>
-    <table class="tb" style="table-layout:auto"><colgroup><col style="width:7%"><col><col style="width:22%"><col style="width:16%"></colgroup>
-      <thead><tr><th>項目</th><th>檢驗內容</th><th>檢驗結果</th><th>備註</th></tr></thead>
+    <table class="tb" style="table-layout:auto"><colgroup><col><col style="width:24%"><col style="width:18%"></colgroup>
+      <thead><tr><th>檢驗內容</th><th>檢驗結果</th><th>備註</th></tr></thead>
       <tbody>${bodyRows}${opts.extraRows || ''}
-      <tr><td colspan="4" style="padding:7px 9px;text-align:left">依檢驗結果採取改善措施之內容：<br><div style="min-height:28px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr></tbody>
+      <tr><td colspan="3" style="padding:7px 9px;text-align:left">依檢驗結果採取改善措施之內容：<br><div style="min-height:28px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr></tbody>
     </table>
     <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
     <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
