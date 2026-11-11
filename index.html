@@ -2935,65 +2935,31 @@ async function scBracketDelete() {
   } catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 function scBracketPdfHtml(meta) {
-  const d = meta.data || {}; const checks = d.checks || {};
-  const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
+  const d = meta.data || {};
   const contentOf = i => { let c = SC_BRACKET_Q[i - 1]; if (i === 6) c += `（拉力檢驗值：${d.pull_value || ''}）`; return appEsc(c); };
-  const bodyRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${SC_BRACKET_Q.length}" style="border:1px solid #333;padding:7px 4px;text-align:center;font-weight:700;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="border:1px solid #333;padding:7px 9px;line-height:1.5">${i}. ${contentOf(i)}</td><td style="border:1px solid #333;padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="border:1px solid #333;padding:7px 9px">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
-  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
-    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
-      <img src="${DL_LOGO}" style="height:44px">
-      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">支架及固定座 自主檢查表</div>
-      <div style="width:110px"></div>
-    </div>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:10px">
-      <tr>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:14%;font-weight:700">工程名稱</td>
-        <td style="border:1px solid #333;padding:7px 10px">${appEsc(meta.projName || meta.siteName || '')}</td>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:10%;font-weight:700">容量</td>
-        <td style="border:1px solid #333;padding:7px 10px;width:18%">${appEsc(meta.cap || '')}</td>
-      </tr>
-      <tr>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">承包商</td>
-        <td style="border:1px solid #333;padding:7px 10px">綠源科技股份有限公司</td>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">檢驗日期</td>
-        <td style="border:1px solid #333;padding:7px 10px">${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td>
-      </tr>
-    </table>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr style="background:#e9edf1">
-        <th style="border:1px solid #333;padding:7px 8px;width:7%">項目</th>
-        <th style="border:1px solid #333;padding:7px 8px">檢驗內容</th>
-        <th style="border:1px solid #333;padding:7px 8px;width:22%">檢驗結果</th>
-        <th style="border:1px solid #333;padding:7px 8px;width:14%">備註</th>
-      </tr>
-      ${bodyRows}
-      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">扭力參考值：${appEsc((d.torque_photos || []).map(p => p.caption).filter(Boolean).join('　'))}</td></tr>
-      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">依檢驗結果採取改善措施之內容：<br><div style="min-height:30px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr>
-    </table>
-    <div style="display:flex;gap:40px;margin-top:18px;font-size:15px;color:#374151">
-      <div style="flex:1">審　核：${d.reviewer ? appEsc(d.reviewer) : '______________'}</div>
-      <div style="flex:1">工地主任：${d.supervisor ? appEsc(d.supervisor) : '______________'}</div>
-    </div>
-    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
-  </div>`;
+  const torque = appEsc((d.torque_photos || []).map(p => p.caption).filter(Boolean).join('　'));
+  const extraRows = `<tr><td colspan="4" style="padding:7px 9px;text-align:left">扭力參考值：${torque}</td></tr>`;
+  return scChecklistPdfHtml({ title: '支架及固定座', questions: SC_BRACKET_Q, meta, d, contentOf, extraRows });
 }
 // 扭力檢測照片頁（PDF 第二頁）：每列 2 張，照片下方帶文字說明
-function scBracketPhotoPageHtml(meta) {
-  const ph = (meta.data.torque_photos || []);
+// 共用照片頁（PDF 第二頁）：頁首與第一頁一致、每列 2 張、照片下方帶說明
+function scPhotoPageHtml(title, photos, sectionTitle) {
+  const ph = photos || [];
   const cell = p => `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%"><img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain"></div></div><div style="text-align:center;font-size:14px;margin-top:5px">${appEsc(p.caption || '')}</div></td>`;
   let rows = '';
   for (let i = 0; i < ph.length; i += 2) rows += `<tr>${cell(ph[i])}${ph[i + 1] ? cell(ph[i + 1]) : '<td style="width:50%;border:none"></td>'}</tr>`;
-  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
-    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
-      <img src="${DL_LOGO}" style="height:44px">
-      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">支架及固定座 自主檢查表</div>
-      <div style="width:110px"></div>
+  return DL_PDF_STYLE + `<div class="dlpdf">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
+      <img src="${DL_LOGO}" style="height:46px">
+      <div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">${appEsc(title)} 自主檢查表</div>
+      <div style="width:120px"></div>
     </div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:10px">扭力檢測照片</div>
+    <div class="sec">${appEsc(sectionTitle || '檢測照片')}</div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:none">${rows}</table>
-    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
   </div>`;
 }
+function scBracketPhotoPageHtml(meta) { return scPhotoPageHtml('支架及固定座', meta.data.torque_photos || [], '扭力檢測照片'); }
 SC_TYPES.push({ key: 'bracket', title: '支架及固定座', icon: '🔩', form: scBracketForm });
 
 // ===== 通用「標準自主檢查表」產生器：N 題 Yes/No＋備註、改善措施、檢測照片(PDF第二頁)、審核/工地主任、容量自動帶入 =====
@@ -3094,62 +3060,38 @@ function scStdMeta(siteId, checkDate, data) {
   return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, date: checkDate, data };
 }
 function scStdPdfHtml(meta) {
-  const cfg = scStdCfg, d = meta.data || {}, checks = d.checks || {}, Q = cfg.questions;
+  const cfg = scStdCfg, d = meta.data || {}, Q = cfg.questions;
+  return scChecklistPdfHtml({ title: cfg.title, questions: Q, meta, d });
+}
+// 自主檢查表 PDF（共用版面，比照施工日誌：淺灰細框、灰底標頭、簽名表格）
+// opts: { title, questions:[], meta, d, contentOf(i)?, extraRows? }
+function scChecklistPdfHtml(opts) {
+  const { title, questions: Q, meta, d } = opts;
+  const checks = d.checks || {};
+  const contentOf = opts.contentOf || (i => appEsc(Q[i - 1]));
   const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
-  const bodyRows = Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${Q.length}" style="border:1px solid #333;padding:7px 4px;text-align:center;font-weight:700;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="border:1px solid #333;padding:7px 9px;line-height:1.5">${i}. ${appEsc(q)}</td><td style="border:1px solid #333;padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="border:1px solid #333;padding:7px 9px">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
-  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
-    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
-      <img src="${DL_LOGO}" style="height:44px">
-      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">${appEsc(cfg.title)} 自主檢查表</div>
-      <div style="width:110px"></div>
+  const bodyRows = Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${Q.length}" style="text-align:center;font-weight:600;color:#374151;padding:7px 4px;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="padding:7px 9px;text-align:left;line-height:1.5">${i}. ${contentOf(i)}</td><td style="padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="padding:7px 9px;text-align:left">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
+  return DL_PDF_STYLE + `<div class="dlpdf">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
+      <img src="${DL_LOGO}" style="height:46px">
+      <div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">${appEsc(title)} 自主檢查表</div>
+      <div style="width:120px"></div>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:10px">
-      <tr>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:14%;font-weight:700">工程名稱</td>
-        <td style="border:1px solid #333;padding:7px 10px">${appEsc(meta.projName || meta.siteName || '')}</td>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:10%;font-weight:700">容量</td>
-        <td style="border:1px solid #333;padding:7px 10px;width:18%">${appEsc(meta.cap || '')}</td>
-      </tr>
-      <tr>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">承包商</td>
-        <td style="border:1px solid #333;padding:7px 10px">綠源科技股份有限公司</td>
-        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">檢驗日期</td>
-        <td style="border:1px solid #333;padding:7px 10px">${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td>
-      </tr>
+    <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">容量</td><td>${appEsc(meta.cap || '')}</td></tr>
+      <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
     </table>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <tr style="background:#e9edf1">
-        <th style="border:1px solid #333;padding:7px 8px;width:7%">項目</th>
-        <th style="border:1px solid #333;padding:7px 8px">檢驗內容</th>
-        <th style="border:1px solid #333;padding:7px 8px;width:22%">檢驗結果</th>
-        <th style="border:1px solid #333;padding:7px 8px;width:14%">備註</th>
-      </tr>
-      ${bodyRows}
-      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">依檢驗結果採取改善措施之內容：<br><div style="min-height:30px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr>
+    <div class="sec">現場施工／完工檢驗</div>
+    <table class="tb" style="table-layout:auto"><colgroup><col style="width:7%"><col><col style="width:22%"><col style="width:16%"></colgroup>
+      <thead><tr><th>項目</th><th>檢驗內容</th><th>檢驗結果</th><th>備註</th></tr></thead>
+      <tbody>${bodyRows}${opts.extraRows || ''}
+      <tr><td colspan="4" style="padding:7px 9px;text-align:left">依檢驗結果採取改善措施之內容：<br><div style="min-height:28px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr></tbody>
     </table>
-    <div style="display:flex;gap:40px;margin-top:18px;font-size:15px;color:#374151">
-      <div style="flex:1">審　核：${d.reviewer ? appEsc(d.reviewer) : '______________'}</div>
-      <div style="flex:1">工地主任：${d.supervisor ? appEsc(d.supervisor) : '______________'}</div>
-    </div>
-    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
   </div>`;
 }
-function scStdPhotoPageHtml(meta) {
-  const cfg = scStdCfg, ph = (meta.data.photos || []);
-  const cell = p => `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%"><img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain"></div></div><div style="text-align:center;font-size:14px;margin-top:5px">${appEsc(p.caption || '')}</div></td>`;
-  let rows = '';
-  for (let i = 0; i < ph.length; i += 2) rows += `<tr>${cell(ph[i])}${ph[i + 1] ? cell(ph[i + 1]) : '<td style="width:50%;border:none"></td>'}</tr>`;
-  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
-    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
-      <img src="${DL_LOGO}" style="height:44px">
-      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">${appEsc(cfg.title)} 自主檢查表</div>
-      <div style="width:110px"></div>
-    </div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:10px">檢測照片</div>
-    <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:none">${rows}</table>
-    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
-  </div>`;
-}
+function scStdPhotoPageHtml(meta) { return scPhotoPageHtml(scStdCfg.title, meta.data.photos || [], '檢測照片'); }
 function scStdPdfPages(meta) {
   const pages = [scStdPdfHtml(meta)];
   if ((meta.data.photos || []).length) pages.push(scStdPhotoPageHtml(meta));
