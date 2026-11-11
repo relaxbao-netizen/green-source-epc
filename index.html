@@ -2963,7 +2963,7 @@ function scPhotoPageHtml(title, photos, sectionTitle) {
     </div>
     <div class="sec">${appEsc(sectionTitle || '檢測照片')}</div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:none">${rows}</table>
-    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
   </div>`;
 }
 function scBracketPhotoPageHtml(meta) { return scPhotoPageHtml('支架及固定座', meta.data.torque_photos || [], '檢測照片'); }
@@ -3091,7 +3091,7 @@ function scChecklistPdfHtml(opts) {
     <div class="sec">依檢驗結果採取改善措施之內容</div>
     <table class="note"><tr><td style="height:24px;vertical-align:top;white-space:pre-wrap">${appEsc(d.improve || '')}</td></tr></table>
     <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
-    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
   </div>`;
 }
 function scStdPhotoPageHtml(meta) { return scPhotoPageHtml(scStdCfg.title, meta.data.photos || [], '檢測照片'); }
@@ -3247,7 +3247,7 @@ function scVocPdfHtml(meta) {
     <div class="sec">盤體名稱：${appEsc(d.panel || '')}</div>
     <table class="tb" style="table-layout:fixed;font-size:13px"><thead><tr>${hdr}${hdr}</tr></thead><tbody>${body}</tbody></table>
     <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
-    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
   </div>`;
 }
 function scVocPdfPages(meta) { return [scVocPdfHtml(meta), scPhotoPageHtml('模組開路電壓', meta.data.photos || [], '檢測照片')]; }
@@ -3393,7 +3393,7 @@ function scGndPdfHtml(meta) {
       <tbody>${body}</tbody>
     </table>
     <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
-    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
   </div>`;
 }
 function scGndPdfPages(meta) { return [scGndPdfHtml(meta), scPhotoPageHtml('接地電阻', meta.data.photos || [], '檢測照片')]; }
