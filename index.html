@@ -2774,7 +2774,7 @@ async function scSaveRecord(opts) {
   const blob = await scGeneratePdfBlob(pdfHtml);
   if (msgEl) msgEl.textContent = '上傳 PDF 到共用硬碟…';
   const folder = await scEnsureFolder(String(sn));
-  const up = await dlDriveUpload(blob, `${sn}_${t ? t.title : key}自主檢查表_${ymd}.pdf`, folder);
+  const up = await dlDriveUpload(blob, `${sn}_${t ? t.title : key}_自主檢查表_${ymd}.pdf`, folder);
   if (editingId && oldPdf && oldPdf.id && oldPdf.id !== up.id) await dlDriveDelete(oldPdf.id);
   const row = { site_id: Number(siteId), sc_type: key, check_date: checkDate, data, pdf: { view: up.view, id: up.id }, note: note || '', created_by: (editingId && oldRec) ? (oldRec.created_by || '') : ((currentUser && currentUser.name) || '') };
   if (msgEl) msgEl.textContent = '儲存中…';
@@ -2969,7 +2969,7 @@ function scPhotoPageHtml(title, photos, sectionTitle) {
     <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
   </div>`;
 }
-function scBracketPhotoPageHtml(meta) { return scPhotoPageHtml('支架及固定座', meta.data.torque_photos || [], '扭力檢測照片'); }
+function scBracketPhotoPageHtml(meta) { return scPhotoPageHtml('支架及固定座', meta.data.torque_photos || [], '檢測照片'); }
 SC_TYPES.push({ key: 'bracket', title: '支架及固定座', icon: '🔩', form: scBracketForm });
 
 // ===== 通用「標準自主檢查表」產生器：N 題 Yes/No＋備註、改善措施、檢測照片(PDF第二頁)、審核/工地主任、容量自動帶入 =====
@@ -3092,7 +3092,7 @@ function scChecklistPdfHtml(opts) {
       <tbody>${bodyRows}${opts.extraRows || ''}</tbody>
     </table>
     <div class="sec">依檢驗結果採取改善措施之內容</div>
-    <table class="note"><tr><td style="height:40px;vertical-align:top;white-space:pre-wrap">${appEsc(d.improve || '')}</td></tr></table>
+    <table class="note"><tr><td style="height:24px;vertical-align:top;white-space:pre-wrap">${appEsc(d.improve || '')}</td></tr></table>
     <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
     <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
   </div>`;
