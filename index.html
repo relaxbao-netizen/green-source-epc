@@ -2901,11 +2901,7 @@ function scBracketMeta(siteId, checkDate, data) {
   const { cap, capLabel } = scSiteCap(s);
   return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, capLabel, date: checkDate, data };
 }
-function scBracketPdfPages(meta) {
-  const pages = [scBracketPdfHtml(meta)];
-  if ((meta.data.torque_photos || []).length) pages.push(scBracketPhotoPageHtml(meta));
-  return pages;
-}
+function scBracketPdfPages(meta) { return [scBracketPdfHtml(meta), scBracketPhotoPageHtml(meta)]; }   // 照片頁一律附上（沒照片顯示空格子）
 async function scBracketSave() {
   const msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scBracketCollect();
@@ -2955,9 +2951,10 @@ function scBracketPdfHtml(meta) {
 // 共用照片頁（PDF 第二頁）：頁首與第一頁一致、每列 2 張、照片下方帶說明
 function scPhotoPageHtml(title, photos, sectionTitle) {
   const ph = photos || [];
-  const cell = p => `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%"><img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain"></div></div><div style="text-align:center;font-size:14px;margin-top:5px">${appEsc(p.caption || '')}</div></td>`;
+  const n = Math.max(6, Math.ceil(ph.length / 2) * 2);   // 沒照片也固定顯示格子（至少 6 格、雙數）
+  const cell = p => { const has = p && p.src; return `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%">${has ? `<img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain">` : '<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;color:#cbd5e1;font-size:13px">（無照片）</div>'}</div></div><div style="text-align:center;font-size:14px;margin-top:5px;min-height:18px">${has ? appEsc(p.caption || '') : ''}</div></td>`; };
   let rows = '';
-  for (let i = 0; i < ph.length; i += 2) rows += `<tr>${cell(ph[i])}${ph[i + 1] ? cell(ph[i + 1]) : '<td style="width:50%;border:none"></td>'}</tr>`;
+  for (let i = 0; i < n; i += 2) rows += `<tr>${cell(ph[i])}${cell(ph[i + 1])}</tr>`;
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
       <img src="${DL_LOGO}" style="height:46px">
@@ -3098,11 +3095,7 @@ function scChecklistPdfHtml(opts) {
   </div>`;
 }
 function scStdPhotoPageHtml(meta) { return scPhotoPageHtml(scStdCfg.title, meta.data.photos || [], '檢測照片'); }
-function scStdPdfPages(meta) {
-  const pages = [scStdPdfHtml(meta)];
-  if ((meta.data.photos || []).length) pages.push(scStdPhotoPageHtml(meta));
-  return pages;
-}
+function scStdPdfPages(meta) { return [scStdPdfHtml(meta), scStdPhotoPageHtml(meta)]; }   // 照片頁一律附上（沒照片顯示空格子）
 async function scStdSave() {
   const cfg = scStdCfg, msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scStdCollect();
