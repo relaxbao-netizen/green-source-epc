@@ -3146,6 +3146,144 @@ scRegisterStd({
     '檢驗結果是否合格？'
   ]
 });
+
+// ---------- 項目3：模組開路電壓（資料表式，非 Yes/No）----------
+let scVocEditingId = null;
+function scVocRowHtml(r) {
+  r = r || {};
+  const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const sel = v => `<select class="voc-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option ${v === '正常' ? 'selected' : ''}>正常</option><option ${v === '異常' ? 'selected' : ''}>異常</option></select>`;
+  const td = h => `<td style="padding:3px 4px">${h}</td>`;
+  return `<tr>${td(inp('voc-no', r.no))}${td(inp('voc-series', r.series))}${td(inp('voc-voc', r.voc))}${td(sel(r.ok))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+}
+function scVocForm(rec, presetSite) {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  scVocEditingId = rec ? rec.id : null;
+  const d = (rec && rec.data) ? rec.data : {};
+  scStdNew = [];
+  scStdKept = (d.photos || []).map(p => ({ src: (typeof p === 'string' ? p : p.src), caption: (p && p.caption) || '' })).filter(p => p.src);
+  const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
+  let extraSiteOpt = '';
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
+  const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
+  const rows = (d.rows && d.rows.length) ? d.rows.map(scVocRowHtml).join('') : '';
+  cont.innerHTML = `
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','voc')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
+        <div class="form-field" style="margin:0"><label>審核</label><select id="sc-reviewer" style="font-weight:400">${svOpt(d.reviewer || '')}</select></div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)">${scVocEditingId ? '（編輯中）' : '（新建模組開路電壓 自主檢查表）'}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="form-field" style="margin:0 0 12px"><label>盤體名稱</label><input id="sc-voc-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box"></div>
+      <div class="wbs-title" style="margin:0 0 10px">迴路量測</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px" id="sc-voc-rows">
+        <thead><tr style="color:var(--muted);font-size:12px">
+          <th style="padding:4px;width:120px">迴路編號</th><th style="padding:4px;width:120px">PV串接數</th><th style="padding:4px;width:120px">開路電壓</th><th style="padding:4px;width:140px">通路/極性是否正常</th><th style="width:40px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <button onclick="dlAddRow('sc-voc-rows', scVocRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「模組開路電壓 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scVocEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="scVocSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存自主檢查表</button>
+      <button onclick="scVocPrint()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
+      ${scVocEditingId ? `<button onclick="scVocDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
+      <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
+    </div>`;
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  scStdRenderPhotos();
+}
+function scVocCollect() {
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const rows = [...document.querySelectorAll('#sc-voc-rows tbody tr')].map(tr => ({
+    no: tr.querySelector('.voc-no').value.trim(),
+    series: tr.querySelector('.voc-series').value.trim(),
+    voc: tr.querySelector('.voc-voc').value.trim(),
+    ok: tr.querySelector('.voc-ok').value.trim()
+  })).filter(r => r.no || r.series || r.voc || r.ok);
+  const data = { panel: v('sc-voc-panel'), rows, supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
+  return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data };
+}
+function scVocMeta(siteId, checkDate, data) {
+  const s = siteById(Number(siteId));
+  const { cap, capLabel } = scSiteCap(s);
+  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, capLabel, date: checkDate, data };
+}
+function scVocPdfHtml(meta) {
+  const d = meta.data || {}, rows = d.rows || [];
+  const half = Math.ceil(rows.length / 2);
+  const cs = 'padding:6px 8px;text-align:center';
+  const dataCell = r => r ? `<td style="${cs}">${appEsc(r.no || '')}</td><td style="${cs}">${appEsc(r.series || '')}</td><td style="${cs}">${appEsc(r.voc || '')}</td><td style="${cs}">${appEsc(r.ok || '')}</td>` : `<td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td><td style="${cs}"></td>`;
+  let body = '';
+  for (let i = 0; i < Math.max(half, 1); i++) body += `<tr>${dataCell(rows[i])}${dataCell(rows[i + half])}</tr>`;
+  const hdr = '<th>迴路編號</th><th>PV串接數</th><th>開路電壓</th><th>通路/極性<br>是否正常</th>';
+  return DL_PDF_STYLE + `<div class="dlpdf">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
+      <img src="${DL_LOGO}" style="height:46px">
+      <div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">模組開路電壓 自主檢查表</div>
+      <div style="width:120px"></div>
+    </div>
+    <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${meta.cap || ''}</td></tr>
+      <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
+    </table>
+    <div class="sec">盤體名稱：${appEsc(d.panel || '')}</div>
+    <table class="tb" style="table-layout:fixed;font-size:13px"><thead><tr>${hdr}${hdr}</tr></thead><tbody>${body}</tbody></table>
+    <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+  </div>`;
+}
+function scVocPdfPages(meta) { return [scVocPdfHtml(meta), scPhotoPageHtml('模組開路電壓', meta.data.photos || [], '檢測照片')]; }
+async function scVocSave() {
+  const msg = document.getElementById('sc-save-msg');
+  const { siteId, checkDate, data } = scVocCollect();
+  if (!siteId || !checkDate) { if (msg) { msg.textContent = siteId ? '請選擇檢驗日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  if (scVocEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scVocEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  try {
+    if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
+    data.photos = await scStdResolvePhotos();
+    await scSaveRecord({ key: 'voc', siteId, checkDate, data, note: '', pdfHtml: scVocPdfPages(scVocMeta(siteId, checkDate, data)), editingId: scVocEditingId, msgEl: msg });
+    if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    setTimeout(() => scTypeView(siteId, 'voc'), 800);
+  } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
+}
+async function scVocPrint() {
+  const { siteId, checkDate, data } = scVocCollect();
+  if (!siteId || !checkDate) { alert(siteId ? '請選擇檢驗日期' : '請選擇案場'); return; }
+  try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scVocPdfPages(scVocMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
+  catch (e) { alert('產生失敗：' + (e.message || e)); }
+}
+async function scVocDelete() {
+  if (!scVocEditingId) return;
+  const rec = (scLogs || []).find(r => String(r.id) === String(scVocEditingId));
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的紀錄。'); return; }
+  if (!confirm('確定刪除這筆自主檢查表？（含共用硬碟上的 PDF）')) return;
+  try {
+    if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id);
+    const { error } = await sb.from('site_selfcheck').delete().eq('id', scVocEditingId);
+    if (error) throw error;
+    const sid = rec ? rec.site_id : null;
+    await loadScRecords(); scTypeView(sid, 'voc');
+  } catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+SC_TYPES.push({ key: 'voc', title: '模組開路電壓', icon: '⚡', form: scVocForm });
 async function loadDlLogs() {
   if (!sb) return;
   try { const { data, error } = await sb.from('site_daily_log').select('*').order('log_date', { ascending: false }); dlLogs = (!error && data) ? data : []; }
