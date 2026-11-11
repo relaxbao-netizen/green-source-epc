@@ -2886,16 +2886,20 @@ function scBracketCollect() {
   const data = { checks, notes, pull_value: v('sc-pull'), improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
   return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data };
 }
+// 依案場內容決定容量標籤與值：純光電→「光電容量」、純儲能→「儲能容量」、兩者皆有→「容量」並列
+function scSiteCap(s) {
+  if (!s) return { cap: '—', capLabel: '容量' };
+  const pv = s.mw ? (s.mw + ' kWp') : '';
+  const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
+  if (pv && st) return { cap: '光電 ' + pv + '；儲能 ' + st, capLabel: '容量' };
+  if (pv) return { cap: pv, capLabel: '光電容量' };
+  if (st) return { cap: st, capLabel: '儲能容量' };
+  return { cap: '—', capLabel: '容量' };
+}
 function scBracketMeta(siteId, checkDate, data) {
   const s = siteById(Number(siteId));
-  // 容量＝比照進度表「光電設置容量／儲能設置容量」兩欄，依案場實際內容帶入
-  let cap = '—';
-  if (s) {
-    const pv = s.mw ? (s.mw + ' kWp') : '';
-    const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
-    cap = (pv && st) ? ('光電 ' + pv + '；儲能 ' + st) : (pv || st || '—');
-  }
-  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, date: checkDate, data };
+  const { cap, capLabel } = scSiteCap(s);
+  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, capLabel, date: checkDate, data };
 }
 function scBracketPdfPages(meta) {
   const pages = [scBracketPdfHtml(meta)];
@@ -3051,13 +3055,8 @@ function scStdCollect() {
 }
 function scStdMeta(siteId, checkDate, data) {
   const s = siteById(Number(siteId));
-  let cap = '—';
-  if (s) {
-    const pv = s.mw ? (s.mw + ' kWp') : '';
-    const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
-    cap = (pv && st) ? ('光電 ' + pv + '；儲能 ' + st) : (pv || st || '—');
-  }
-  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, date: checkDate, data };
+  const { cap, capLabel } = scSiteCap(s);
+  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, capLabel, date: checkDate, data };
 }
 function scStdPdfHtml(meta) {
   const cfg = scStdCfg, d = meta.data || {}, Q = cfg.questions;
@@ -3078,7 +3077,7 @@ function scChecklistPdfHtml(opts) {
       <div style="width:120px"></div>
     </div>
     <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
-      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">容量</td><td>${appEsc(meta.cap || '')}</td></tr>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${appEsc(meta.cap || '')}</td></tr>
       <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
     </table>
     <div class="sec">現場施工／完工檢驗</div>
