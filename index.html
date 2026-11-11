@@ -2828,14 +2828,14 @@ function scBracketForm(rec, presetSite) {
       ${qRows}
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">依檢驗結果採取改善措施之內容</div>
+      <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 4px">扭力參考值（檢測照片）</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">插入扭力檢測照片，並於每張下方填寫說明（例：舊廠步道夾具 40.8N.m）。照片會另起一頁列在 PDF 第二頁。</div>
       <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-torque-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
-    </div>
-    <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">依檢驗結果採取改善措施之內容</div>
-      <textarea id="sc-improve" rows="2" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「支架及固定座 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scBrEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
     <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
