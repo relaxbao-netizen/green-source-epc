@@ -3320,7 +3320,8 @@ async function dlLoadForm() {
   const siteRaw = document.getElementById('dl-site').value;
   const sid = Number(siteRaw);
   const date = document.getElementById('dl-date').value;
-  const s = siteRaw ? siteById(sid) : null; if (!s || !date) { body.innerHTML = ''; return; }
+  const s = (siteRaw && siteById(sid)) || {};   // 沒選案場也先畫出表單（空白），選了案場再帶入資料
+  if (!date) { body.innerHTML = ''; return; }
   const existing = _dlEditRec;   // 只載入「明確要編輯的那筆」，新增一律空白
   dlEditingId = existing ? existing.id : null;
   // 照片來源圖存在 photos.srcs（資料庫，Drive 只放 PDF）；舊資料若 photos 本身是陣列則相容沿用
@@ -3328,8 +3329,8 @@ async function dlLoadForm() {
     : (existing && Array.isArray(existing.photos) ? existing.photos.slice() : []);
   _dlPhotoCaps = (existing && existing.photos && Array.isArray(existing.photos.caps)) ? existing.photos.caps.slice() : dlPhotoUrls.map(() => '');
   _dlNewFiles = []; _dlRemovedUrls = []; _dlNewCaps = [];
-  const start = (typeof siteStartDate === 'function' ? siteStartDate(s) : '') || s.contract_start || '';
-  const end = (typeof siteEndDate === 'function' ? siteEndDate(s) : '') || s.end || '';
+  const start = (s.id && typeof siteStartDate === 'function' ? siteStartDate(s) : '') || s.contract_start || '';
+  const end = (s.id && typeof siteEndDate === 'function' ? siteEndDate(s) : '') || s.end || '';
   const toISO = d => (d || '').replace(/\//g, '-');
   const dayDiff = (a, b) => { const x = new Date(toISO(a)), y = new Date(toISO(b)); return (a && b && !isNaN(x) && !isNaN(y)) ? Math.max(0, Math.round((y - x) / 86400000) + 1) : ''; };
   const contractDays = existing && existing.contract_days != null ? existing.contract_days : dayDiff(start, end);
@@ -3337,7 +3338,7 @@ async function dlLoadForm() {
   const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（編輯此筆施工日誌）' : '（新建施工日誌）';
   const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
-  _dlWbsNames = dlWbsItems(s).map(x => x.name);
+  _dlWbsNames = s.id ? dlWbsItems(s).map(x => x.name) : [];
   // 工別建議：所有帳號過去填過的工別（存於日誌，跨帳號共享），下次可直接選
   const tradeOpts = [...new Set((dlLogs || []).flatMap(r => Array.isArray(r.workers) ? r.workers : []).map(w => (w && w.trade) ? String(w.trade).trim() : '').filter(Boolean))].sort().map(t => `<option value="${appEsc(t)}"></option>`).join('');
   const inp = (id, val, extra = '') => `<input id="${id}" value="${appEsc(val || '')}" ${extra} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box">`;
@@ -3373,7 +3374,7 @@ async function dlLoadForm() {
   const ro = (lab, disp, id, raw) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--muted)">${lab}</span><span style="font-weight:600;text-align:right">${appEsc(disp || '—')}</span><input type="hidden" id="${id}" value="${appEsc(raw != null ? raw : (disp || ''))}"></div>`;
   body.innerHTML = `
     <div style="display:none">
-      <input type="hidden" id="dl-proj" value="${appEsc(s.name)}">
+      <input type="hidden" id="dl-proj" value="${appEsc(s.name || '')}">
       <input type="hidden" id="dl-contractor" value="${appEsc(DL_CONTRACTOR)}">
       <input type="hidden" id="dl-start" value="${appEsc(startISO)}">
       <input type="hidden" id="dl-end" value="${appEsc(endISO)}">
