@@ -3297,12 +3297,16 @@ function dlShowSite(sid) {
 }
 function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnSite); else dlShowList(); }
 // 開啟某案場在共用硬碟的「施工日誌」子資料夾（直接跳到檔案實際所在位置；沿用工具箱的開窗/連結工具）
+// 資料夾 id 本機快取（舊紀錄沒存 folder 時，查過一次就記住，之後同案場一鍵直開）
+function dlFolderCacheGet(sid) { try { return (JSON.parse(localStorage.getItem('gs_dl_folders') || '{}') || {})[String(sid)] || ''; } catch (e) { return ''; } }
+function dlFolderCacheSet(sid, fid) { try { const m = JSON.parse(localStorage.getItem('gs_dl_folders') || '{}') || {}; m[String(sid)] = fid; localStorage.setItem('gs_dl_folders', JSON.stringify(m)); } catch (e) {} }
 async function dlOpenSiteFolder(sid, siteName, btn) {
   const recs = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
-  // 1) 已存 folder id → 同一手勢內直接開（不經 await，不被擋彈窗）
-  const withFolder = recs.find(r => r.photos && r.photos.folder);
-  if (withFolder) { tbShowFolderLink(btn, tbFolderUrl(withFolder.photos.folder)); return; }
-  // 2) 舊紀錄沒存 folder → 用最新 PDF 查實際父資料夾（需 Drive 授權）
+  // 1) 已知 folder id（紀錄內有存，或本機快取過）→ 同一手勢內直接開（不經 await，不被擋彈窗）
+  const known = (recs.find(r => r.photos && r.photos.folder) || {}).photos;
+  const folderId0 = (known && known.folder) || dlFolderCacheGet(sid);
+  if (folderId0) { tbShowFolderLink(btn, tbFolderUrl(folderId0)); return; }
+  // 2) 舊紀錄沒存 folder → 用最新 PDF 查實際父資料夾（需 Drive 授權），查到就記住
   const old = btn ? btn.textContent : '';
   if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
   let opened = true;
@@ -3317,6 +3321,7 @@ async function dlOpenSiteFolder(sid, siteName, btn) {
       if (d.parents && d.parents.length) folderId = d.parents[0];
     }
     if (!folderId) folderId = await dlEnsureSubFolder(String(siteName), '施工日誌'); // 尚無紀錄：找/建子資料夾
+    if (folderId) dlFolderCacheSet(sid, folderId);   // 記住，下次一鍵直開
     opened = tbShowFolderLink(btn, tbFolderUrl(folderId));
   } catch (e) {
     alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
