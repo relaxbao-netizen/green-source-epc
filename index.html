@@ -3632,7 +3632,6 @@ async function dlSave() {
   const msg = document.getElementById('dl-save-msg'); const rec = dlCollect();
   if (dlEditingId) { const old = (dlLogs || []).find(r => r.id === dlEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的施工日誌。'; msg.style.color = 'var(--danger)'; } return; } }
   if (!rec.site_id || !rec.log_date) { if (msg) { msg.textContent = '請選擇案場與日期'; msg.style.color = 'var(--danger)'; } return; }
-  if (!rec.weather) { if (msg) { msg.textContent = '請選擇本日天氣'; msg.style.color = 'var(--danger)'; } const w = document.getElementById('dl-weather'); if (w) w.focus(); return; }
   if (msg) { msg.textContent = '產生 PDF 中…'; msg.style.color = 'var(--muted)'; }
   try {
     const s = siteById(rec.site_id); const sn = s ? (s.label || s.name) : rec.site_id;
