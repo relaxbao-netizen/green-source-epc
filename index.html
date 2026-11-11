@@ -3283,6 +3283,7 @@ function dlShowSite(sid) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="dlShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}</div>
+      <button onclick="dlOpenSiteFolder('${sid}', '${appEsc(nm).replace(/'/g, "\\'")}', this)" class="btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;color:var(--accent);font-weight:700">📁 開啟雲端資料夾</button>
       <button onclick="dlShowForm(null,'${sid}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -3290,6 +3291,29 @@ function dlShowSite(sid) {
       <tbody>${rows}</tbody></table></div>`;
 }
 function dlFormBack() { if (_dlFormReturnSite != null) dlShowSite(_dlFormReturnSite); else dlShowList(); }
+// 開啟某案場在共用硬碟的「施工日誌」子資料夾（直接跳到檔案實際所在位置；沿用工具箱的開窗/連結工具）
+async function dlOpenSiteFolder(sid, siteName, btn) {
+  const recs = (dlLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.log_date).localeCompare(String(a.log_date)));
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
+  try {
+    const tok = await dlGetDriveToken();
+    let folderId;
+    const withPdf = recs.find(r => r.photos && r.photos.id);   // 用最新 PDF 查其實際父資料夾
+    if (withPdf) {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.photos.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
+      const d = await res.json();
+      if (!res.ok) throw new Error((d && d.error && d.error.message) || ('讀取資料夾失敗 ' + res.status));
+      if (d.parents && d.parents.length) folderId = d.parents[0];
+    }
+    if (!folderId) folderId = await dlEnsureSubFolder(String(siteName), '施工日誌'); // 尚無紀錄：找/建子資料夾
+    tbShowFolderLink(btn, tbFolderUrl(folderId));
+  } catch (e) {
+    alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
+  } finally {
+    if (btn) { btn.textContent = old; btn.disabled = false; }
+  }
+}
 // 表單檢視：新增(logId=null) 或 編輯既有(logId)；presetSite＝新增時預設案場
 function dlShowForm(logId, presetSite) {
   const cont = document.getElementById('dl-fill-container'); if (!cont) return;
