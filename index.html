@@ -2810,7 +2810,8 @@ function scBracketForm(rec, presetSite) {
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
   const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✘ No</label></div>`;
-  const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}</div>`; }).join('');
+  const notes = d.notes || {};
+  const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; const noteIp = `<input id="sc-note-${i}" value="${appEsc(notes[i] || '')}" placeholder="備註（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}${noteIp}</div>`; }).join('');
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
@@ -2832,8 +2833,7 @@ function scBracketForm(rec, presetSite) {
       <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 4px">扭力參考值（檢測照片）</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">插入扭力檢測照片，並於每張下方填寫說明（例：舊廠步道夾具 40.8N.m）。照片會另起一頁列在 PDF 第二頁。</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
       <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-torque-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -2876,8 +2876,9 @@ async function scBrResolvePhotos() {
 }
 function scBracketCollect() {
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
-  const checks = {}; for (let i = 1; i <= 8; i++) { const r = document.querySelector(`input[name="scq${i}"]:checked`); checks[i] = r ? r.value : ''; }
-  const data = { checks, pull_value: v('sc-pull'), improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
+  const checks = {}, notes = {};
+  for (let i = 1; i <= 8; i++) { const r = document.querySelector(`input[name="scq${i}"]:checked`); checks[i] = r ? r.value : ''; notes[i] = v('sc-note-' + i); }
+  const data = { checks, notes, pull_value: v('sc-pull'), improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
   return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data };
 }
 function scBracketMeta(siteId, checkDate, data) {
@@ -2932,7 +2933,7 @@ function scBracketPdfHtml(meta) {
   const d = meta.data || {}; const checks = d.checks || {};
   const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
   const contentOf = i => { let c = SC_BRACKET_Q[i - 1]; if (i === 6) c += `（拉力檢驗值：${d.pull_value || ''}）`; return appEsc(c); };
-  const bodyRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${SC_BRACKET_Q.length}" style="border:1px solid #333;padding:7px 4px;text-align:center;font-weight:700;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="border:1px solid #333;padding:7px 9px;line-height:1.5">${i}. ${contentOf(i)}</td><td style="border:1px solid #333;padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="border:1px solid #333;padding:7px 9px"></td></tr>`; }).join('');
+  const bodyRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${SC_BRACKET_Q.length}" style="border:1px solid #333;padding:7px 4px;text-align:center;font-weight:700;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="border:1px solid #333;padding:7px 9px;line-height:1.5">${i}. ${contentOf(i)}</td><td style="border:1px solid #333;padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="border:1px solid #333;padding:7px 9px">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
   return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
     <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
       <img src="${DL_LOGO}" style="height:44px">
@@ -2989,6 +2990,216 @@ function scBracketPhotoPageHtml(meta) {
   </div>`;
 }
 SC_TYPES.push({ key: 'bracket', title: '支架及固定座', icon: '🔩', form: scBracketForm });
+
+// ===== 通用「標準自主檢查表」產生器：N 題 Yes/No＋備註、改善措施、檢測照片(PDF第二頁)、審核/工地主任、容量自動帶入 =====
+// 之後新增項目只要 scRegisterStd({key,title,icon,questions:[...]}) 即可，表單/收集/存檔/PDF 全共用。
+let scStdCfg = null, scStdEditingId = null, scStdKept = [], scStdNew = [];
+function scStdForm(rec, presetSite) {
+  const cfg = scStdCfg; if (!cfg) return;
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  scStdEditingId = rec ? rec.id : null;
+  const d = (rec && rec.data) ? rec.data : {};
+  const checks = d.checks || {}, notes = d.notes || {};
+  scStdNew = [];
+  scStdKept = (d.photos || []).map(p => ({ src: (typeof p === 'string' ? p : p.src), caption: (p && p.caption) || '' })).filter(p => p.src);
+  const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
+  let extraSiteOpt = '';
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
+  const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
+  const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✘ No</label></div>`;
+  const qRows = cfg.questions.map((q, idx) => { const i = idx + 1; const noteIp = `<input id="sc-note-${i}" value="${appEsc(notes[i] || '')}" placeholder="備註（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${noteIp}</div>`; }).join('');
+  cont.innerHTML = `
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','${cfg.key}')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
+        <div class="form-field" style="margin:0"><label>審核</label><select id="sc-reviewer" style="font-weight:400">${svOpt(d.reviewer || '')}</select></div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)">${scStdEditingId ? '（編輯中）' : `（新建${appEsc(cfg.title)} 自主檢查表）`}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 6px">現場施工／完工檢驗</div>
+      ${qRows}
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">依檢驗結果採取改善措施之內容</div>
+      <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「${appEsc(cfg.title)} 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scStdEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="scStdSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存自主檢查表</button>
+      <button onclick="scStdPrint()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
+      ${scStdEditingId ? `<button onclick="scStdDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
+      <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
+    </div>`;
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  scStdRenderPhotos();
+}
+function scStdSyncCaptions() {
+  scStdKept.forEach((p, i) => { const e = document.getElementById('sc-cap-k-' + i); if (e) p.caption = e.value; });
+  scStdNew.forEach((p, i) => { const e = document.getElementById('sc-cap-n-' + i); if (e) p.caption = e.value; });
+}
+function scStdPickPhotos(files) {
+  scStdSyncCaptions();
+  const room = 6 - (scStdKept.length + scStdNew.length);
+  Array.from(files).slice(0, Math.max(0, room)).forEach(f => scStdNew.push({ file: f, caption: '' }));
+  scStdRenderPhotos();
+}
+function scStdRemoveKept(i) { scStdSyncCaptions(); scStdKept.splice(i, 1); scStdRenderPhotos(); }
+function scStdRemoveNew(i) { scStdSyncCaptions(); scStdNew.splice(i, 1); scStdRenderPhotos(); }
+function scStdRenderPhotos() {
+  const box = document.getElementById('sc-photo-list'); if (!box) return;
+  const cap = (kind, i, val) => `<input id="sc-cap-${kind}-${i}" value="${appEsc(val || '')}" placeholder="照片說明" style="width:140px;max-width:100%;margin-top:6px;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">`;
+  const kept = scStdKept.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${p.src}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="scStdRemoveKept(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('k', i, p.caption)}</div>`).join('');
+  const neu = scStdNew.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(p.file)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="scStdRemoveNew(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, p.caption)}</div>`).join('');
+  box.innerHTML = (kept + neu) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+}
+async function scStdResolvePhotos() {
+  scStdSyncCaptions();
+  const out = scStdKept.map(p => ({ src: p.src, caption: (p.caption || '').trim() }));
+  for (const p of scStdNew) { const blob = await dlCompressImage(p.file); out.push({ src: await dlBlobToDataURL(blob), caption: (p.caption || '').trim() }); }
+  return out.slice(0, 6);
+}
+function scStdCollect() {
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const checks = {}, notes = {};
+  for (let i = 1; i <= scStdCfg.questions.length; i++) { const r = document.querySelector(`input[name="scq${i}"]:checked`); checks[i] = r ? r.value : ''; notes[i] = v('sc-note-' + i); }
+  const data = { checks, notes, improve: v('sc-improve'), supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') };
+  return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data };
+}
+function scStdMeta(siteId, checkDate, data) {
+  const s = siteById(Number(siteId));
+  let cap = '—';
+  if (s) {
+    const pv = s.mw ? (s.mw + ' kWp') : '';
+    const st = (s.skw || s.mwh) ? ((s.skw || 0) + ' kW / ' + (s.mwh || 0) + ' kWh') : '';
+    cap = (pv && st) ? ('光電 ' + pv + '；儲能 ' + st) : (pv || st || '—');
+  }
+  return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap, date: checkDate, data };
+}
+function scStdPdfHtml(meta) {
+  const cfg = scStdCfg, d = meta.data || {}, checks = d.checks || {}, Q = cfg.questions;
+  const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
+  const bodyRows = Q.map((q, idx) => { const i = idx + 1; const first = i === 1 ? `<td rowspan="${Q.length}" style="border:1px solid #333;padding:7px 4px;text-align:center;font-weight:700;width:7%"><div style="writing-mode:vertical-rl;text-orientation:upright;letter-spacing:3px;margin:0 auto">現場施工／完工檢驗</div></td>` : ''; return `<tr>${first}<td style="border:1px solid #333;padding:7px 9px;line-height:1.5">${i}. ${appEsc(q)}</td><td style="border:1px solid #333;padding:7px 9px;text-align:center;white-space:nowrap">${ynCell(i)}</td><td style="border:1px solid #333;padding:7px 9px">${appEsc((d.notes && d.notes[i]) || '')}</td></tr>`; }).join('');
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
+    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
+      <img src="${DL_LOGO}" style="height:44px">
+      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">${appEsc(cfg.title)} 自主檢查表</div>
+      <div style="width:110px"></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:10px">
+      <tr>
+        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:14%;font-weight:700">工程名稱</td>
+        <td style="border:1px solid #333;padding:7px 10px">${appEsc(meta.projName || meta.siteName || '')}</td>
+        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;width:10%;font-weight:700">容量</td>
+        <td style="border:1px solid #333;padding:7px 10px;width:18%">${appEsc(meta.cap || '')}</td>
+      </tr>
+      <tr>
+        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">承包商</td>
+        <td style="border:1px solid #333;padding:7px 10px">綠源科技股份有限公司</td>
+        <td style="background:#f1f3f5;border:1px solid #333;padding:7px 10px;font-weight:700">檢驗日期</td>
+        <td style="border:1px solid #333;padding:7px 10px">${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td>
+      </tr>
+    </table>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr style="background:#e9edf1">
+        <th style="border:1px solid #333;padding:7px 8px;width:7%">項目</th>
+        <th style="border:1px solid #333;padding:7px 8px">檢驗內容</th>
+        <th style="border:1px solid #333;padding:7px 8px;width:22%">檢驗結果</th>
+        <th style="border:1px solid #333;padding:7px 8px;width:14%">備註</th>
+      </tr>
+      ${bodyRows}
+      <tr><td colspan="4" style="border:1px solid #333;padding:7px 9px">依檢驗結果採取改善措施之內容：<br><div style="min-height:30px;white-space:pre-wrap">${appEsc(d.improve || '')}</div></td></tr>
+    </table>
+    <div style="display:flex;gap:40px;margin-top:18px;font-size:15px;color:#374151">
+      <div style="flex:1">審　核：${d.reviewer ? appEsc(d.reviewer) : '______________'}</div>
+      <div style="flex:1">工地主任：${d.supervisor ? appEsc(d.supervisor) : '______________'}</div>
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+  </div>`;
+}
+function scStdPhotoPageHtml(meta) {
+  const cfg = scStdCfg, ph = (meta.data.photos || []);
+  const cell = p => `<td style="padding:8px;vertical-align:top;width:50%;border:none"><div style="border:2px solid #4b5563;background:#fff;box-sizing:border-box"><div style="position:relative;width:100%;padding-bottom:70%"><img src="${p.src}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain"></div></div><div style="text-align:center;font-size:14px;margin-top:5px">${appEsc(p.caption || '')}</div></td>`;
+  let rows = '';
+  for (let i = 0; i < ph.length; i += 2) rows += `<tr>${cell(ph[i])}${ph[i + 1] ? cell(ph[i + 1]) : '<td style="width:50%;border:none"></td>'}</tr>`;
+  return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000;font-size:14px">
+    <div style="display:flex;align-items:center;border-bottom:3px solid #9ca3af;padding-bottom:8px;margin-bottom:14px">
+      <img src="${DL_LOGO}" style="height:44px">
+      <div style="flex:1;text-align:center;font-size:22px;font-weight:800;color:#374151">${appEsc(cfg.title)} 自主檢查表</div>
+      <div style="width:110px"></div>
+    </div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:10px">檢測照片</div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed;border:none">${rows}</table>
+    <div style="margin-top:14px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限(至少)：5 年</div>
+  </div>`;
+}
+function scStdPdfPages(meta) {
+  const pages = [scStdPdfHtml(meta)];
+  if ((meta.data.photos || []).length) pages.push(scStdPhotoPageHtml(meta));
+  return pages;
+}
+async function scStdSave() {
+  const cfg = scStdCfg, msg = document.getElementById('sc-save-msg');
+  const { siteId, checkDate, data } = scStdCollect();
+  if (!siteId || !checkDate) { if (msg) { msg.textContent = '請選擇案場與檢驗日期'; msg.style.color = 'var(--danger)'; } return; }
+  if (scStdEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scStdEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  try {
+    if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
+    data.photos = await scStdResolvePhotos();
+    await scSaveRecord({ key: cfg.key, siteId, checkDate, data, note: '', pdfHtml: scStdPdfPages(scStdMeta(siteId, checkDate, data)), editingId: scStdEditingId, msgEl: msg });
+    if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    setTimeout(() => scTypeView(siteId, cfg.key), 800);
+  } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
+}
+async function scStdPrint() {
+  const { siteId, checkDate, data } = scStdCollect();
+  if (!siteId || !checkDate) { alert('請選擇案場與檢驗日期'); return; }
+  try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scStdPdfPages(scStdMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
+  catch (e) { alert('產生失敗：' + (e.message || e)); }
+}
+async function scStdDelete() {
+  if (!scStdEditingId) return;
+  const rec = (scLogs || []).find(r => String(r.id) === String(scStdEditingId));
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的紀錄。'); return; }
+  if (!confirm('確定刪除這筆自主檢查表？（含共用硬碟上的 PDF）')) return;
+  try {
+    if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id);
+    const { error } = await sb.from('site_selfcheck').delete().eq('id', scStdEditingId);
+    if (error) throw error;
+    const sid = rec ? rec.site_id : null;
+    await loadScRecords(); scTypeView(sid, scStdCfg.key);
+  } catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+// 註冊一個標準檢查項目：form 會先設定 scStdCfg 再渲染（一次只開一張，安全共用）
+function scRegisterStd(cfg) {
+  SC_TYPES.push({ key: cfg.key, title: cfg.title, icon: cfg.icon || '📋', form: (rec, presetSite) => { scStdCfg = cfg; scStdForm(rec, presetSite); } });
+}
+scRegisterStd({
+  key: 'module', title: '模組安裝', icon: '🔆',
+  questions: [
+    '模組配置及安裝位置是否與圖說相符？',
+    '模組安裝水平性、垂直性是否良好？夾具、螺絲是否依規定牢固鎖緊？',
+    '模組安裝串並聯數是否正確？',
+    '模組板是否完整（沒有刮痕或破壞）？',
+    '模組安裝位置是否與施工圖相符？',
+    '接地電器連續性是否依規定施作？',
+    '模組連接線是否架高並綁紮牢固？',
+    '模組序號是否依各期別數安裝？',
+    '檢驗結果是否合格？'
+  ]
+});
 async function loadDlLogs() {
   if (!sb) return;
   try { const { data, error } = await sb.from('site_daily_log').select('*').order('log_date', { ascending: false }); dlLogs = (!error && data) ? data : []; }
