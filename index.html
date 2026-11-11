@@ -2699,7 +2699,7 @@ function scShowList() {
   const cards = ids.map(id => { const s = siteById(Number(id)); const nm = s ? (s.label || s.name) : ('案場#' + id); return `<div class="card" onclick="scSiteView('${id}')" style="cursor:pointer;padding:16px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><div style="font-weight:700;font-size:15px;min-height:38px">${appEsc(nm)}</div><div style="font-size:12px;color:var(--muted)">${cntBySite[id]} 筆檢查表</div></div>`; }).join('');
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
-      <div style="font-size:13px;color:var(--muted)">工程自主檢查表（共規劃 11 項，已建立 ${SC_TYPES.length} 項）</div>
+      <div style="font-size:13px;color:var(--muted)">共 ${(scLogs || []).length} 筆自主檢查表・${ids.length} 個案場</div>
       <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增自主檢查表</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無檢查表，點右上角「＋ 新增自主檢查表」開始。</div>'}</div>`;
@@ -2721,7 +2721,7 @@ function scSiteView(siteId) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
   const s = siteById(Number(siteId)); const nm = s ? (s.label || s.name) : ('案場#' + siteId);
   const cntByType = key => (scLogs || []).filter(r => String(r.site_id) === String(siteId) && r.sc_type === key).length;
-  const cards = SC_TYPES.map(t => `<div class="card" onclick="scTypeView('${siteId}','${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="flex:1"><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${cntByType(t.key)} 筆</div></div></div>`).join('');
+  const cards = SC_TYPES.filter(t => cntByType(t.key) > 0).map(t => `<div class="card" onclick="scTypeView('${siteId}','${t.key}')" style="cursor:pointer;padding:16px;display:flex;align-items:center;gap:12px" onmouseover="this.style.boxShadow='0 6px 18px rgba(0,0,0,.12)'" onmouseout="this.style.boxShadow=''"><span style="font-size:26px">${t.icon || '📋'}</span><div style="flex:1"><div style="font-weight:700;font-size:15px">${appEsc(t.title)}</div><div style="font-size:12px;color:var(--muted);margin-top:2px">${cntByType(t.key)} 筆</div></div></div>`).join('');
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="scShowList()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回案場</button>
@@ -2729,7 +2729,7 @@ function scSiteView(siteId) {
       <div style="width:90px"></div>
     </div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:10px">選擇檢查項目：</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">檢查項目將陸續建立。</div>'}</div>`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">此案場尚無檢查表，請回上一頁用「＋ 新增自主檢查表」建立。</div>'}</div>`;
 }
 // 第三層：該案場該項目的記錄清單
 function scTypeView(siteId, key) {
