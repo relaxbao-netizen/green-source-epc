@@ -2667,6 +2667,14 @@ function showDlTab(tab) {
 // ===================== 自主檢查表（第四子分頁）=====================
 // 11 個檢查項目共用一張 site_selfcheck 表；各項目欄位存 data jsonb。每個項目＝{ key, title, icon, form(rec) }
 const SC_TYPES = [];
+// 自主檢查表必填：案場、檢驗日期、工地主任；回傳 {msg,field} 或 null
+function scRequireMiss(siteId, checkDate, data) {
+  if (!siteId) return { msg: '請選擇案場', field: 'sc-site' };
+  if (!checkDate) return { msg: '請選擇檢驗日期', field: 'sc-date' };
+  if (!(data && data.supervisor)) return { msg: '請選擇工地主任', field: 'sc-supervisor' };
+  return null;
+}
+function scFocusMiss(f) { const e = document.getElementById(f); if (e) { try { e.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} e.focus(); } }
 let scLogs = [];
 async function loadScRecords() {
   if (!sb) return;
@@ -2905,7 +2913,8 @@ function scBracketPdfPages(meta) { return [scBracketPdfHtml(meta), scBracketPhot
 async function scBracketSave() {
   const msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scBracketCollect();
-  if (!siteId || !checkDate) { if (msg) { msg.textContent = siteId ? '請選擇檢驗日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
+  if (!data.pull_value) { if (msg) { msg.textContent = '請填拉力檢驗值'; msg.style.color = 'var(--danger)'; } scFocusMiss('sc-pull'); return; }
   if (scBrEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scBrEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   try {
     if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
@@ -2917,7 +2926,8 @@ async function scBracketSave() {
 }
 async function scBracketPrint() {
   const { siteId, checkDate, data } = scBracketCollect();
-  if (!siteId || !checkDate) { alert(siteId ? '請選擇檢驗日期' : '請選擇案場'); return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
+  if (!data.pull_value) { scFocusMiss('sc-pull'); alert('請填拉力檢驗值'); return; }
   try { data.torque_photos = await scBrResolvePhotos(); const blob = await scGeneratePdfBlob(scBracketPdfPages(scBracketMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
   catch (e) { alert('產生失敗：' + (e.message || e)); }
 }
@@ -3099,7 +3109,7 @@ function scStdPdfPages(meta) { return [scStdPdfHtml(meta), scStdPhotoPageHtml(me
 async function scStdSave() {
   const cfg = scStdCfg, msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scStdCollect();
-  if (!siteId || !checkDate) { if (msg) { msg.textContent = siteId ? '請選擇檢驗日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
   if (scStdEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scStdEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   try {
     if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
@@ -3111,7 +3121,7 @@ async function scStdSave() {
 }
 async function scStdPrint() {
   const { siteId, checkDate, data } = scStdCollect();
-  if (!siteId || !checkDate) { alert(siteId ? '請選擇檢驗日期' : '請選擇案場'); return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
   try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scStdPdfPages(scStdMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
   catch (e) { alert('產生失敗：' + (e.message || e)); }
 }
@@ -3254,7 +3264,8 @@ function scVocPdfPages(meta) { return [scVocPdfHtml(meta), scPhotoPageHtml('模�
 async function scVocSave() {
   const msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scVocCollect();
-  if (!siteId || !checkDate) { if (msg) { msg.textContent = siteId ? '請選擇檢驗日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
+  if (!data.panel) { if (msg) { msg.textContent = '請填盤體名稱'; msg.style.color = 'var(--danger)'; } scFocusMiss('sc-voc-panel'); return; }
   if (scVocEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scVocEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   try {
     if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
@@ -3266,7 +3277,8 @@ async function scVocSave() {
 }
 async function scVocPrint() {
   const { siteId, checkDate, data } = scVocCollect();
-  if (!siteId || !checkDate) { alert(siteId ? '請選擇檢驗日期' : '請選擇案場'); return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
+  if (!data.panel) { scFocusMiss('sc-voc-panel'); alert('請填盤體名稱'); return; }
   try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scVocPdfPages(scVocMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
   catch (e) { alert('產生失敗：' + (e.message || e)); }
 }
@@ -3409,7 +3421,8 @@ function scGndPdfPages(meta) { return [scGndPdfHtml(meta), scPhotoPageHtml('接�
 async function scGndSave() {
   const msg = document.getElementById('sc-save-msg');
   const { siteId, checkDate, data } = scGndCollect();
-  if (!siteId || !checkDate) { if (msg) { msg.textContent = siteId ? '請選擇檢驗日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
+  if (!(data.test_types && data.test_types.length)) { if (msg) { msg.textContent = '請選擇測試項目'; msg.style.color = 'var(--danger)'; } const e = document.querySelector('.gnd-tt'); if (e) { try { e.closest('label').scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} } return; }
   if (scGndEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scGndEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   try {
     if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
@@ -3421,7 +3434,8 @@ async function scGndSave() {
 }
 async function scGndPrint() {
   const { siteId, checkDate, data } = scGndCollect();
-  if (!siteId || !checkDate) { alert(siteId ? '請選擇檢驗日期' : '請選擇案場'); return; }
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
+  if (!(data.test_types && data.test_types.length)) { const e = document.querySelector('.gnd-tt'); if (e) { try { e.closest('label').scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} } alert('請選擇測試項目'); return; }
   try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scGndPdfPages(scGndMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
   catch (e) { alert('產生失敗：' + (e.message || e)); }
 }
@@ -3906,7 +3920,9 @@ function dlCollect() {
 async function dlSave() {
   const msg = document.getElementById('dl-save-msg'); const rec = dlCollect();
   if (dlEditingId) { const old = (dlLogs || []).find(r => r.id === dlEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的施工日誌。'; msg.style.color = 'var(--danger)'; } return; } }
-  if (!rec.site_id || !rec.log_date) { if (msg) { msg.textContent = rec.site_id ? '請選擇日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  // 必填：案場、施工日期、本日天氣、工地主任
+  const _req = [['site_id', '請選擇案場', 'dl-site'], ['log_date', '請選擇施工日期', 'dl-date'], ['weather', '請選擇本日天氣', 'dl-weather'], ['supervisor', '請選擇工地主任', 'dl-supervisor']].find(([k]) => !rec[k]);
+  if (_req) { if (msg) { msg.textContent = _req[1]; msg.style.color = 'var(--danger)'; } const f = _req[2] && document.getElementById(_req[2]); if (f) { try { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} f.focus(); } return; }
   if (msg) { msg.textContent = '產生 PDF 中…'; msg.style.color = 'var(--muted)'; }
   try {
     const s = siteById(rec.site_id); const sn = s ? (s.label || s.name) : rec.site_id;
@@ -4395,7 +4411,7 @@ async function tbPrintCurrent() {
   const msg = document.getElementById('tb-save-msg');
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const sid = Number(v('tb-site')), date = v('tb-date');
-  if (!sid || !date) { if (msg) { msg.textContent = sid ? '請選擇日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _req = [[sid, '請選擇案場', 'tb-site'], [date, '請選擇施工日期', 'tb-date'], [v('tb-supervisor'), '請選擇工地主任', 'tb-supervisor']].find(x => !x[0]); if (_req) { if (msg) { msg.textContent = _req[1]; msg.style.color = 'var(--danger)'; } const f = document.getElementById(_req[2]); if (f) { try { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} f.focus(); } return; } }
   try {
     if (msg) { msg.textContent = '產生 PDF…'; msg.style.color = 'var(--muted)'; }
     const s = siteById(sid); const sn = s ? (s.label || s.name) : sid;
@@ -4411,7 +4427,7 @@ async function tbSave() {
   const msg = document.getElementById('tb-save-msg');
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
   const sid = Number(v('tb-site')), date = v('tb-date');
-  if (!sid || !date) { if (msg) { msg.textContent = sid ? '請選擇日期' : '請選擇案場'; msg.style.color = 'var(--danger)'; } return; }
+  { const _req = [[sid, '請選擇案場', 'tb-site'], [date, '請選擇施工日期', 'tb-date'], [v('tb-supervisor'), '請選擇工地主任', 'tb-supervisor']].find(x => !x[0]); if (_req) { if (msg) { msg.textContent = _req[1]; msg.style.color = 'var(--danger)'; } const f = document.getElementById(_req[2]); if (f) { try { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {} f.focus(); } return; } }
   if (tbEditingId) { const old = (tbLogs || []).find(r => r.id === tbEditingId); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
   const items = [...tbItemsSel];
   const oldRec = tbEditingId ? (tbLogs || []).find(r => r.id === tbEditingId) : null;
