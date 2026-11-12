@@ -2682,6 +2682,35 @@ async function loadScRecords() {
   catch (e) { scLogs = []; }
 }
 function scEnsureFolder(siteName) { return dlEnsureSubFolder(String(siteName), '自主檢查表'); }
+// 開啟某案場「自主檢查表」子資料夾：已知 folder id 直接開，否則用最新 PDF 查父夾、查到就記住（本機快取）
+function scFolderCacheGet(sid) { try { return (JSON.parse(localStorage.getItem('gs_sc_folders') || '{}') || {})[String(sid)] || ''; } catch (e) { return ''; } }
+function scFolderCacheSet(sid, fid) { try { const m = JSON.parse(localStorage.getItem('gs_sc_folders') || '{}') || {}; m[String(sid)] = fid; localStorage.setItem('gs_sc_folders', JSON.stringify(m)); } catch (e) {} }
+async function scOpenSiteFolder(sid, siteName, btn) {
+  const recs = (scLogs || []).filter(r => String(r.site_id) === String(sid)).sort((a, b) => String(b.check_date).localeCompare(String(a.check_date)));
+  const cached = scFolderCacheGet(sid);
+  if (cached) { tbShowFolderLink(btn, tbFolderUrl(cached)); return; }
+  const old = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = '解析資料夾中…'; btn.disabled = true; }
+  let opened = true;
+  try {
+    const tok = await dlGetDriveToken();
+    let folderId;
+    const withPdf = recs.find(r => r.pdf && r.pdf.id);
+    if (withPdf) {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${withPdf.pdf.id}?fields=parents&supportsAllDrives=true`, { headers: { Authorization: 'Bearer ' + tok } });
+      const d = await res.json();
+      if (!res.ok) throw new Error((d && d.error && d.error.message) || ('讀取資料夾失敗 ' + res.status));
+      if (d.parents && d.parents.length) folderId = d.parents[0];
+    }
+    if (!folderId) folderId = await scEnsureFolder(String(siteName));
+    if (folderId) scFolderCacheSet(sid, folderId);
+    opened = tbShowFolderLink(btn, tbFolderUrl(folderId));
+  } catch (e) {
+    alert('開啟資料夾失敗：' + (e.message || e) + '\n（需以公司 Google 帳號登入才能開啟）');
+  } finally {
+    if (btn && opened) { btn.textContent = old; btn.disabled = false; }
+  }
+}
 async function scGeneratePdfBlob(html) {
   if (!window.html2canvas || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('PDF 元件尚未載入，請重新整理再試');
   const { jsPDF } = window.jspdf; const pdf = new jsPDF('p', 'mm', 'a4');
@@ -2708,7 +2737,10 @@ function scShowList() {
   cont.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <div style="font-size:13px;color:var(--muted)">共 ${(scLogs || []).length} 筆自主檢查表・${ids.length} 個案場</div>
-      <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增自主檢查表</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;box-sizing:border-box;height:36px;padding:8px 16px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-weight:700;text-decoration:none;white-space:nowrap">📁 開啟雲端資料夾</a>
+        <button onclick="scPickType()" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增自主檢查表</button>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">${cards || '<div style="grid-column:1/-1;color:var(--muted);padding:20px">尚無檢查表，點右上角「＋ 新增自主檢查表」開始。</div>'}</div>`;
 }
@@ -2758,7 +2790,10 @@ function scTypeView(siteId, key) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
       <button onclick="scSiteView('${siteId}')" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回項目</button>
       <div style="font-weight:700;font-size:16px;flex:1;text-align:center;min-width:120px">${appEsc(nm)}　${t.icon || '📋'} ${appEsc(t.title)}</div>
-      <button onclick="scNewRec('${siteId}','${key}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="scOpenSiteFolder('${siteId}', '${appEsc(nm).replace(/'/g, "\\'")}', this)" class="btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;color:var(--accent);font-weight:700">📁 開啟雲端資料夾</button>
+        <button onclick="scNewRec('${siteId}','${key}')" class="btn-primary" style="padding:8px 16px;font-size:13px">＋ 新增</button>
+      </div>
     </div>
     <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px">
       <thead><tr style="color:var(--muted);font-size:12px"><th style="text-align:left;padding:8px 10px;white-space:nowrap">檢驗日期</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">填表人</th><th style="text-align:left;padding:8px 10px;white-space:nowrap">PDF</th><th style="width:70px"></th></tr></thead>
