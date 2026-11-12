@@ -2816,7 +2816,7 @@ function scBracketForm(rec, presetSite) {
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
   const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="scq${i}_y" name="scq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="scq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="scq${i}_n" name="scq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="scq${i}_n" class="sc-yn-no">✘ No</label></div>`;
   const notes = d.notes || {};
-  const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="拉力檢驗值" style="margin-top:6px;display:block;width:220px;max-width:100%;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box">` : ''; const noteIp = `<input id="sc-note-${i}" value="${appEsc(notes[i] || '')}" placeholder="備註（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}${noteIp}</div>`; }).join('');
+  const qRows = SC_BRACKET_Q.map((q, idx) => { const i = idx + 1; const extra = (i === 6) ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap">拉力檢驗值</span><input id="sc-pull" value="${appEsc(d.pull_value || '')}" placeholder="請填拉力檢驗值" style="width:220px;max-width:100%;height:30px;padding:4px 8px;border:1.5px solid var(--accent);border-radius:6px;box-sizing:border-box;background:#f0fdf9"></div>` : ''; const noteIp = `<input id="sc-note-${i}" value="${appEsc(notes[i] || '')}" placeholder="備註（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${extra}${noteIp}</div>`; }).join('');
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
@@ -3169,7 +3169,7 @@ function scVocForm(rec, presetSite) {
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
-  const rows = (d.rows && d.rows.length) ? d.rows.map(scVocRowHtml).join('') : '';
+  const rows = (d.rows && d.rows.length) ? d.rows.map(scVocRowHtml).join('') : scVocRowHtml({});   // 預設一列
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','voc')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
@@ -3293,7 +3293,7 @@ function scGndRowHtml(r) {
   const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const sel = v => `<select class="gnd-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr>${td(inp('gnd-no', r.no))}${td(inp('gnd-system', r.system))}${td(inp('gnd-std', r.std == null ? '≤10Ω' : r.std))}${td(inp('gnd-result', r.result))}${td(sel(r.ok))}${td(inp('gnd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr>${td(inp('gnd-no', r.no))}${td(inp('gnd-system', r.system))}${td(inp('gnd-std', r.std))}${td(inp('gnd-result', r.result))}${td(sel(r.ok))}${td(inp('gnd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
 }
 function scGndForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
@@ -3309,7 +3309,7 @@ function scGndForm(rec, presetSite) {
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
-  const ttBoxes = SC_GND_TESTITEMS.map(n => `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap"><input type="radio" name="gnd-tt" class="gnd-tt" value="${appEsc(n)}" ${tt.includes(n) ? 'checked' : ''} style="margin:0">${appEsc(n)}</label>`).join('');
+  const ttBoxes = SC_GND_TESTITEMS.map(n => `<label class="gnd-tt-chip" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap"><input type="radio" name="gnd-tt" class="gnd-tt" value="${appEsc(n)}" ${tt.includes(n) ? 'checked' : ''} onchange="scGndStyleTT();this.blur()" style="margin:0;outline:none;accent-color:var(--accent)">${appEsc(n)}</label>`).join('');
   const rows = (d.rows && d.rows.length) ? d.rows.map(scGndRowHtml).join('') : scGndRowHtml({});   // 預設一列
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','gnd')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
@@ -3350,6 +3350,15 @@ function scGndForm(rec, presetSite) {
     </div>`;
   const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
   scStdRenderPhotos();
+  scGndStyleTT();
+}
+// 測試項目 chip：選中時變綠（綠框＋淺綠底），比照工具箱危害 chip
+function scGndStyleTT() {
+  document.querySelectorAll('.gnd-tt').forEach(inp => {
+    const l = inp.closest('label'); if (!l) return;
+    l.style.borderColor = inp.checked ? 'var(--accent)' : 'var(--border)';
+    l.style.background = inp.checked ? 'rgba(5,150,105,.12)' : 'var(--surface)';
+  });
 }
 function scGndCollect() {
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
@@ -4141,7 +4150,7 @@ function tbRenderItems() {
   else box.innerHTML = names.map((n, i) => {
     const on = tbItemsSel.has(n);
     return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};border-radius:16px;font-size:12px;cursor:pointer;background:${on ? 'rgba(5,150,105,.12)' : 'var(--surface)'}">
-      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleItem(${i})" style="margin:0">${appEsc(n)}</label>`;
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleItem(${i});this.blur()" style="margin:0;accent-color:var(--accent);outline:none">${appEsc(n)}</label>`;
   }).join('');
   tbRenderItemNotes();
 }
@@ -4171,7 +4180,7 @@ function tbRenderHazards() {
   box.innerHTML = TB_HAZARD_STATUS.map((h, i) => {
     const on = tbHazardSel.has(h);
     return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid ${on ? 'var(--accent)' : 'var(--border)'};border-radius:16px;font-size:12px;cursor:pointer;background:${on ? 'rgba(5,150,105,.12)' : 'var(--surface)'}">
-      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleHazard(${i})" style="margin:0">${appEsc(h)}</label>`;
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="tbToggleHazard(${i});this.blur()" style="margin:0;accent-color:var(--accent);outline:none">${appEsc(h)}</label>`;
   }).join('');
 }
 function tbToggleHazard(i) {
