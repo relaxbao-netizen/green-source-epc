@@ -3312,9 +3312,9 @@ function scVocForm(rec, presetSite) {
       <div class="form-field" style="margin:0 0 12px"><label>盤體名稱</label><input id="sc-voc-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box"></div>
       <div class="wbs-title" style="margin:0 0 10px">迴路量測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px" id="sc-voc-rows">
+      <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="sc-voc-rows">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="padding:4px;width:120px">迴路編號</th><th style="padding:4px;width:120px">PV串接數</th><th style="padding:4px;width:120px">開路電壓</th><th style="padding:4px;width:140px">通路/極性是否正常</th><th style="width:40px"></th>
+          <th style="padding:4px;width:23%">迴路編號</th><th style="padding:4px;width:23%">PV串接數</th><th style="padding:4px;width:23%">開路電壓</th><th style="padding:4px;width:26%">通路/極性是否正常</th><th style="width:5%"></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -3455,9 +3455,9 @@ function scGndForm(rec, presetSite) {
       <div class="form-field" style="margin:0 0 12px"><label>測試項目</label><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">${ttBoxes}</div></div>
       <div class="wbs-title" style="margin:0 0 10px">接地電阻量測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13px" id="sc-gnd-rows">
+      <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="sc-gnd-rows">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="padding:4px;width:130px">編號</th><th style="padding:4px;width:130px">測試系統</th><th style="padding:4px;width:110px">測試標準阻值</th><th style="padding:4px;width:110px">測試結果阻值</th><th style="padding:4px;width:100px">是否合格</th><th style="padding:4px">備註</th><th style="width:40px"></th>
+          <th style="padding:4px;width:12%">編號</th><th style="padding:4px;width:16%">測試系統</th><th style="padding:4px;width:15%">測試標準阻值</th><th style="padding:4px;width:15%">測試結果阻值</th><th style="padding:4px;width:13%">是否合格</th><th style="padding:4px;width:25%">備註</th><th style="width:4%"></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -3608,9 +3608,9 @@ function scScadaForm(rec, presetSite) {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">現場性能檢測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px" id="sc-scada-rows">
+      <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="sc-scada-rows">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="padding:4px;width:150px">器具名稱</th><th style="padding:4px;width:150px">安裝位置</th><th style="padding:4px">測驗內容</th><th style="padding:4px;width:100px">是否合格</th><th style="padding:4px;width:120px">備註</th><th style="width:40px"></th>
+          <th style="padding:4px;width:20%">器具名稱</th><th style="padding:4px;width:20%">安裝位置</th><th style="padding:4px;width:26%">測驗內容</th><th style="padding:4px;width:13%">是否合格</th><th style="padding:4px;width:17%">備註</th><th style="width:4%"></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -3737,11 +3737,11 @@ function scCinsForm(rec, presetSite) {
       <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:13px" id="sc-cins-rows">
         <thead>
           <tr style="color:var(--muted);font-size:12px">
-            <th rowspan="2" style="padding:4px;width:110px">回路編號</th><th rowspan="2" style="padding:4px;width:150px">斷路器規格或說明</th>
+            <th rowspan="2" style="padding:4px;width:11%">回路編號</th><th rowspan="2" style="padding:4px;width:15%">斷路器規格或說明</th>
             <th colspan="3" style="padding:4px">相間（MΩ）</th><th colspan="3" style="padding:4px">對地（MΩ）</th>
-            <th rowspan="2" style="padding:4px;width:90px">是否合格</th><th rowspan="2" style="padding:4px;width:100px">備註</th><th rowspan="2" style="width:40px"></th>
+            <th rowspan="2" style="padding:4px;width:10%">是否合格</th><th rowspan="2" style="padding:4px;width:12%">備註</th><th rowspan="2" style="width:4%"></th>
           </tr>
-          <tr style="color:var(--muted);font-size:12px"><th style="padding:2px">RS</th><th style="padding:2px">RT</th><th style="padding:2px">ST</th><th style="padding:2px">RS</th><th style="padding:2px">RT</th><th style="padding:2px">ST</th></tr>
+          <tr style="color:var(--muted);font-size:12px"><th style="padding:2px;width:8%">RS</th><th style="padding:2px;width:8%">RT</th><th style="padding:2px;width:8%">ST</th><th style="padding:2px;width:8%">RS</th><th style="padding:2px;width:8%">RT</th><th style="padding:2px;width:8%">ST</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -4104,9 +4104,9 @@ function icMatForm(rec, presetSite) {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">進料品名</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:680px;border-collapse:collapse;font-size:13px" id="ic-mat-rows">
+      <table style="width:100%;min-width:660px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="ic-mat-rows">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="padding:4px;width:42px">項目</th><th style="padding:4px">品名</th><th style="padding:4px;width:150px">規格/尺寸</th><th style="padding:4px;width:110px">廠牌</th><th style="padding:4px;width:80px">數量</th><th style="padding:4px;width:130px">備註</th><th style="width:40px"></th>
+          <th style="padding:4px;width:6%">項目</th><th style="padding:4px;width:24%">品名</th><th style="padding:4px;width:20%">規格/尺寸</th><th style="padding:4px;width:15%">廠牌</th><th style="padding:4px;width:11%">數量</th><th style="padding:4px;width:20%">備註</th><th style="width:4%"></th>
         </tr></thead>
         <tbody>${matRows}</tbody>
       </table>
@@ -4445,9 +4445,9 @@ async function dlLoadForm() {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">一、重要施工項目完成數量</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:13px" id="dl-items">
+      <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="dl-items">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px;white-space:nowrap">施工項目</th><th style="width:88px;padding:4px;white-space:nowrap">本日完成</th><th style="width:64px;padding:4px;white-space:nowrap">單位</th><th style="width:80px;padding:4px;white-space:nowrap">工時(小時)</th><th style="text-align:left;padding:4px;white-space:nowrap">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px;white-space:nowrap;width:30%">施工項目</th><th style="width:14%;padding:4px;white-space:nowrap">本日完成</th><th style="width:10%;padding:4px;white-space:nowrap">單位</th><th style="width:14%;padding:4px;white-space:nowrap">工時(小時)</th><th style="text-align:left;padding:4px;white-space:nowrap;width:27%">備註</th><th style="width:5%"></th>
         </tr></thead>
         <tbody>${items.map(it => dlItemRowHtml(it)).join('')}</tbody>
       </table>
@@ -4458,9 +4458,9 @@ async function dlLoadForm() {
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">二、工地人員管理</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:420px;border-collapse:collapse;font-size:13px" id="dl-workers">
+      <table style="width:100%;min-width:420px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="dl-workers">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px;white-space:nowrap">工別</th><th style="width:96px;padding:4px;white-space:nowrap">本日人數</th><th style="text-align:left;padding:4px;white-space:nowrap">備註</th><th style="width:34px"></th>
+          <th style="text-align:left;padding:4px;white-space:nowrap;width:40%">工別</th><th style="width:18%;padding:4px;white-space:nowrap">本日人數</th><th style="text-align:left;padding:4px;white-space:nowrap;width:37%">備註</th><th style="width:5%"></th>
         </tr></thead>
         <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
       </table>
