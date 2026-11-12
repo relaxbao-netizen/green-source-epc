@@ -3156,6 +3156,81 @@ scRegisterStd({
     '檢驗結果是否合格？'
   ]
 });
+scRegisterStd({
+  key: 'inverter', title: '逆變器安裝', icon: '🔁',
+  questions: [
+    '開關箱及逆變器規格、尺寸是否符合規定？',
+    '開關箱及逆變器數量、安裝位置是否與施工圖相符？',
+    '開關箱及逆變器安裝固定是否牢固？',
+    '開關箱及逆變器內器具佈置、標示是否正確？',
+    '開關箱及逆變器安裝是否水平美觀，並保持清潔？',
+    '開關箱及逆變器開口處是否填塞符合 IP54 標準，並保持清潔？',
+    '開關箱及逆變器警語標示與圖說是否放置？',
+    '檢驗結果是否合格？'
+  ]
+});
+scRegisterStd({
+  key: 'hvbox', title: '高低壓開關箱及變壓器', icon: '🗄️',
+  questions: [
+    '高壓開關箱及變壓器規格、尺寸是否符合規定？',
+    '高壓開關箱及變壓器數量、安裝位置是否與施工圖相符？',
+    '高壓開關箱及變壓器安裝固定是否牢固？',
+    '高壓開關箱及變壓器內器具佈置、標示是否正確？',
+    '高壓開關箱及變壓器安裝是否水平美觀，並保持清潔？',
+    '高壓設備 RC 基座是否平整，防水層是否施作？',
+    '高壓開關箱維運空間是否足夠？',
+    '高壓設備區圍籬高度是否 >1.8M？',
+    '高壓開關箱開口處是否填塞符合 IP54 標準，並保持清潔？',
+    '檢驗結果是否合格？'
+  ]
+});
+scRegisterStd({
+  key: 'waterpipe', title: '清洗水路施工', icon: '💧',
+  questions: [
+    '給水管之廠牌、尺寸、材質是否符合規定？',
+    '給水管之安裝位置、高程及路徑是否與施工圖相符？',
+    '管路上閥件之規格、材質、數量是否與施工圖相符？',
+    '管路吊架、支架之規格、尺寸、材質與間距是否符合規定？',
+    '管路上接頭、彎頭等銜接是否牢固？',
+    '管路吊架固定是否牢固？',
+    '出水口位置、高度是否與施工圖相符？',
+    '是否有水管耐壓測試記錄？',
+    '給水施工是否美觀，並保持清潔？',
+    '是否合格？'
+  ]
+});
+scRegisterStd({
+  key: 'conduit', title: '電氣明管施工', icon: '💡',
+  questions: [
+    '電器明管之廠牌、材質、尺寸、規格是否符合規定？',
+    '電器明管之安裝位置、高程及路徑是否與施工圖相符？',
+    '管路上拉線盒、接線盒、出線盒等規格、尺寸、材質、數量是否與施工圖相符？',
+    '管路彎曲半徑是否符合規定？',
+    '管路吊架、支架之規格、尺寸、材質與間距是否符合規定？',
+    '管路上接頭、彎頭等銜接是否牢固？',
+    '金屬管電氣接續是否良好？',
+    '管路吊架固定是否牢固？',
+    '管路出口位置、高度是否與施工圖相符？',
+    '電氣明管施工是否美觀，並保持清潔？',
+    '檢驗結果是否合格？'
+  ]
+});
+scRegisterStd({
+  key: 'cable', title: '電纜線施工', icon: '🧵',
+  questions: [
+    '施工廠商選用之配線接頭工具是否正確、良好？',
+    '纜線之材質、線徑、規格、顏色是否符合規定？',
+    '纜線施工之相線根數、回路線、路徑是否符合施工圖？',
+    '纜線兩端是否有標示饋線回路？',
+    '纜線之綁紮、固定是否符合規定？',
+    '纜線相別是否能明確區別？',
+    '纜線施工是否美觀，並保持清潔及乾燥？',
+    '以徒手試拉電線，測試電線接頭接合是否牢固？',
+    '接地線是否依規定施作？',
+    '線槽內配線排列是否整齊？固定鬆緊是否適當？',
+    '檢驗結果是否合格？'
+  ]
+});
 
 // ---------- 項目3：模組開路電壓（資料表式，非 Yes/No）----------
 let scVocEditingId = null;
@@ -3453,6 +3528,265 @@ async function scGndDelete() {
   } catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
 SC_TYPES.push({ key: 'gnd', title: '接地電阻', icon: '🔌', form: scGndForm });
+
+// ---------- 項目：監控系統（資料表式：器具名稱/安裝位置/測驗內容/是否合格/備註）----------
+let scScadaEditingId = null;
+function scScadaRowHtml(r) {
+  r = r || {};
+  const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const sel = v => `<select class="scd-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
+  const td = h => `<td style="padding:3px 4px">${h}</td>`;
+  return `<tr>${td(inp('scd-name', r.name))}${td(inp('scd-loc', r.loc))}${td(inp('scd-test', r.test))}${td(sel(r.ok))}${td(inp('scd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+}
+function scScadaForm(rec, presetSite) {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  scScadaEditingId = rec ? rec.id : null;
+  const d = (rec && rec.data) ? rec.data : {};
+  scStdNew = [];
+  scStdKept = (d.photos || []).map(p => ({ src: (typeof p === 'string' ? p : p.src), caption: (p && p.caption) || '' })).filter(p => p.src);
+  const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
+  let extraSiteOpt = '';
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
+  const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
+  const rows = (d.rows && d.rows.length) ? d.rows.map(scScadaRowHtml).join('') : scScadaRowHtml({});
+  cont.innerHTML = `
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','scada')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
+        <div class="form-field" style="margin:0"><label>審核</label><select id="sc-reviewer" style="font-weight:400">${svOpt(d.reviewer || '')}</select></div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)">${scScadaEditingId ? '（編輯中）' : '（新建監控系統 自主檢查表）'}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">現場性能檢測</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:13px" id="sc-scada-rows">
+        <thead><tr style="color:var(--muted);font-size:12px">
+          <th style="padding:4px;width:150px">器具名稱</th><th style="padding:4px;width:150px">安裝位置</th><th style="padding:4px">測驗內容</th><th style="padding:4px;width:100px">是否合格</th><th style="padding:4px;width:120px">備註</th><th style="width:40px"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <button onclick="dlAddRow('sc-scada-rows', scScadaRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「監控系統 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scScadaEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="scScadaSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存自主檢查表</button>
+      <button onclick="scScadaPrint()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
+      ${scScadaEditingId ? `<button onclick="scScadaDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
+      <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
+    </div>`;
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  scStdRenderPhotos();
+}
+function scScadaCollect() {
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const rows = [...document.querySelectorAll('#sc-scada-rows tbody tr')].map(tr => ({
+    name: tr.querySelector('.scd-name').value.trim(), loc: tr.querySelector('.scd-loc').value.trim(),
+    test: tr.querySelector('.scd-test').value.trim(), ok: tr.querySelector('.scd-ok').value.trim(), note: tr.querySelector('.scd-note').value.trim()
+  })).filter(r => r.name || r.loc || r.test || r.ok || r.note);
+  return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data: { rows, supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') } };
+}
+function scScadaMeta(siteId, checkDate, data) { const s = siteById(Number(siteId)); const c = scSiteCap(s); return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap: c.cap, capLabel: c.capLabel, date: checkDate, data }; }
+function scScadaPdfHtml(meta) {
+  const d = meta.data || {}, rows = d.rows || [], cs = 'padding:6px 8px;text-align:center';
+  const ynCell = ok => `${ok === 'yes' ? '☑' : '☐'} Yes　${ok === 'no' ? '☑' : '☐'} No`;
+  let body = '';
+  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.name || '')}</td><td style="${cs}">${appEsc(r.loc || '')}</td><td style="padding:6px 8px;text-align:left">${appEsc(r.test || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="padding:6px 8px;text-align:left">${appEsc(r.note || '')}</td></tr>`; }
+  return DL_PDF_STYLE + `<div class="dlpdf">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px"><img src="${DL_LOGO}" style="height:46px"><div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">監控系統 自主檢查表</div><div style="width:120px"></div></div>
+    <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${meta.cap || ''}</td></tr>
+      <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
+    </table>
+    <div class="sec">現場性能檢測</div>
+    <table class="tb" style="table-layout:fixed;font-size:13px"><colgroup><col style="width:20%"><col style="width:20%"><col><col style="width:16%"><col style="width:18%"></colgroup>
+      <thead><tr><th>器具名稱</th><th>安裝位置</th><th>測驗內容</th><th>檢驗結果<br>是否合格</th><th>備註</th></tr></thead><tbody>${body}</tbody>
+    </table>
+    <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
+  </div>`;
+}
+function scScadaPdfPages(meta) { return [scScadaPdfHtml(meta), scPhotoPageHtml('監控系統', meta.data.photos || [], '檢測照片')]; }
+async function scScadaSave() {
+  const msg = document.getElementById('sc-save-msg');
+  const { siteId, checkDate, data } = scScadaCollect();
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
+  if (scScadaEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scScadaEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  try {
+    if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
+    data.photos = await scStdResolvePhotos();
+    await scSaveRecord({ key: 'scada', siteId, checkDate, data, note: '', pdfHtml: scScadaPdfPages(scScadaMeta(siteId, checkDate, data)), editingId: scScadaEditingId, msgEl: msg });
+    if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    setTimeout(() => scTypeView(siteId, 'scada'), 800);
+  } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
+}
+async function scScadaPrint() {
+  const { siteId, checkDate, data } = scScadaCollect();
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
+  try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scScadaPdfPages(scScadaMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
+  catch (e) { alert('產生失敗：' + (e.message || e)); }
+}
+async function scScadaDelete() {
+  if (!scScadaEditingId) return;
+  const rec = (scLogs || []).find(r => String(r.id) === String(scScadaEditingId));
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的紀錄。'); return; }
+  if (!confirm('確定刪除這筆自主檢查表？（含共用硬碟上的 PDF）')) return;
+  try { if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id); const { error } = await sb.from('site_selfcheck').delete().eq('id', scScadaEditingId); if (error) throw error; const sid = rec ? rec.site_id : null; await loadScRecords(); scTypeView(sid, 'scada'); }
+  catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+SC_TYPES.push({ key: 'scada', title: '監控系統', icon: '🖥️', form: scScadaForm });
+
+// ---------- 項目：電纜絕緣電阻測試（測試項目多選＋盤名＋相間/對地各 RS·RT·ST）----------
+const SC_CINS_TESTITEMS = ['纜線回路', '電盤回路', '匯流排'];
+let scCinsEditingId = null;
+function scCinsStyleTT() { document.querySelectorAll('.cins-tt').forEach(inp => { const l = inp.closest('label'); if (l) { l.style.borderColor = inp.checked ? 'var(--accent)' : 'var(--border)'; l.style.background = inp.checked ? 'rgba(5,150,105,.12)' : 'var(--surface)'; } }); }
+function scCinsRowHtml(r) {
+  r = r || {};
+  const inp = (cls, v, w) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;${w ? 'min-width:' + w + 'px;' : ''}border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const sel = v => `<select class="cins-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
+  const td = h => `<td style="padding:3px 3px">${h}</td>`;
+  return `<tr>${td(inp('cins-no', r.no))}${td(inp('cins-breaker', r.breaker))}${td(inp('cins-pRS', r.pRS, 54))}${td(inp('cins-pRT', r.pRT, 54))}${td(inp('cins-pST', r.pST, 54))}${td(inp('cins-gRS', r.gRS, 54))}${td(inp('cins-gRT', r.gRT, 54))}${td(inp('cins-gST', r.gST, 54))}${td(sel(r.ok))}${td(inp('cins-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+}
+function scCinsForm(rec, presetSite) {
+  const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
+  scCinsEditingId = rec ? rec.id : null;
+  const d = (rec && rec.data) ? rec.data : {};
+  const tt = d.test_types || [];
+  scStdNew = [];
+  scStdKept = (d.photos || []).map(p => ({ src: (typeof p === 'string' ? p : p.src), caption: (p && p.caption) || '' })).filter(p => p.src);
+  const defSite = rec ? rec.site_id : (presetSite ? presetSite : null);
+  const formSites = (typeof sites !== 'undefined' ? sites : []).filter(s => s.status !== 'done');
+  const siteOpts = `<option value="" ${defSite == null ? 'selected' : ''}>請選擇</option>` + formSites.map(s => `<option value="${s.id}" ${String(defSite) === String(s.id) ? 'selected' : ''}>${appEsc(s.label || s.name)}</option>`).join('');
+  let extraSiteOpt = '';
+  if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
+  const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
+  const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
+  const ttBoxes = SC_CINS_TESTITEMS.map(n => `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap"><input type="checkbox" class="cins-tt" value="${appEsc(n)}" ${tt.includes(n) ? 'checked' : ''} onchange="scCinsStyleTT();this.blur()" style="margin:0;outline:none;accent-color:var(--accent)">${appEsc(n)}</label>`).join('');
+  const rows = (d.rows && d.rows.length) ? d.rows.map(scCinsRowHtml).join('') : scCinsRowHtml({});
+  cont.innerHTML = `
+    <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','cins')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
+    <div class="card" style="padding:16px 18px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
+        <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
+        <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
+        <div class="form-field" style="margin:0"><label>審核</label><select id="sc-reviewer" style="font-weight:400">${svOpt(d.reviewer || '')}</select></div>
+        <div style="flex:1"></div>
+        <div style="font-size:12px;color:var(--muted)">${scCinsEditingId ? '（編輯中）' : '（新建電纜絕緣電阻測試 自主檢查表）'}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="form-field" style="margin:0 0 12px"><label>測試項目（可複選）</label><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">${ttBoxes}</div></div>
+      <div class="form-field" style="margin:0 0 12px"><label>測試盤名或說明</label><input id="sc-cins-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box"></div>
+      <div class="wbs-title" style="margin:0 0 10px">絕緣電阻量測</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:13px" id="sc-cins-rows">
+        <thead>
+          <tr style="color:var(--muted);font-size:12px">
+            <th rowspan="2" style="padding:4px;width:110px">回路編號</th><th rowspan="2" style="padding:4px;width:150px">斷路器規格或說明</th>
+            <th colspan="3" style="padding:4px">相間（MΩ）</th><th colspan="3" style="padding:4px">對地（MΩ）</th>
+            <th rowspan="2" style="padding:4px;width:90px">是否合格</th><th rowspan="2" style="padding:4px;width:100px">備註</th><th rowspan="2" style="width:40px"></th>
+          </tr>
+          <tr style="color:var(--muted);font-size:12px"><th style="padding:2px">RS</th><th style="padding:2px">RT</th><th style="padding:2px">ST</th><th style="padding:2px">RS</th><th style="padding:2px">RT</th><th style="padding:2px">ST</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <button onclick="dlAddRow('sc-cins-rows', scCinsRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
+    </div>
+    <div class="card" style="padding:16px 18px;margin-top:12px">
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
+    </div>
+    <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「電纜絕緣電阻測試 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scCinsEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
+    <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button onclick="scCinsSave()" style="padding:9px 20px;font-size:14px;border:none;border-radius:8px;cursor:pointer;background:#059669;color:#fff;font-weight:700">💾 儲存自主檢查表</button>
+      <button onclick="scCinsPrint()" class="btn-secondary" style="padding:9px 18px;font-size:14px">🖨 列印 / 存 PDF</button>
+      ${scCinsEditingId ? `<button onclick="scCinsDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
+      <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
+    </div>`;
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  scStdRenderPhotos(); scCinsStyleTT();
+}
+function scCinsCollect() {
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const test_types = [...document.querySelectorAll('.cins-tt:checked')].map(c => c.value);
+  const rows = [...document.querySelectorAll('#sc-cins-rows tbody tr')].map(tr => ({
+    no: tr.querySelector('.cins-no').value.trim(), breaker: tr.querySelector('.cins-breaker').value.trim(),
+    pRS: tr.querySelector('.cins-pRS').value.trim(), pRT: tr.querySelector('.cins-pRT').value.trim(), pST: tr.querySelector('.cins-pST').value.trim(),
+    gRS: tr.querySelector('.cins-gRS').value.trim(), gRT: tr.querySelector('.cins-gRT').value.trim(), gST: tr.querySelector('.cins-gST').value.trim(),
+    ok: tr.querySelector('.cins-ok').value.trim(), note: tr.querySelector('.cins-note').value.trim()
+  })).filter(r => r.no || r.breaker || r.pRS || r.pRT || r.pST || r.gRS || r.gRT || r.gST || r.ok || r.note);
+  return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data: { test_types, panel: v('sc-cins-panel'), rows, supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') } };
+}
+function scCinsMeta(siteId, checkDate, data) { const s = siteById(Number(siteId)); const c = scSiteCap(s); return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), cap: c.cap, capLabel: c.capLabel, date: checkDate, data }; }
+function scCinsPdfHtml(meta) {
+  const d = meta.data || {}, rows = d.rows || [], tt = d.test_types || [], cs = 'padding:5px 4px;text-align:center';
+  const ynCell = ok => `${ok === 'yes' ? '☑' : '☐'} Yes　${ok === 'no' ? '☑' : '☐'} No`;
+  const ttLine = SC_CINS_TESTITEMS.map(n => `${tt.includes(n) ? '☑' : '☐'} ${appEsc(n)}`).join('　');
+  let body = '';
+  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.no || '')}</td><td style="padding:5px 6px;text-align:left">${appEsc(r.breaker || '')}</td><td style="${cs}">${appEsc(r.pRS || '')}</td><td style="${cs}">${appEsc(r.pRT || '')}</td><td style="${cs}">${appEsc(r.pST || '')}</td><td style="${cs}">${appEsc(r.gRS || '')}</td><td style="${cs}">${appEsc(r.gRT || '')}</td><td style="${cs}">${appEsc(r.gST || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="padding:5px 6px;text-align:left">${appEsc(r.note || '')}</td></tr>`; }
+  return DL_PDF_STYLE + `<div class="dlpdf">
+    <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px"><img src="${DL_LOGO}" style="height:46px"><div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">電纜絕緣電阻測試 自主檢查表</div><div style="width:120px"></div></div>
+    <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
+      <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${meta.cap || ''}</td></tr>
+      <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
+    </table>
+    <div class="sec">測試項目：${ttLine}　｜　測試盤名或說明：${appEsc(d.panel || '')}</div>
+    <table class="tb" style="table-layout:fixed;font-size:12.5px">
+      <colgroup><col style="width:12%"><col style="width:18%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:12%"><col style="width:10%"></colgroup>
+      <thead>
+        <tr><th rowspan="2">回路編號</th><th rowspan="2">斷路器規格或說明</th><th colspan="3">相間（MΩ）</th><th colspan="3">對地（MΩ）</th><th rowspan="2">檢驗結果<br>是否合格</th><th rowspan="2">備註</th></tr>
+        <tr><th>RS</th><th>RT</th><th>ST</th><th>RS</th><th>RT</th><th>ST</th></tr>
+      </thead><tbody>${body}</tbody>
+    </table>
+    <table class="sign"><tr><td class="lbl" style="width:50%">審核</td><td class="lbl">工地主任</td></tr><tr><td class="nm">${appEsc(d.reviewer || '')}</td><td class="nm">${appEsc(d.supervisor || '')}</td></tr></table>
+    <div style="margin-top:12px;font-size:12px;color:#64748b">保管單位：工程部　　保存年限（至少）：5 年</div>
+  </div>`;
+}
+function scCinsPdfPages(meta) { return [scCinsPdfHtml(meta), scPhotoPageHtml('電纜絕緣電阻測試', meta.data.photos || [], '檢測照片')]; }
+async function scCinsSave() {
+  const msg = document.getElementById('sc-save-msg');
+  const { siteId, checkDate, data } = scCinsCollect();
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { if (msg) { msg.textContent = _m.msg; msg.style.color = 'var(--danger)'; } scFocusMiss(_m.field); return; } }
+  if (scCinsEditingId) { const old = (scLogs || []).find(r => String(r.id) === String(scCinsEditingId)); if (old && !dlCanEditLog(old)) { if (msg) { msg.textContent = '只能編輯自己新增的紀錄。'; msg.style.color = 'var(--danger)'; } return; } }
+  try {
+    if (msg) { msg.textContent = '處理照片…'; msg.style.color = 'var(--muted)'; }
+    data.photos = await scStdResolvePhotos();
+    await scSaveRecord({ key: 'cins', siteId, checkDate, data, note: '', pdfHtml: scCinsPdfPages(scCinsMeta(siteId, checkDate, data)), editingId: scCinsEditingId, msgEl: msg });
+    if (msg) { msg.textContent = '✅ 已儲存，PDF 已上傳共用硬碟'; msg.style.color = '#16a34a'; }
+    setTimeout(() => scTypeView(siteId, 'cins'), 800);
+  } catch (e) { if (msg) { msg.textContent = '儲存失敗：' + (e.message || e) + '（site_selfcheck 資料表可能尚未建立）'; msg.style.color = 'var(--danger)'; } }
+}
+async function scCinsPrint() {
+  const { siteId, checkDate, data } = scCinsCollect();
+  { const _m = scRequireMiss(siteId, checkDate, data); if (_m) { scFocusMiss(_m.field); alert(_m.msg); return; } }
+  try { data.photos = await scStdResolvePhotos(); const blob = await scGeneratePdfBlob(scCinsPdfPages(scCinsMeta(siteId, checkDate, data))); window.open(URL.createObjectURL(blob), '_blank'); }
+  catch (e) { alert('產生失敗：' + (e.message || e)); }
+}
+async function scCinsDelete() {
+  if (!scCinsEditingId) return;
+  const rec = (scLogs || []).find(r => String(r.id) === String(scCinsEditingId));
+  if (rec && !dlCanEditLog(rec)) { alert('只能刪除自己新增的紀錄。'); return; }
+  if (!confirm('確定刪除這筆自主檢查表？（含共用硬碟上的 PDF）')) return;
+  try { if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id); const { error } = await sb.from('site_selfcheck').delete().eq('id', scCinsEditingId); if (error) throw error; const sid = rec ? rec.site_id : null; await loadScRecords(); scTypeView(sid, 'cins'); }
+  catch (e) { alert('刪除失敗：' + (e.message || e)); }
+}
+SC_TYPES.push({ key: 'cins', title: '電纜絕緣電阻測試', icon: '📏', form: scCinsForm });
 async function loadDlLogs() {
   if (!sb) return;
   try { const { data, error } = await sb.from('site_daily_log').select('*').order('log_date', { ascending: false }); dlLogs = (!error && data) ? data : []; }
