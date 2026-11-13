@@ -478,6 +478,7 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 .form-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 0; min-width: 0; }
 .form-field input, .form-field select { width: 100%; box-sizing: border-box; }
 .form-field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+.formhdr .form-field label { text-align: center; }   /* 表單頂排欄位：只置中小標題文字（欄位整排仍靠左、選單/輸入框內容不變） */
 .form-field input, .form-field select {
   width: 100%; box-sizing: border-box;
   padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
@@ -2906,7 +2907,7 @@ function scBracketForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','bracket')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3080,7 +3081,7 @@ function scStdForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','${cfg.key}')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3338,7 +3339,7 @@ function scVocForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','voc')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3348,7 +3349,8 @@ function scVocForm(rec, presetSite) {
       </div>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="form-field" style="margin:0 0 12px"><label>盤體名稱</label><input id="sc-voc-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box"></div>
+      <div class="wbs-title" style="margin:0 0 10px">盤體名稱</div>
+      <input id="sc-voc-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;display:block;margin-bottom:12px">
       <div class="wbs-title" style="margin:0 0 10px">迴路量測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:560px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="sc-voc-rows">
@@ -3481,7 +3483,7 @@ function scGndForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','gnd')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3491,7 +3493,8 @@ function scGndForm(rec, presetSite) {
       </div>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="form-field" style="margin:0 0 12px"><label>測試項目</label><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">${ttBoxes}</div></div>
+      <div class="wbs-title" style="margin:0 0 10px">測試項目</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">${ttBoxes}</div>
       <div class="wbs-title" style="margin:0 0 10px">接地電阻量測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="sc-gnd-rows">
@@ -3635,7 +3638,7 @@ function scScadaForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','scada')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3754,12 +3757,12 @@ function scCinsForm(rec, presetSite) {
   if (defSite != null && !formSites.some(s => String(s.id) === String(defSite))) { const s = siteById(Number(defSite)); extraSiteOpt = `<option value="${defSite}" selected>${appEsc(s ? (s.label || s.name) : ('案場#' + defSite))}</option>`; }
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
-  const ttBoxes = SC_CINS_TESTITEMS.map(n => `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap"><input type="checkbox" class="cins-tt" value="${appEsc(n)}" ${tt.includes(n) ? 'checked' : ''} onchange="scCinsStyleTT();this.blur()" style="margin:0;outline:none;accent-color:var(--accent)">${appEsc(n)}</label>`).join('');
+  const ttBoxes = SC_CINS_TESTITEMS.map(n => `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:16px;font-size:12px;cursor:pointer;background:var(--surface);white-space:nowrap"><input type="radio" name="cins-tt" class="cins-tt" value="${appEsc(n)}" ${tt.includes(n) ? 'checked' : ''} onchange="scCinsStyleTT();this.blur()" style="margin:0;outline:none;accent-color:var(--accent)">${appEsc(n)}</label>`).join('');
   const rows = (d.rows && d.rows.length) ? d.rows.map(scCinsRowHtml).join('') : scCinsRowHtml({});
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `scTypeView('${defSite}','cins')` : 'scPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -3769,8 +3772,10 @@ function scCinsForm(rec, presetSite) {
       </div>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="form-field" style="margin:0 0 12px"><label>測試項目（可複選）</label><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px">${ttBoxes}</div></div>
-      <div class="form-field" style="margin:0 0 12px"><label>測試盤名或說明</label><input id="sc-cins-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box"></div>
+      <div class="wbs-title" style="margin:0 0 10px">測試項目</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">${ttBoxes}</div>
+      <div class="wbs-title" style="margin:0 0 10px">測試盤名或說明</div>
+      <input id="sc-cins-panel" value="${appEsc(d.panel || '')}" style="width:100%;max-width:420px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;display:block;margin-bottom:12px">
       <div class="wbs-title" style="margin:0 0 10px">絕緣電阻量測</div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:13px" id="sc-cins-rows">
@@ -4022,7 +4027,7 @@ function icStdForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `icTypeView('${defSite}','${cfg.key}')` : 'icPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -4131,7 +4136,7 @@ function icMatForm(rec, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="${defSite != null ? `icTypeView('${defSite}','${cfg.key}')` : 'icPickType()'}" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="sc-site" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>檢驗日期</label><input type="date" id="sc-date" value="${rec ? String(rec.check_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="sc-supervisor" style="font-weight:400">${svOpt(d.supervisor || '')}</select></div>
@@ -4392,7 +4397,7 @@ function dlShowForm(logId, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="dlFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="dl-site" onchange="dlLoadForm()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="dl-date" value="${rec ? String(rec.log_date).slice(0, 10) : localDate(new Date())}" onchange="dlLoadForm()"></div>
         <div class="form-field" style="margin:0"><label>本日天氣</label><select id="dl-weather" style="font-weight:400"><option value="">請選擇</option>${DL_WEATHER_OPTS.map(w => `<option>${w}</option>`).join('')}</select></div>
@@ -4492,7 +4497,7 @@ async function dlLoadForm() {
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:540px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="dl-items">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px;white-space:nowrap;width:30%">施工項目</th><th style="width:14%;padding:4px;white-space:nowrap">本日完成</th><th style="width:10%;padding:4px;white-space:nowrap">單位</th><th style="width:14%;padding:4px;white-space:nowrap">工時(小時)</th><th style="text-align:left;padding:4px;white-space:nowrap;width:27%">備註</th><th style="width:5%"></th>
+          <th style="text-align:center;padding:4px;white-space:nowrap;width:30%">施工項目</th><th style="width:14%;padding:4px;white-space:nowrap">本日完成</th><th style="width:10%;padding:4px;white-space:nowrap">單位</th><th style="width:14%;padding:4px;white-space:nowrap">工時(小時)</th><th style="text-align:center;padding:4px;white-space:nowrap;width:28%">備註</th><th style="width:4%"></th>
         </tr></thead>
         <tbody>${items.map(it => dlItemRowHtml(it)).join('')}</tbody>
       </table>
@@ -4505,7 +4510,7 @@ async function dlLoadForm() {
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:420px;border-collapse:collapse;font-size:13px;table-layout:fixed" id="dl-workers">
         <thead><tr style="color:var(--muted);font-size:12px">
-          <th style="text-align:left;padding:4px;white-space:nowrap;width:40%">工別</th><th style="width:18%;padding:4px;white-space:nowrap">本日人數</th><th style="text-align:left;padding:4px;white-space:nowrap;width:37%">備註</th><th style="width:5%"></th>
+          <th style="text-align:center;padding:4px;white-space:nowrap;width:40%">工別</th><th style="width:18%;padding:4px;white-space:nowrap">本日人數</th><th style="text-align:center;padding:4px;white-space:nowrap;width:38%">備註</th><th style="width:4%"></th>
         </tr></thead>
         <tbody>${workers.map(w => dlWorkerRowHtml(w)).join('')}</tbody>
       </table>
@@ -4515,8 +4520,10 @@ async function dlLoadForm() {
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="form-field" style="margin:0 0 10px"><label>三、通知分包廠商辦理事項</label><input id="dl-notify" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.notify_sub : '')}"></div>
-      <div class="form-field" style="margin:0"><label>四、待協調及追蹤事項</label><input id="dl-coord" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.coordinate : '')}"></div>
+      <div class="wbs-title" style="margin:0 0 10px">三、通知分包廠商辦理事項</div>
+      <input id="dl-notify" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.notify_sub : '')}">
+      <div class="wbs-title" style="margin:16px 0 10px">四、待協調及追蹤事項</div>
+      <input id="dl-coord" type="text" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;box-sizing:border-box;font-family:inherit" value="${appEsc(existing ? existing.coordinate : '')}">
     </div>
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
@@ -4551,7 +4558,7 @@ function dlItemRowHtml(it) {
     ${td(ip('dli-unit', it.unit))}
     ${td(ip('dli-hours', it.hours))}
     ${td(ip('dli-note', it.note))}
-    ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
+    <td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td>
   </tr>`;
 }
 // 累計完成自動累加：之前同案場同工項的最近「累計」+ 本日完成（手動改過則不覆蓋）
@@ -4586,7 +4593,7 @@ function dlWorkerRowHtml(w) {
     ${td(ip('dlw-trade', w.trade, '', 'list="dl-trade-list" oninput="' + recalc + '"'))}
     ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
     ${td(ip('dlw-note', w.note))}
-    ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
+    <td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td>
   </tr>`;
 }
 // 累計人數自動累加：之前同案場同工別的最近「累計」+ 本日人數（手動改過則不覆蓋）
@@ -4902,7 +4909,7 @@ function tbShowForm(logId, presetSite) {
   cont.innerHTML = `
     <div style="margin-bottom:10px"><button onclick="tbFormBack()" class="btn-secondary" style="padding:6px 14px;font-size:13px">← 返回</button></div>
     <div class="card" style="padding:16px 18px">
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+      <div class="formhdr" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-field" style="margin:0"><label>案場</label><select id="tb-site" onchange="tbOnSiteChange()" style="font-weight:400">${extraSiteOpt}${siteOpts}</select></div>
         <div class="form-field" style="margin:0"><label>施工日期</label><input type="date" id="tb-date" value="${rec ? String(rec.meet_date).slice(0, 10) : localDate(new Date())}"></div>
         <div class="form-field" style="margin:0"><label>工地主任</label><select id="tb-supervisor" style="font-weight:400">${svOpt(curSup)}</select></div>
