@@ -5178,8 +5178,8 @@ function tbPhotoDocHtml(meta, scanSrcs, photoSrcs) {
   return `<div style="font-family:'Microsoft JhengHei','PingFang TC',sans-serif;color:#000">
     ${tbSecTitle('施工前工具箱會議紀錄 紙本／工地人員照片')}
     <div style="display:flex;gap:16px;margin:0 0 18px;align-items:flex-start">
-      <div style="flex:1.1">${colLbl('紙本照片')}${imgList(scanSrcs)}</div>
-      <div style="flex:1">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
+      <div style="flex:1;min-width:0">${colLbl('紙本照片')}${imgList(scanSrcs)}</div>
+      <div style="flex:1;min-width:0">${colLbl('人員照片')}${imgList(photoSrcs)}</div>
     </div>
     <div style="display:flex;gap:40px;margin-top:20px;border-top:1px solid #cbd5e1;padding-top:18px;font-size:16px;color:#374151">
       <div style="flex:1">工地主任：${meta.supervisor ? appEsc(meta.supervisor) : '______________'}</div>
