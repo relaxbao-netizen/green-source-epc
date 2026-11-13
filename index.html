@@ -2925,7 +2925,7 @@ function scBracketForm(rec, presetSite) {
       <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-br-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-torque-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3027,7 +3027,7 @@ async function scBracketDelete() {
 }
 function scBracketPdfHtml(meta) {
   const d = meta.data || {};
-  const contentOf = i => { let c = SC_BRACKET_Q[i - 1]; if (i === 6) c += `（拉力檢驗值：${d.pull_value || ''}）`; return appEsc(c); };
+  const contentOf = i => { let c = appEsc(SC_BRACKET_Q[i - 1]); if (i === 6) c += `<br>（拉力檢驗值：${appEsc(d.pull_value || '')}）`; return c; };
   // 扭力參考值＝固定參考表（一般螺絲/六角螺絲，比照官方表單）
   const tc = (v, hdr) => `<td style="border:1px solid #cbd5e1;padding:4px 12px;text-align:center${hdr ? ';background:#f1f3f5;color:#374151' : ''}">${v}</td>`;
   const torqueTable = `<table style="border-collapse:collapse;font-size:13px;margin-top:6px">
@@ -3101,7 +3101,7 @@ function scStdForm(rec, presetSite) {
       <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3367,7 +3367,7 @@ function scVocForm(rec, presetSite) {
       <button onclick="dlAddRow('sc-voc-rows', scVocRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3511,7 +3511,7 @@ function scGndForm(rec, presetSite) {
       <button onclick="dlAddRow('sc-gnd-rows', scGndRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3559,7 +3559,7 @@ function scGndPdfHtml(meta) {
   const ynCell = ok => `${ok === 'yes' ? '☑' : '☐'} Yes　${ok === 'no' ? '☑' : '☐'} No`;
   const ttLine = SC_GND_TESTITEMS.map(n => `${tt.includes(n) ? '☑' : '☐'} ${appEsc(n)}`).join('　');
   let body = '';
-  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.no || '')}</td><td style="${cs}">${appEsc(r.system || '')}</td><td style="${cs}">${appEsc(r.std || '')}</td><td style="${cs}">${appEsc(r.result || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="padding:6px 8px;text-align:left">${appEsc(r.note || '')}</td></tr>`; }
+  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.no || '')}</td><td style="${cs}">${appEsc(r.system || '')}</td><td style="${cs}">${appEsc(r.std || '')}</td><td style="${cs}">${appEsc(r.result || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="${cs}">${appEsc(r.note || '')}</td></tr>`; }
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
       <img src="${DL_LOGO}" style="height:46px">
@@ -3664,7 +3664,7 @@ function scScadaForm(rec, presetSite) {
       <button onclick="dlAddRow('sc-scada-rows', scScadaRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3691,7 +3691,7 @@ function scScadaPdfHtml(meta) {
   const d = meta.data || {}, rows = d.rows || [], cs = 'padding:6px 8px;text-align:center';
   const ynCell = ok => `${ok === 'yes' ? '☑' : '☐'} Yes　${ok === 'no' ? '☑' : '☐'} No`;
   let body = '';
-  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.name || '')}</td><td style="${cs}">${appEsc(r.loc || '')}</td><td style="padding:6px 8px;text-align:left">${appEsc(r.test || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="padding:6px 8px;text-align:left">${appEsc(r.note || '')}</td></tr>`; }
+  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.name || '')}</td><td style="${cs}">${appEsc(r.loc || '')}</td><td style="${cs}">${appEsc(r.test || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="${cs}">${appEsc(r.note || '')}</td></tr>`; }
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px"><img src="${DL_LOGO}" style="height:46px"><div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">監控系統 自主檢查表</div><div style="width:120px"></div></div>
     <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
@@ -3797,7 +3797,7 @@ function scCinsForm(rec, presetSite) {
       <button onclick="dlAddRow('sc-cins-rows', scCinsRowHtml({}))" class="btn-secondary" style="margin-top:8px;padding:5px 12px;font-size:12px">＋ 新增一列</button>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -3828,7 +3828,7 @@ function scCinsPdfHtml(meta) {
   const ynCell = ok => `${ok === 'yes' ? '☑' : '☐'} Yes　${ok === 'no' ? '☑' : '☐'} No`;
   const ttLine = SC_CINS_TESTITEMS.map(n => `${tt.includes(n) ? '☑' : '☐'} ${appEsc(n)}`).join('　');
   let body = '';
-  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.no || '')}</td><td style="padding:5px 6px;text-align:left">${appEsc(r.breaker || '')}</td><td style="${cs}">${appEsc(r.pRS || '')}</td><td style="${cs}">${appEsc(r.pRT || '')}</td><td style="${cs}">${appEsc(r.pST || '')}</td><td style="${cs}">${appEsc(r.gRS || '')}</td><td style="${cs}">${appEsc(r.gRT || '')}</td><td style="${cs}">${appEsc(r.gST || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="padding:5px 6px;text-align:left">${appEsc(r.note || '')}</td></tr>`; }
+  for (let i = 0; i < Math.max(rows.length, 1); i++) { const r = rows[i] || {}; body += `<tr><td style="${cs}">${appEsc(r.no || '')}</td><td style="${cs}">${appEsc(r.breaker || '')}</td><td style="${cs}">${appEsc(r.pRS || '')}</td><td style="${cs}">${appEsc(r.pRT || '')}</td><td style="${cs}">${appEsc(r.pST || '')}</td><td style="${cs}">${appEsc(r.gRS || '')}</td><td style="${cs}">${appEsc(r.gRT || '')}</td><td style="${cs}">${appEsc(r.gST || '')}</td><td style="${cs};white-space:nowrap">${ynCell(r.ok || '')}</td><td style="${cs}">${appEsc(r.note || '')}</td></tr>`; }
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px"><img src="${DL_LOGO}" style="height:46px"><div style="flex:1;text-align:center;font-size:23px;font-weight:700;color:#374151">電纜絕緣電阻測試 自主檢查表</div><div style="width:120px"></div></div>
     <table class="hd"><colgroup><col style="width:14%"><col style="width:46%"><col style="width:12%"><col style="width:28%"></colgroup>
@@ -4049,7 +4049,7 @@ function icStdForm(rec, presetSite) {
       <textarea id="sc-improve" rows="1" style="width:100%;box-sizing:border-box;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);resize:none;font-family:inherit;font-size:13px">${rec ? appEsc(d.improve || '') : ''}</textarea>
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
@@ -4166,7 +4166,7 @@ function icMatForm(rec, presetSite) {
       ${qRows}
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
-      <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
+      <div class="wbs-title" style="margin:0 0 10px">檢測照片（最多 6 張）</div>
       <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
