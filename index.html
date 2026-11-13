@@ -4146,7 +4146,7 @@ function icMatForm(rec, presetSite) {
   const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date)).map(s => s.name);
   const svOpt = sel => `<option value="">請選擇</option>` + svList.map(n => `<option ${n === sel ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (sel && !svList.includes(sel) ? `<option selected>${appEsc(sel)}</option>` : '');
   const yn = (i, val) => `<div class="sc-yn"><input type="radio" id="icq${i}_y" name="icq${i}" value="yes" ${val === 'yes' ? 'checked' : ''}><label for="icq${i}_y" class="sc-yn-yes">✔ Yes</label><input type="radio" id="icq${i}_n" name="icq${i}" value="no" ${val === 'no' ? 'checked' : ''}><label for="icq${i}_n" class="sc-yn-no">✘ No</label></div>`;
-  const qRows = IC_MAT_Q.map((q, idx) => { const i = idx + 1; const expIp = `<input id="ic-exp-${i}" value="${appEsc(exps[i] || '')}" placeholder="說明（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${expIp}</div>`; }).join('');
+  const qRows = ((icMatCfg && icMatCfg.questions) || IC_MAT_Q).map((q, idx) => { const i = idx + 1; const expIp = `<input id="ic-exp-${i}" value="${appEsc(exps[i] || '')}" placeholder="說明（選填）" style="margin-top:6px;display:block;width:100%;max-width:380px;height:30px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;box-sizing:border-box;font-size:13px">`; return `<div style="padding:10px 0;border-bottom:1px dashed var(--border)"><div style="font-size:13px;margin-bottom:6px">${i}. ${appEsc(q)}</div>${yn(i, checks[i] || '')}${expIp}</div>`; }).join('');
   const matList = (d.materials && d.materials.length) ? d.materials : [{}];
   const matRows = matList.map(icMatRowHtml).join('');
   cont.innerHTML = `
@@ -4203,7 +4203,7 @@ function icMatCollect() {
     note: tr.querySelector('.ic-mnote').value.trim()
   })).filter(m => m.name || m.spec || m.brand || m.qty || m.note);
   const checks = {}, explains = {};
-  for (let i = 1; i <= IC_MAT_Q.length; i++) { const r = document.querySelector(`input[name="icq${i}"]:checked`); checks[i] = r ? r.value : ''; explains[i] = v('ic-exp-' + i); }
+  for (let i = 1; i <= ((icMatCfg && icMatCfg.questions) || IC_MAT_Q).length; i++) { const r = document.querySelector(`input[name="icq${i}"]:checked`); checks[i] = r ? r.value : ''; explains[i] = v('ic-exp-' + i); }
   return { siteId: Number(v('sc-site')), checkDate: v('sc-date'), data: { materials, checks, explains, supervisor: v('sc-supervisor'), reviewer: v('sc-reviewer') } };
 }
 function icMatMeta(siteId, checkDate, data) { const s = siteById(Number(siteId)); return { siteName: s ? (s.label || s.name) : String(siteId), projName: s ? s.name : String(siteId), date: checkDate, data }; }
@@ -4213,7 +4213,7 @@ function icMatPdfHtml(meta) {
   const mats = (d.materials && d.materials.length) ? d.materials.slice() : [{}];   // 只顯示有填的，沒填不補空列（至少留 1 列）
   const matRows = mats.map((m, i) => `<tr><td>${i + 1}</td><td>${appEsc(m.name || '')}</td><td>${appEsc(m.spec || '')}</td><td>${appEsc(m.brand || '')}</td><td>${appEsc(m.qty || '')}</td><td>${appEsc(m.note || '')}</td></tr>`).join('');
   const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
-  const chkRows = IC_MAT_Q.map((q, idx) => { const i = idx + 1; return `<tr><td style="text-align:left;line-height:1.5">${i}. ${appEsc(q)}</td><td style="white-space:nowrap">${ynCell(i)}</td><td style="text-align:left">${appEsc(exps[i] || '')}</td></tr>`; }).join('');
+  const chkRows = ((icMatCfg && icMatCfg.questions) || IC_MAT_Q).map((q, idx) => { const i = idx + 1; return `<tr><td style="text-align:left;line-height:1.5">${i}. ${appEsc(q)}</td><td style="white-space:nowrap">${ynCell(i)}</td><td style="text-align:left">${appEsc(exps[i] || '')}</td></tr>`; }).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
     <div style="display:flex;align-items:center;margin:0 0 10px;border-bottom:3px solid #9ca3af;padding-bottom:8px">
       <img src="${DL_LOGO}" style="height:46px">
@@ -4266,10 +4266,40 @@ async function icMatDelete() {
   try { if (rec && rec.pdf && rec.pdf.id) await dlDriveDelete(rec.pdf.id); const { error } = await sb.from('site_incoming').delete().eq('id', icMatEditingId); if (error) throw error; const sid = rec ? rec.site_id : null; await loadIcRecords(); icTypeView(sid, rec ? rec.sc_type : (icMatCfg && icMatCfg.key)); }
   catch (e) { alert('刪除失敗：' + (e.message || e)); }
 }
-function icRegisterMat(cfg) { IC_TYPES.push({ key: cfg.key, title: cfg.title, icon: cfg.icon || '🚚', form: (rec, presetSite) => { icMatCfg = cfg; icMatForm(rec, presetSite); } }); }
+function icRegisterMat(cfg) { if (!cfg.questions) cfg.questions = IC_MAT_Q; IC_TYPES.push({ key: cfg.key, title: cfg.title, icon: cfg.icon || '🚚', questions: cfg.questions, form: (rec, presetSite) => { icMatCfg = cfg; icMatForm(rec, presetSite); } }); }
 
-// 進料檢驗項目（陸續建立，共 8 項）
+// 進料檢驗項目（陸續建立，共 8 項）；questions 省略＝用通用 5 題 IC_MAT_Q，各項目檢驗內容不同則自訂
 icRegisterMat({ key: 'pvbracket', title: '太陽能模組支架', icon: '🔩' });
+icRegisterMat({ key: 'pvmodule', title: '太陽能模組', icon: '🔆' });
+icRegisterMat({ key: 'inverter', title: '逆變器', icon: '🔁' });
+icRegisterMat({ key: 'cable', title: '電纜', icon: '🔌', questions: [
+  '規格、型號與圖面是否相符？',
+  '數量是否相符？',
+  '是否有出廠證明文件？',
+  '材料放置是否妥當存放？',
+  '是否合格？'
+] });
+icRegisterMat({ key: 'switchbox', title: '開關箱', icon: '🗄️', questions: [
+  '規格、型號與圖面是否相符？',
+  '數量是否相符？',
+  '是否有出廠證明文件？',
+  '是否有無放射性汙染證明書？',
+  '材料放置是否妥當存放？'
+] });
+icRegisterMat({ key: 'trough', title: '金屬線槽', icon: '🛤️', questions: [
+  '規格、型號與圖面是否相符？',
+  '數量是否相符？',
+  '是否有出廠證明文件？',
+  '材料放置是否妥當存放？',
+  '是否合格？'
+] });
+icRegisterMat({ key: 'pvcpipe', title: 'PVC管', icon: '🚰', questions: [
+  '規格、型號與圖面是否相符？',
+  '數量是否相符？',
+  '是否有出廠證明文件？',
+  '是否有無放射性汙染證明書？',
+  '材料放置是否妥當存放？'
+] });
 
 async function loadDlLogs() {
   if (!sb) return;
