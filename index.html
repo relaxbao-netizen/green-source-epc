@@ -2926,7 +2926,7 @@ function scBracketForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-br-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scBrPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-torque-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「支架及固定座 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scBrEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -2958,6 +2958,8 @@ function scBrRenderPhotos() {
   const kept = scBrKept.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${p.src}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="scBrRemoveKept(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('k', i, p.caption)}</div>`).join('');
   const neu = scBrNew.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(p.file)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="scBrRemoveNew(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, p.caption)}</div>`).join('');
   box.innerHTML = (kept + neu) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+  const pick = document.getElementById('sc-br-photo-pick');   // 達上限（6 張）就隱藏選擇鈕
+  if (pick) pick.style.display = ((scBrKept.length + scBrNew.length) >= 6) ? 'none' : 'inline-block';
 }
 // 解析出要存庫/產 PDF 的照片陣列：沿用的 + 新選的（壓縮→dataURL），各帶 caption
 async function scBrResolvePhotos() {
@@ -3100,7 +3102,7 @@ function scStdForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「${appEsc(cfg.title)} 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scStdEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -3131,6 +3133,8 @@ function scStdRenderPhotos() {
   const kept = scStdKept.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${p.src}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="scStdRemoveKept(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('k', i, p.caption)}</div>`).join('');
   const neu = scStdNew.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(p.file)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="scStdRemoveNew(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, p.caption)}</div>`).join('');
   box.innerHTML = (kept + neu) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+  const pick = (box.closest('.card') || document).querySelector('#sc-photo-pick');   // 達上限（6 張）就隱藏選擇鈕
+  if (pick) pick.style.display = ((scStdKept.length + scStdNew.length) >= 6) ? 'none' : 'inline-block';
 }
 async function scStdResolvePhotos() {
   scStdSyncCaptions();
@@ -3364,7 +3368,7 @@ function scVocForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「模組開路電壓 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scVocEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -3508,7 +3512,7 @@ function scGndForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「接地電阻 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scGndEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -3661,7 +3665,7 @@ function scScadaForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「監控系統 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scScadaEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -3794,7 +3798,7 @@ function scCinsForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「電纜絕緣電阻測試 自主檢查表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${scCinsEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -4046,7 +4050,7 @@ function icStdForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「${appEsc(cfg.title)} 進料檢驗表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${icStdEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -4163,7 +4167,7 @@ function icMatForm(rec, presetSite) {
     </div>
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">檢測照片</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
+      <label id="sc-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" multiple onchange="scStdPickPhotos(this.files)" style="display:none"></label>
       <div id="sc-photo-list" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px"></div>
     </div>
     <div style="margin-top:16px;font-size:12px;color:var(--muted)">📄 儲存產生「${appEsc(cfg.title)} 進料檢驗表 PDF」並上傳公司 Google 共用硬碟（<a href="https://drive.google.com/drive/folders/${DL_DRIVE_FOLDER}" target="_blank" rel="noopener" style="color:var(--accent)">開啟資料夾</a>）。${icMatEditingId && rec && rec.pdf && (rec.pdf.view || rec.pdf.url) ? `　｜　此紀錄已有 PDF：<a href="${rec.pdf.view || rec.pdf.url}" target="_blank" rel="noopener" style="color:var(--accent)">開啟</a>（重新儲存會覆蓋）` : ''}</div>
@@ -4528,7 +4532,7 @@ async function dlLoadForm() {
 
     <div class="card" style="padding:16px 18px;margin-top:12px">
       <div class="wbs-title" style="margin:0 0 10px">工進照片（最多 6 張）</div>
-      <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" id="dl-photos" accept="image/*" multiple onchange="dlPickPhotos(this.files)" style="display:none"></label>
+      <label id="dl-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" id="dl-photos" accept="image/*" multiple onchange="dlPickPhotos(this.files)" style="display:none"></label>
       <div id="dl-photo-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>
       <div id="dl-usage" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
     </div>
@@ -4670,6 +4674,8 @@ function dlRenderPhotos() {
   const existing = dlPhotoUrls.map((p, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="dlRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('e', i, _dlPhotoCaps[i])}</div>`).join('');
   const pending = _dlNewFiles.map((f, i) => `<div style="display:flex;flex-direction:column;align-items:center"><div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="dlRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>${cap('n', i, _dlNewCaps[i])}</div>`).join('');
   box.innerHTML = existing + pending || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+  const pick = document.getElementById('dl-photo-pick');   // 達上限（6 張）就隱藏選擇鈕
+  if (pick) pick.style.display = ((dlPhotoUrls.length + _dlNewFiles.length) >= 6) ? 'none' : 'inline-block';
 }
 function dlRemovePhoto(i) { dlSyncPhotoCaps(); const u = dlPhotoUrls.splice(i, 1)[0]; _dlPhotoCaps.splice(i, 1); if (u) _dlRemovedUrls.push(u); dlRenderPhotos(); }
 function dlRemoveNewPhoto(i) { dlSyncPhotoCaps(); _dlNewFiles.splice(i, 1); _dlNewCaps.splice(i, 1); dlRenderPhotos(); }
@@ -4934,12 +4940,12 @@ function tbShowForm(logId, presetSite) {
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
         <div class="wbs-title" style="margin:0 0 10px">三、紙本「工具箱會議紀錄」（可為圖片或 PDF）</div>
-        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label>
+        <label id="tb-record-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📎 選擇檔案<input type="file" accept="image/*,application/pdf" onchange="tbPickRecord(this.files)" style="display:none"></label>
         <div id="tb-record-box" style="margin-top:10px"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-top:12px">
         <div class="wbs-title" style="margin:0 0 10px">四、工地人員照片</div>
-        <label class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" onchange="tbPickPhotos(this.files)" style="display:none"></label>
+        <label id="tb-photo-pick" class="btn-secondary" style="display:inline-block;padding:7px 14px;font-size:13px;cursor:pointer">📷 選擇照片<input type="file" accept="image/*" onchange="tbPickPhotos(this.files)" style="display:none"></label>
         <div id="tb-photo-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
       </div>
     </div>
@@ -5026,15 +5032,17 @@ function tbRenderRecord() {
   if (tbRecordFile) {
     const isImg = tbRecordFile.type && tbRecordFile.type.startsWith('image/');
     const inner = isImg
-      ? `<img src="${URL.createObjectURL(tbRecordFile)}" style="width:90px;height:68px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent);display:block">`
-      : `<div style="width:90px;height:68px;border:1px dashed var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:26px">📄</div>`;
+      ? `<img src="${URL.createObjectURL(tbRecordFile)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent);display:block">`
+      : `<div style="width:140px;height:105px;border:1px dashed var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:40px">📄</div>`;
     box.innerHTML = `<div style="position:relative;display:inline-block">${inner}<button onclick="tbRemoveRecord()" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`;
   } else if (tbRecordExisting && !tbRecordRemoved) {
     const srcs = Array.isArray(tbRecordExisting.srcs) ? tbRecordExisting.srcs : [];
-    const thumbs = srcs.length ? srcs.map(sc => `<img src="${sc}" style="width:46px;height:58px;object-fit:cover;border:1px solid var(--border);border-radius:4px">`).join('') : '📄';
+    const thumbs = srcs.length ? srcs.map(sc => `<img src="${sc}" style="width:140px;height:105px;object-fit:cover;border:1px solid var(--border);border-radius:6px">`).join('') : '<div style="width:140px;height:105px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:40px">📄</div>';
     const link = (tbRecordExisting.view || tbRecordExisting.url) ? `<a href="${tbRecordExisting.view || tbRecordExisting.url}" target="_blank" rel="noopener" style="color:var(--accent)">已上傳</a>` : `已上傳紙本（${srcs.length || 1} 頁）`;
-    box.innerHTML = `<div style="display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px">${thumbs}<span>${link}</span><button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></div>`;
+    box.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${thumbs}<span style="display:inline-flex;align-items:center;gap:8px;font-size:12px">${link}<button onclick="tbRemoveRecord()" style="border:none;background:var(--danger);color:#fff;border-radius:50%;width:18px;height:18px;cursor:pointer;line-height:1">×</button></span></div>`;
   } else box.innerHTML = '<span style="color:var(--muted);font-size:12px">尚未上傳紙本紀錄</span>';
+  const pick = document.getElementById('tb-record-pick');   // 已達上限（1 個）就隱藏選擇鈕，刪掉後才再出現
+  if (pick) pick.style.display = (tbRecordFile || (tbRecordExisting && !tbRecordRemoved)) ? 'none' : 'inline-block';
 }
 function tbPickPhotos(files) { tbNewPhotos = Array.from(files).slice(0, 1); tbRenderPhotos(); }   // 人員照片只收一張（重新選會取代）
 function tbRenderPhotos() {
@@ -5042,6 +5050,8 @@ function tbRenderPhotos() {
   const ex = tbPhotoUrls.map((p, i) => `<div style="position:relative"><img src="${dlPhotoSrc(p)}" referrerpolicy="no-referrer" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button onclick="tbRemovePhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--danger);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
   const pend = tbNewPhotos.map((f, i) => `<div style="position:relative"><img src="${URL.createObjectURL(f)}" style="width:140px;height:105px;object-fit:cover;border-radius:6px;border:1px dashed var(--accent)"><button onclick="tbRemoveNewPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border:none;border-radius:50%;background:var(--muted);color:#fff;cursor:pointer;font-size:12px">×</button></div>`).join('');
   box.innerHTML = (ex + pend) || '<span style="color:var(--muted);font-size:12px">尚未加入照片</span>';
+  const pick = document.getElementById('tb-photo-pick');   // 已達上限（1 張）就隱藏選擇鈕，刪掉後才再出現
+  if (pick) pick.style.display = ((tbPhotoUrls.length + tbNewPhotos.length) >= 1) ? 'none' : 'inline-block';
 }
 function tbRemovePhoto(i) { const p = tbPhotoUrls.splice(i, 1)[0]; if (p) tbRemovedPhotos.push(p); tbRenderPhotos(); }
 function tbRemoveNewPhoto(i) { tbNewPhotos.splice(i, 1); tbRenderPhotos(); }
