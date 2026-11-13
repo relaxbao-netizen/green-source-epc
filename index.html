@@ -2235,6 +2235,44 @@ function appShowDispDays(siteId, supervisor) {
 function pmList(s){ return String((s&&s.pm)||'').split(/[,、]+/).map(x=>x.trim()).filter(Boolean); }
 function pmHas(s,name){ return pmList(s).includes(name); }
 function pmText(s){ return pmList(s).join('、'); }
+// 選案場→預設工地主任：無 PM→空；一位→該位；多位→優先取登入帳號對得上的那位，否則第一位（一律仍可改選）
+function siteDefaultSupervisor(siteId){
+  const s = (siteId !== '' && siteId != null) ? siteById(Number(siteId)) : null;
+  if (!s) return '';
+  const pms = pmList(s);
+  if (!pms.length) return '';
+  if (pms.length === 1) return pms[0];
+  try { const names = (typeof myNames === 'function') ? myNames() : new Set(); const mine = pms.find(p => [...names].some(n => nameMatches(n, p))); if (mine) return mine; } catch (e) {}
+  return pms[0];
+}
+// 把工地主任下拉設成某姓名（選項沒有就補一個）；name 空則不動
+function setSupSelectValue(sel, name){
+  if (!sel) return;
+  name = String(name || '');
+  if (!name) return;
+  if (![...sel.options].some(o => o.value === name)) sel.add(new Option(name, name));
+  sel.value = name;
+}
+// 自主檢查表／進料檢驗表共用 #sc-site：選案場即自動帶入該案工地主任（事件委派，所有表單共用）
+// 注意：兩個容器的表單都用 sc-site/sc-supervisor 同一組 id，故限定在同一張卡內找 sup，避免抓到另一容器殘留的表單
+document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'sc-site') {
+    const def = siteDefaultSupervisor(e.target.value);
+    if (!def) return;
+    const card = e.target.closest('.card');
+    const sup = card ? card.querySelector('#sc-supervisor') : document.getElementById('sc-supervisor');
+    setSupSelectValue(sup, def);
+  }
+});
+// 新建表單：工地主任還空著時，依預選案場帶入預設（編輯沿用原值，不覆蓋）；scope＝該表單容器，避免抓到另一容器的 sc-supervisor
+function scInitSiteSup(rec, scope){
+  if (rec) return;
+  scope = scope || document;
+  const site = scope.querySelector('#sc-site'), sup = scope.querySelector('#sc-supervisor');
+  if (!site || !sup || sup.value) return;
+  const def = siteDefaultSupervisor(site.value);
+  if (def) setSupSelectValue(sup, def);
+}
 
 // 主任負責的案場直接由案場的工地主任欄位推算（編輯案場即自動更新負荷）
 function sitesOfPm(name) {
@@ -2652,6 +2690,7 @@ let dlPhotoUrls = [];       // 目前表單的照片 URL
 let _dlWbsNames = [];       // 目前案場的 WBS 工項名稱（施工項目下拉用）
 let _dlFormReturnSite = null; // 填寫表單返回時要回到哪個案場（null＝回案場卡片）
 let _dlEditRec = null;        // 目前編輯中的紀錄（null＝新增空白，不自動載入當日舊紀錄）
+let _dlLastSiteForSup;        // 施工日誌：上次帶入工地主任預設時的案場（偵測換案場才重設預設）
 
 function showDlTab(tab) {
   const show = (id, on) => { const e = document.getElementById(id); if (e) e.hidden = !on; };
@@ -2896,7 +2935,7 @@ function scBracketForm(rec, presetSite) {
       ${scBrEditingId ? `<button onclick="scBracketDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scBrRenderPhotos();
 }
 // ---- 扭力檢測照片（比照施工日誌：來源圖以 dataURL 存庫，編輯可還原、產 PDF 免 CORS）----
@@ -3070,7 +3109,7 @@ function scStdForm(rec, presetSite) {
       ${scStdEditingId ? `<button onclick="scStdDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
 }
 function scStdSyncCaptions() {
@@ -3280,7 +3319,7 @@ function scVocRowHtml(r) {
   const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const sel = v => `<select class="voc-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option ${v === '正常' ? 'selected' : ''}>正常</option><option ${v === '異常' ? 'selected' : ''}>異常</option></select>`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr>${td(inp('voc-no', r.no))}${td(inp('voc-series', r.series))}${td(inp('voc-voc', r.voc))}${td(sel(r.ok))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr>${td(inp('voc-no', r.no))}${td(inp('voc-series', r.series))}${td(inp('voc-voc', r.voc))}${td(sel(r.ok))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function scVocForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
@@ -3333,7 +3372,7 @@ function scVocForm(rec, presetSite) {
       ${scVocEditingId ? `<button onclick="scVocDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
 }
 function scVocCollect() {
@@ -3421,7 +3460,7 @@ function scGndRowHtml(r) {
   const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const sel = v => `<select class="gnd-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr>${td(inp('gnd-no', r.no))}${td(inp('gnd-system', r.system))}${td(inp('gnd-std', r.std))}${td(inp('gnd-result', r.result))}${td(sel(r.ok))}${td(inp('gnd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr>${td(inp('gnd-no', r.no))}${td(inp('gnd-system', r.system))}${td(inp('gnd-std', r.std))}${td(inp('gnd-result', r.result))}${td(sel(r.ok))}${td(inp('gnd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function scGndForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
@@ -3476,7 +3515,7 @@ function scGndForm(rec, presetSite) {
       ${scGndEditingId ? `<button onclick="scGndDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
   scGndStyleTT();
 }
@@ -3577,7 +3616,7 @@ function scScadaRowHtml(r) {
   const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const sel = v => `<select class="scd-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr>${td(inp('scd-name', r.name))}${td(inp('scd-loc', r.loc))}${td(inp('scd-test', r.test))}${td(sel(r.ok))}${td(inp('scd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr>${td(inp('scd-name', r.name))}${td(inp('scd-loc', r.loc))}${td(inp('scd-test', r.test))}${td(sel(r.ok))}${td(inp('scd-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function scScadaForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
@@ -3629,7 +3668,7 @@ function scScadaForm(rec, presetSite) {
       ${scScadaEditingId ? `<button onclick="scScadaDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
 }
 function scScadaCollect() {
@@ -3699,7 +3738,7 @@ function scCinsRowHtml(r) {
   const inp = (cls, v, w) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;${w ? 'min-width:' + w + 'px;' : ''}border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const sel = v => `<select class="cins-ok" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box;font-family:inherit"><option value="">—</option><option value="yes" ${v === 'yes' ? 'selected' : ''}>合格</option><option value="no" ${v === 'no' ? 'selected' : ''}>不合格</option></select>`;
   const td = h => `<td style="padding:3px 3px">${h}</td>`;
-  return `<tr>${td(inp('cins-no', r.no))}${td(inp('cins-breaker', r.breaker))}${td(inp('cins-pRS', r.pRS, 54))}${td(inp('cins-pRT', r.pRT, 54))}${td(inp('cins-pST', r.pST, 54))}${td(inp('cins-gRS', r.gRS, 54))}${td(inp('cins-gRT', r.gRT, 54))}${td(inp('cins-gST', r.gST, 54))}${td(sel(r.ok))}${td(inp('cins-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr>${td(inp('cins-no', r.no))}${td(inp('cins-breaker', r.breaker))}${td(inp('cins-pRS', r.pRS, 54))}${td(inp('cins-pRT', r.pRT, 54))}${td(inp('cins-pST', r.pST, 54))}${td(inp('cins-gRS', r.gRS, 54))}${td(inp('cins-gRT', r.gRT, 54))}${td(inp('cins-gST', r.gST, 54))}${td(sel(r.ok))}${td(inp('cins-note', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function scCinsForm(rec, presetSite) {
   const cont = document.getElementById('dl-selfcheck-container'); if (!cont) return;
@@ -3760,7 +3799,7 @@ function scCinsForm(rec, presetSite) {
       ${scCinsEditingId ? `<button onclick="scCinsDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos(); scCinsStyleTT();
 }
 function scCinsCollect() {
@@ -4012,7 +4051,7 @@ function icStdForm(rec, presetSite) {
       ${icStdEditingId ? `<button onclick="icStdDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
 }
 function icStdCollect() {
@@ -4067,7 +4106,7 @@ function icMatRowHtml(r, idx) {
   r = r || {};
   const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr><td style="padding:3px 4px;text-align:center;color:var(--muted);font-size:12px" class="ic-mno"></td>${td(inp('ic-mname', r.name))}${td(inp('ic-mspec', r.spec))}${td(inp('ic-mbrand', r.brand))}${td(inp('ic-mqty', r.qty))}${td(inp('ic-mnote', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this);icMatRenumber()" class="btn-secondary" style="padding:2px 8px;font-size:12px;color:var(--danger)">✕</button></td></tr>`;
+  return `<tr><td style="padding:3px 4px;text-align:center;color:var(--muted);font-size:12px" class="ic-mno"></td>${td(inp('ic-mname', r.name))}${td(inp('ic-mspec', r.spec))}${td(inp('ic-mbrand', r.brand))}${td(inp('ic-mqty', r.qty))}${td(inp('ic-mnote', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this);icMatRenumber()" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function icMatRenumber() { document.querySelectorAll('#ic-mat-rows tbody tr').forEach((tr, i) => { const c = tr.querySelector('.ic-mno'); if (c) c.textContent = (i + 1); }); }
 function icMatForm(rec, presetSite) {
@@ -4129,7 +4168,7 @@ function icMatForm(rec, presetSite) {
       ${icMatEditingId ? `<button onclick="icMatDelete()" class="btn-secondary" style="padding:9px 18px;font-size:14px;color:var(--danger)">🗑 刪除此紀錄</button>` : ''}
       <span id="sc-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
-  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite);
+  const sel = document.getElementById('sc-site'); if (sel && defSite != null) sel.value = String(defSite); scInitSiteSup(rec, cont);
   scStdRenderPhotos();
   icMatRenumber();
 }
@@ -4365,6 +4404,7 @@ function dlShowForm(logId, presetSite) {
     </div>
     <div id="dl-form-body" style="margin-top:14px"></div>`;
   if (defSite != null) document.getElementById('dl-site').value = defSite;
+  _dlLastSiteForSup = undefined;   // 新開表單：重設，讓 dlLoadForm 首次依案場帶入工地主任
   dlLoadForm();
 }
 // 管理員：照片儲存用量提示（統計 daily-log-photos bucket 檔案大小）
@@ -4396,7 +4436,7 @@ async function dlLoadForm() {
   const contractDays = existing && existing.contract_days != null ? existing.contract_days : dayDiff(start, end);
   const cumDays = existing && existing.cum_days != null ? existing.cum_days : dayDiff(start, date);
   const hint = document.getElementById('dl-history-hint'); if (hint) hint.textContent = existing ? '（編輯此筆施工日誌）' : '（新建施工日誌）';
-  const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '式', cum: '', hours: '' }];
+  const items = existing && Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: '', today: '', unit: '', cum: '', hours: '' }];
   const workers = existing && Array.isArray(existing.workers) && existing.workers.length ? existing.workers : [{ trade: '', today: '', cum: '', note: '' }];
   _dlWbsNames = s.id ? dlWbsItems(s).map(x => x.name) : [];
   // 工別建議：所有帳號過去填過的工別（存於日誌，跨帳號共享），下次可直接選
@@ -4413,12 +4453,17 @@ async function dlLoadForm() {
   const _revExtra = (_rev && !reviewerPeople.includes(_rev)) ? `<option value="${appEsc(_rev)}" selected>${appEsc(_rev)}</option>` : '';
   const reviewerOpts = '<option value="">請選擇</option>' + _revExtra + reviewerPeople.map(n => `<option value="${appEsc(n)}" ${n === _rev ? 'selected' : ''}>${appEsc(n)}</option>`).join('');
   const startISO = toISO(start).slice(0, 10), endISO = toISO(end).slice(0, 10);
-  // 頂欄「工地主任」下拉：選項＝在職主任，預設帶該案主任（新建帶該案第一位 PM；編輯沿用原值）；
-  // 案場變更才重設預設；只改日期等重繪時保留使用者目前選的
-  // 工地主任不自動帶入，一律手動選：新建空白（請選擇）、編輯沿用原值、重繪保留現選
+  // 頂欄「工地主任」下拉：選項＝在職主任；預設依案場帶入該案負責人（多位時以登入帳號對得上者優先，否則第一位），一律仍可改選。
+  // 案場變更才重設預設；編輯首次沿用原值；只改日期等重繪時保留使用者目前選的。
   const _dlSvSel = document.getElementById('dl-supervisor');
   const _prevSel = _dlSvSel ? _dlSvSel.value : '';
-  const _dlCurSup = _prevSel ? _prevSel : (existing ? (existing.supervisor || '') : '');
+  // 工地主任預設：編輯首次沿用原值；新建首次或換案場→帶入該案負責人（登入帳號優先，仍可改選）；同案場只改日期等重繪→保留現選
+  let _dlCurSup;
+  const _dlSiteChanged = (_dlLastSiteForSup !== undefined && String(_dlLastSiteForSup) !== String(siteRaw));
+  if (existing && _dlLastSiteForSup === undefined) _dlCurSup = existing.supervisor || '';
+  else if (_dlLastSiteForSup === undefined || _dlSiteChanged) _dlCurSup = siteDefaultSupervisor(siteRaw) || _prevSel || (existing ? (existing.supervisor || '') : '');
+  else _dlCurSup = _prevSel;
+  _dlLastSiteForSup = siteRaw;
   if (_dlSvSel) {
     const svList = (typeof activeSupervisors === 'function' ? activeSupervisors() : (typeof supervisors !== 'undefined' ? supervisors : []).filter(x => !x.left_date)).map(x => x.name);
     _dlSvSel.innerHTML = `<option value="">請選擇</option>` + svList.map(n => `<option ${n === _dlCurSup ? 'selected' : ''}>${appEsc(n)}</option>`).join('') + (_dlCurSup && !svList.includes(_dlCurSup) ? `<option selected>${appEsc(_dlCurSup)}</option>` : '');
@@ -4503,7 +4548,7 @@ function dlItemRowHtml(it) {
   return `<tr>
     ${td(nameCell)}
     ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
-    ${td(ip('dli-unit', it.unit || '式'))}
+    ${td(ip('dli-unit', it.unit))}
     ${td(ip('dli-hours', it.hours))}
     ${td(ip('dli-note', it.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
@@ -4538,7 +4583,7 @@ function dlWorkerRowHtml(w) {
   const ip = (cls, v, ph = '', attr = '') => `<input class="${cls}" value="${appEsc(v || '')}" placeholder="${ph}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const recalc = `dlRecalcWorkerCum(this.closest('tr').querySelector('.dlw-today'))`;
   return `<tr>
-    ${td(ip('dlw-trade', w.trade, '工別', 'list="dl-trade-list" oninput="' + recalc + '"'))}
+    ${td(ip('dlw-trade', w.trade, '', 'list="dl-trade-list" oninput="' + recalc + '"'))}
     ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
     ${td(ip('dlw-note', w.note))}
     ${td(`<button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button>`)}
@@ -4899,6 +4944,7 @@ function tbShowForm(logId, presetSite) {
       <span id="tb-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
   const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
+  if (!rec) { const _sup = document.getElementById('tb-supervisor'); if (_sup && !_sup.value) setSupSelectValue(_sup, siteDefaultSupervisor(sel ? sel.value : '')); }
   tbLoadWbsItems();
   tbRenderHazards();
   tbRenderPhotos();
@@ -4907,10 +4953,7 @@ function tbShowForm(logId, presetSite) {
 function tbOnSiteChange() {
   tbItemsSel = new Set(); tbCustomItems = []; tbItemNotes = {}; tbLoadWbsItems();
   const sel = document.getElementById('tb-site'), sup = document.getElementById('tb-supervisor');
-  if (sel && sup && typeof pmList === 'function') {
-    const pm = (pmList(siteById(Number(sel.value))) || [])[0] || '';
-    if (pm) { if (![...sup.options].some(o => o.value === pm)) sup.add(new Option(pm, pm)); sup.value = pm; }
-  }
+  if (sel && sup) setSupSelectValue(sup, siteDefaultSupervisor(sel.value));
 }
 function tbLoadWbsItems() {
   const sel = document.getElementById('tb-site'); const s = (sel && sel.value) ? siteById(Number(sel.value)) : null;
