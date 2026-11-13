@@ -885,8 +885,8 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
       <img class="course-cover" src="courses/course-cover.jpg" alt="現場工程師養成計畫大綱" loading="lazy" decoding="async">
     </div>
     <!-- col2：最新工程部週報 -->
-    <a class="card doc-entry weekly-entry bot-link" href="weekly/工程部週報 20261106_1530.pdf" target="_blank" rel="noopener">
-      <div class="card-title">最新工程部週報（2026/11/06）</div>
+    <a class="card doc-entry weekly-entry bot-link" href="weekly/工程部週報 20261113_1601.pdf" target="_blank" rel="noopener">
+      <div class="card-title">最新工程部週報（2026/11/13）</div>
       <img class="course-cover" src="weekly/weekly-cover.jpg" alt="工程部週報封面" loading="lazy" decoding="async">
     </a>
     <div class="card home-cert-card bot-cert" style="cursor:pointer" onclick="goCertTable(event)" title="點此前往證照到期表格">
@@ -3234,7 +3234,7 @@ function scRegisterStd(cfg) {
   SC_TYPES.push({ key: cfg.key, title: cfg.title, icon: cfg.icon || '📋', form: (rec, presetSite) => { scStdCfg = cfg; scStdForm(rec, presetSite); } });
 }
 scRegisterStd({
-  key: 'module', title: '模組安裝', icon: '🔆',
+  key: 'module', title: '模組安裝', icon: '☀️',
   questions: [
     '模組配置及安裝位置是否與圖說相符？',
     '模組安裝水平性、垂直性是否良好？夾具、螺絲是否依規定牢固鎖緊？',
@@ -3248,7 +3248,7 @@ scRegisterStd({
   ]
 });
 scRegisterStd({
-  key: 'inverter', title: '逆變器安裝', icon: '🔁',
+  key: 'inverter', title: '逆變器安裝', icon: '🔄',
   questions: [
     '開關箱及逆變器規格、尺寸是否符合規定？',
     '開關箱及逆變器數量、安裝位置是否與施工圖相符？',
@@ -4270,9 +4270,9 @@ function icRegisterMat(cfg) { if (!cfg.questions) cfg.questions = IC_MAT_Q; IC_T
 
 // 進料檢驗項目（陸續建立，共 8 項）；questions 省略＝用通用 5 題 IC_MAT_Q，各項目檢驗內容不同則自訂
 icRegisterMat({ key: 'pvbracket', title: '太陽能模組支架', icon: '🔩' });
-icRegisterMat({ key: 'pvmodule', title: '太陽能模組', icon: '🔆' });
-icRegisterMat({ key: 'inverter', title: '逆變器', icon: '🔁' });
-icRegisterMat({ key: 'cable', title: '電纜', icon: '🔌', questions: [
+icRegisterMat({ key: 'pvmodule', title: '太陽能模組', icon: '☀️' });
+icRegisterMat({ key: 'inverter', title: '逆變器', icon: '🔄' });
+icRegisterMat({ key: 'cable', title: '電纜', icon: '🧵', questions: [
   '規格、型號與圖面是否相符？',
   '數量是否相符？',
   '是否有出廠證明文件？',
@@ -4286,14 +4286,21 @@ icRegisterMat({ key: 'switchbox', title: '開關箱', icon: '🗄️', questions
   '是否有無放射性汙染證明書？',
   '材料放置是否妥當存放？'
 ] });
-icRegisterMat({ key: 'trough', title: '金屬線槽', icon: '🛤️', questions: [
+icRegisterMat({ key: 'trough', title: '金屬線槽', icon: '🪜', questions: [
   '規格、型號與圖面是否相符？',
   '數量是否相符？',
   '是否有出廠證明文件？',
   '材料放置是否妥當存放？',
   '是否合格？'
 ] });
-icRegisterMat({ key: 'pvcpipe', title: 'PVC管', icon: '🚰', questions: [
+icRegisterMat({ key: 'pvcpipe', title: 'PVC管', icon: '🪈', questions: [
+  '規格、型號與圖面是否相符？',
+  '數量是否相符？',
+  '是否有出廠證明文件？',
+  '是否有無放射性汙染證明書？',
+  '材料放置是否妥當存放？'
+] });
+icRegisterMat({ key: 'rsgpipe', title: 'RSG管', icon: '⚙️', questions: [
   '規格、型號與圖面是否相符？',
   '數量是否相符？',
   '是否有出廠證明文件？',
