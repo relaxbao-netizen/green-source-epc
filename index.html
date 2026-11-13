@@ -4199,7 +4199,7 @@ function icMatPdfHtml(meta) {
   const cfg = icMatCfg, d = meta.data || {};
   const checks = d.checks || {}, exps = d.explains || {};
   const mats = (d.materials && d.materials.length) ? d.materials.slice() : [{}];   // 只顯示有填的，沒填不補空列（至少留 1 列）
-  const matRows = mats.map((m, i) => `<tr><td>${i + 1}</td><td style="text-align:left">${appEsc(m.name || '')}</td><td>${appEsc(m.spec || '')}</td><td>${appEsc(m.brand || '')}</td><td>${appEsc(m.qty || '')}</td><td style="text-align:left">${appEsc(m.note || '')}</td></tr>`).join('');
+  const matRows = mats.map((m, i) => `<tr><td>${i + 1}</td><td>${appEsc(m.name || '')}</td><td>${appEsc(m.spec || '')}</td><td>${appEsc(m.brand || '')}</td><td>${appEsc(m.qty || '')}</td><td>${appEsc(m.note || '')}</td></tr>`).join('');
   const ynCell = i => { const v = checks[i]; return `${v === 'yes' ? '☑' : '☐'} Yes　${v === 'no' ? '☑' : '☐'} No`; };
   const chkRows = IC_MAT_Q.map((q, idx) => { const i = idx + 1; return `<tr><td style="text-align:left;line-height:1.5">${i}. ${appEsc(q)}</td><td style="white-space:nowrap">${ynCell(i)}</td><td style="text-align:left">${appEsc(exps[i] || '')}</td></tr>`; }).join('');
   return DL_PDF_STYLE + `<div class="dlpdf">
