@@ -3835,7 +3835,7 @@ function scCinsPdfHtml(meta) {
       <tr><td class="lb">工程名稱</td><td>${appEsc(meta.projName || meta.siteName || '')}</td><td class="lb">${appEsc(meta.capLabel || '容量')}</td><td>${meta.cap || ''}</td></tr>
       <tr><td class="lb">承包商</td><td>綠源科技股份有限公司</td><td class="lb">檢驗日期</td><td>${appEsc(String(meta.date || '').slice(0, 10).replace(/-/g, '/'))}</td></tr>
     </table>
-    <div class="sec">測試項目：${ttLine}　｜　測試盤名或說明：${appEsc(d.panel || '')}</div>
+    <div class="sec" style="line-height:1.9;padding-top:8px;padding-bottom:8px">測試項目：${ttLine}<br>測試盤名或說明：${appEsc(d.panel || '')}</div>
     <table class="tb" style="table-layout:fixed;font-size:12.5px">
       <colgroup><col style="width:12%"><col style="width:18%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:12%"><col style="width:10%"></colgroup>
       <thead>
