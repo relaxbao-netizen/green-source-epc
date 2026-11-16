@@ -5512,12 +5512,16 @@ function drawDailyLog() {
   // 每案場每日是否有派工（供自動判斷「-」）
   const dispDay = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm && r.site_id != null).map(r => r.site_id + '|' + r.log_date));
   // 自動值：有交→○；否則當日有派工→x、當日沒派工→-；無資料(未來)→空白
+  const _todayStr = (typeof localDate === 'function') ? localDate(new Date()) : new Date().toISOString().slice(0, 10);
+  const DL_TB_EXEMPT = new Set(['法蘭摩沙', '台積電AP7']);   // 這些案場預設不用寫工具箱會議紀錄，不列入缺繳
   const autoMark = (r, d) => {
-    const mk = (r.marks || {})[String(d)];
-    if (mk === undefined || mk === null || mk === '') return '';
-    if (mk === '○') return '○';
     const ms = matchSite(r.project);
+    const mk = (r.marks || {})[String(d)];
+    if (mk === '○') return '○';   // 有交就打圈（即使是免寫案場，有寫照樣給圈）
+    if (r.form === '工具箱會議記錄' && ms && DL_TB_EXEMPT.has(ms.label)) return '-';   // 免寫案場沒交→整月固定「-」、不算缺繳（含未來日）
+    if (mk === undefined || mk === null || mk === '') return '';
     const dateStr = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
+    if (dateStr >= _todayStr) return '';   // 今天(含)以後那天還沒過完，不能算缺繳
     return (ms && dispDay.has(ms.id + '|' + dateStr)) ? 'x' : '-';
   };
   // 生效值：手動 override 優先，否則用自動值
@@ -11073,21 +11077,73 @@ function mascotAsk() {
 }
 function mascotExample(q) { const inp = document.getElementById('mascot-q'); if (inp) { inp.value = q; mascotAsk(); } }
 // 可問範例題庫（從中隨機抽幾題當 chip 顯示，讓使用者每次看到不同問法）
-const MASCOT_EX_POOL = [
-  '哪些案場落後？', '需要趕工的工項？', '最嚴重的是哪些？', '整體平均進度？', '進度排行前三？', '哪個快完工了？', '哪些案場逾期？',
-  '台積電AP7 進度？', '兆豐 的主任是誰？', '兆豐 業主是誰？', '兆豐 在哪？', '法蘭摩沙 預計完工？', '兆豐 容量多少？', '兆豐 幾個工項？', '兆豐 開工多久了？',
-  '誰超載？', '誰最忙？', '誰最閒？', '各主任帶幾案？', '主任名單？', '吳修原 負責哪些案場？', '今天誰去哪個工地？',
-  '現在有幾個案場？', '全部案場列一下', '待開工的案場？', '完工的案場？', '儲能案場有哪些？', '容量最大的案場？', '光電/儲能總容量？',
-  '高雄的案場？', '台中的案場？',
-  '證照快到期的有誰？', '逾期證照有誰？', '保險快到期嗎？',
-  '追加款總共多少？', '需向客戶請款有哪些？', '哪些還沒開票收款？', '26082 明細',
-  '本月施工日誌誰還沒交？', '器具有哪些？', '哪些器具借出中？', '制服領了幾件？',
-  '離職的有誰？', '今天幾號？', '你會什麼？', '報告一下'
+// 固定通用題（都對得上 mascotAnswer 的關鍵字）
+const MASCOT_EX_BASE = [
+  // 進度 / 落後 / 狀況
+  '哪些案場落後？', '有哪些案場落後', '誰落後了', '進度有狀況的案場', '哪個案場紅燈', '哪些要注意', '進度卡住的', '哪個拖到了', '有沒有來不及的', '哪些案場有問題', '順不順', '哪個有狀況',
+  // 趕工 / 最嚴重
+  '需要趕工的工項？', '最嚴重的是哪些？', '哪些工項要趕', '要加班的工項', '最急的工項', '哪裡要衝一下', '要催的工項', '哪些工項落後',
+  // 排行 / 最高最低 / 快完工
+  '進度排行前三？', '進度排名', '誰跑最前面', '進度前五名', '名次排一下', '哪個快完工了？', '進度最高是哪案', '誰進度最好', '最落後是哪案', '進度最低', '誰最慢',
+  // 平均 / 概況 / 報告
+  '整體平均進度？', '全部做到哪了', '大概做多少', '完成度多少', '報告一下', '報告一下目前狀況', '現在狀況如何', '給我一份摘要', '目前概況', '現在怎樣', '總結一下',
+  // 逾期 / 完工 / 待開工
+  '哪些案場逾期？', '超過完工日的案場', '哪些拖過工期', '延誤完工的案場', '完工的案場？', '已完工有哪些', '結案的案場', '待開工的案場？', '還沒開工的案場', '準備開工的案場',
+  // 案場數 / 清單 / 類型
+  '現在有幾個案場？', '全部案場列一下', '一共幾案', '案場清單', '有哪些案場', '全部工地列一下', '儲能案場有哪些？', '有儲能的案場', '光電案場有哪些', '太陽能案場清單',
+  // 容量
+  '容量最大的案場？', '規模最大的案', '光電總容量', '儲能總共多少', '全部容量多少', '光電/儲能總容量？', '總裝置容量',
+  // 人力 / 主任
+  '誰超載？', '誰最忙？', '誰最閒？', '各主任帶幾案？', '主任名單？', '有幾位主任', '誰案子最多', '最閒的是誰', '人力分配', '誰有空', '帶最多案的是誰', '主任們忙不忙',
+  // 今日派工
+  '今天誰去哪個工地？', '今天派工', '今天誰上工', '今天誰在工地', '今天幾個人出工',
+  // 證照 / 保險
+  '證照快到期的有誰？', '逾期證照有誰？', '哪些證照要換', '回訓提醒', '保險快到期嗎？', '哪些保單要到期', '快過期的證照',
+  // 追加 / 請款
+  '追加款總共多少？', '追加單幾筆', '需向客戶請款有哪些？', '哪些還沒開票收款？', '哪些還沒收款', '追加最多的案場', '誰申請最多', '申請人名單', '綠源吸收多少', '已含在成本的有哪些',
+  '26082 明細',
+  // 日誌 / 器具 / 制服
+  '本月施工日誌誰還沒交？', '施工日誌怎麼填', '施工日誌 PDF 在哪', '誰可以改日誌', '器具有哪些？', '哪些器具借出中？', '誰借走器具', '制服領了幾件？', '制服統計',
+  // 地區
+  '高雄的案場？', '台中的案場？', '南部的案場', '北部的案場', '屏東有案場嗎',
+  // 離職 / 雜項 / 公司
+  '離職的有誰？', '今天幾號？', '現在幾點', '你會什麼？', '你是誰', '你好', '謝謝', '公司在哪', '這是什麼系統', '課程有哪些', '最新週報', '會不會下雨', '我負責哪些案場'
 ];
+// 依現有資料動態生成案場／主任／業主相關問句（確保都答得出來，且隨資料更新，不用改程式）
+function mascotExSitePool() {
+  const S = (typeof sites !== 'undefined' ? sites : []);
+  const out = [];
+  const names = [...new Set(S.map(s => s.label || s.name).filter(Boolean))];
+  const siteT = [
+    n => `${n} 進度？`, n => `${n} 落後嗎？`, n => `${n} 狀況如何？`,
+    n => `${n} 的主任是誰？`, n => `${n} 工地主任？`,
+    n => `${n} 業主是誰？`, n => `${n} 客戶是誰？`,
+    n => `${n} 在哪？`, n => `${n} 地址？`,
+    n => `${n} 容量多少？`, n => `${n} 幾 kWp？`,
+    n => `${n} 幾個工項？`, n => `${n} 開工多久了？`,
+    n => `${n} 什麼時候完工？`, n => `${n} 預計完工？`,
+    n => `${n} 開工了嗎？`, n => `${n} 類型？`, n => `${n} 有追加款嗎？`
+  ];
+  names.forEach(n => siteT.forEach(t => out.push(t(n))));
+  // 主任（取自 supervisors＝引擎比對來源，姓名取第一段；排除工程部主管，避免產生對不到的人）
+  const svSrc = (typeof supervisors !== 'undefined' && supervisors && supervisors.length) ? supervisors : (typeof activeSupervisors === 'function' ? activeSupervisors() : []);
+  const pms = [...new Set(svSrc.filter(s => s && s.role !== '工程部主管' && s.name).map(s => String(s.name).split(/\s+/)[0]))].filter(p => p && p.length >= 2);
+  const pmT = [p => `${p} 負責哪些案場？`, p => `${p} 忙不忙？`, p => `${p} 帶幾案？`];
+  pms.forEach(p => pmT.forEach(t => out.push(t(p))));
+  // 業主
+  [...new Set(S.map(s => s.owner).filter(o => o && String(o).length >= 2))].forEach(o => out.push(`${o} 有哪些案場？`));
+  return out;
+}
+function mascotExPool() { return MASCOT_EX_BASE.concat(mascotExSitePool()); }
+function mascotShuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+// 平衡抽樣：約 6 成通用題 + 4 成案場/主任題，確保 chip 每次都是「綜合洞察＋具體案場」的好組合（避免清一色「某案場 進度?」）
 function mascotPickEx(n) {
-  const a = MASCOT_EX_POOL.slice();
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; }
-  return a.slice(0, n);
+  const base = mascotShuffle(MASCOT_EX_BASE);
+  const dyn = mascotShuffle(mascotExSitePool());
+  const nBase = Math.min(base.length, Math.ceil(n * 0.6));
+  let picked = base.slice(0, nBase).concat(dyn.slice(0, n - nBase));
+  if (picked.length < n) picked = picked.concat(base.slice(nBase), dyn.slice(n - nBase));   // 資料未載入時用通用題補滿
+  return mascotShuffle([...new Set(picked)]).slice(0, n);
 }
 function mascotHelpHTML(unknown) {
   const head = unknown ? '我不太確定你的問題 🤔 這些我可以馬上回答：' : '直接打字問我吧，例如：';
