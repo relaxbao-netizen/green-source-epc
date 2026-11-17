@@ -10414,7 +10414,8 @@ async function doAppSign(action){
   await appReloadRender();
 }
 async function appDeleteReq(id){
-  if (!isAdmin()) { alert('僅管理員可刪單。'); return; }
+  const _r = (typeof appRequests !== 'undefined' ? appRequests : []).find(x => String(x.id) === String(id));
+  if (!isAdmin() && !(_r && isMyRequest(_r))) { alert('只能刪除自己填的申請單。'); return; }
   if(!confirm('確認刪除此申請單？此動作無法復原。')) return;
   const {error}=await sb.from('app_request').delete().eq('id',id);
   if(error){ alert('刪除失敗：'+error.message); return; }
@@ -10516,7 +10517,7 @@ function appViewReq(id){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
       ${(canEditReq(r) || canEditBillDates(r)) ? `<button class="btn-primary" style="padding:6px 14px;font-size:13px" onclick="appEditReq(${r.id})">✏️ 編輯</button>` : ''}
       <button class="btn-secondary" style="padding:6px 14px;font-size:13px" onclick="appGenApplyExcel(${r.id})">📄 產生申請單 Excel</button>
-      ${isAdmin() ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
+      ${(isAdmin() || isMyRequest(r)) ? `<button class="btn-secondary" style="padding:6px 14px;font-size:13px;color:var(--danger);margin-left:auto" onclick="appDeleteReq(${r.id})">🗑 刪單</button>` : ''}
     </div>`;
   document.getElementById('app-sign-overlay').classList.add('open');
 }
