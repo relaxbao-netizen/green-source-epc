@@ -1455,6 +1455,7 @@ function myNames() {
   if (!currentUser) return set;
   if (currentUser.name) set.add(String(currentUser.name).trim());
   const email = String(currentUser.email || '').toLowerCase();
+  try { if (typeof KNOWN_LOGIN_USERS !== 'undefined' && KNOWN_LOGIN_USERS[email] && KNOWN_LOGIN_USERS[email].name) set.add(KNOWN_LOGIN_USERS[email].name); } catch (e) {}
   try { (typeof supervisors !== 'undefined' ? supervisors : []).forEach(s => { if (String(s.email || '').toLowerCase() === email && s.name) set.add(String(s.name).trim()); }); } catch (e) {}
   try { (typeof approvers !== 'undefined' ? approvers : []).forEach(a => { if (String(a.email || '').toLowerCase() === email && a.name) set.add(String(a.name).trim()); }); } catch (e) {}
   return set;
@@ -2257,11 +2258,33 @@ function loginSupervisorName(){
     return hit ? hit.name : '';
   } catch (e) { return ''; }
 }
-// 登入帳號本人姓名：是主任→主任清單全名；非主任→登入者姓名(去掉 @域名／_英文 後綴)；未登入回空。全站「填東西的人」欄位預設用這個。
+// 已知登入帳號對照（不在工地主任/簽核人員名單、但要被系統認得的人，如管理員）：email→{姓名, 部門}
+const KNOWN_LOGIN_USERS = {
+  'sophia.yeh@greensource-tech.com': { name: '葉馨雅 Sophia', dept: '工程管理部' }
+};
+// 登入帳號本人姓名：主任→主任清單全名；已知帳號→指定姓名；其餘→登入者姓名(去 @域名、底線換空白)；未登入回空。全站「填東西的人」欄位預設用這個。
 function loginPersonName(){
-  const sup = loginSupervisorName(); if (sup) return sup;
+  const sup = loginSupervisorName(); if (sup) return sup;   // 1. 工地主任→主任清單全名
   if (typeof isLoggedIn === 'function' && !isLoggedIn()) return '';
-  return (currentUser && currentUser.name) ? String(currentUser.name).split('@')[0].split('_')[0].trim() : '';
+  // 2. 其他部門簽核人員：用 myNames(含 email 對照) 比對 approvers 全名
+  try {
+    const names = (typeof myNames === 'function') ? myNames() : new Set();
+    const ap = (typeof approvers !== 'undefined' ? approvers : []).find(a => a && a.name && !a.left_date && [...names].some(n => nameMatches(n, a.name)));
+    if (ap) return ap.name;
+  } catch (e) {}
+  // 3. 已知帳號對照
+  const em = String((currentUser && currentUser.email) || '').toLowerCase();
+  if (KNOWN_LOGIN_USERS[em]) return KNOWN_LOGIN_USERS[em].name;
+  // 4. 其餘：登入者姓名(去@域名、_換空白)，與主任「名字 英文」格式一致（葉馨雅_Sophia→葉馨雅 Sophia）
+  return (currentUser && currentUser.name) ? String(currentUser.name).split('@')[0].replace(/_/g, ' ').trim() : '';
+}
+// 登入者所屬部門（申請單預設申請單位用）：先查簽核/主任資料，再查已知帳號對照
+function loginDept(){
+  const nm = loginPersonName();
+  const d = (nm && typeof appDeptOfPerson === 'function') ? appDeptOfPerson(nm) : '';
+  if (d) return d;
+  const em = String((currentUser && currentUser.email) || '').toLowerCase();
+  return (KNOWN_LOGIN_USERS[em] && KNOWN_LOGIN_USERS[em].dept) || '';
 }
 // 工地主任預設值：統一用登入帳號本人（仍可下拉改選）
 function defaultSupervisor(siteId){ return loginPersonName(); }
@@ -10054,10 +10077,10 @@ function appFormHTML(){
   const siteOpts=activeOpts + (doneOpts ? `<optgroup label="已完工">${doneOpts}</optgroup>` : '') + maintOpts;
   const deptList=[...new Set([...approvers.map(a=>a.dept).filter(Boolean), '工程管理部'])].sort();
   const _myName=(typeof loginPersonName==='function')?loginPersonName():'';
-  const _myDept=(_myName && typeof appDeptOfPerson==='function')?appDeptOfPerson(_myName):'';
-  const firstDept=(_myDept && deptList.includes(_myDept))?_myDept:(deptList[0]||'');   // 預設申請單位＝登入者部門
-  const deptOpts=deptList.map(d=>`<option ${d===firstDept?'selected':''}>${appEsc(d)}</option>`).join('');
-  const nameOpts=appApplicantsForDept(firstDept).map(n=>`<option ${(_myName && nameMatches(n,_myName))?'selected':''}>${appEsc(n)}</option>`).join('');   // 預設申請人＝登入者本人（仍可下拉改選）
+  const _myDept=(typeof loginDept==='function')?loginDept():'';
+  const firstDept=(_myDept && deptList.includes(_myDept))?_myDept:'';   // 認得部門才預設；不在名單的人留「請選擇」手動挑
+  const deptOpts='<option value="">請選擇</option>'+deptList.map(d=>`<option ${d===firstDept?'selected':''}>${appEsc(d)}</option>`).join('');
+  const nameOpts=(firstDept?appApplicantsForDept(firstDept):[]).map(n=>`<option ${(_myName && nameMatches(n,_myName))?'selected':''}>${appEsc(n)}</option>`).join('');   // 預設申請人＝登入者本人（仍可下拉改選）
   return `<div class="card" style="padding:18px 20px">
    <div class="form-grid">
     <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" maxlength="5" inputmode="numeric" pattern="\\d{5}" oninput="appSerialInput(this)"></div>
@@ -10125,7 +10148,16 @@ function appNewCostToggle(){
   if(bill && !appNewBills.length){ appNewBills.push({vendor:'',amount:appTotalValue(),invoice_date:'',payment_date:''}); appNewBillsRender(); }
 }
 function appReasonToggle(){ const sel=document.getElementById('ar-reason'); const ot=document.getElementById('ar-reason-other'); if(sel&&ot) ot.style.display = sel.value==='其他' ? '' : 'none'; }
-function appApplicantsForDept(d){ return d==='工程管理部' ? activeSupervisors().map(s=>s.name) : approvers.filter(a=>a.dept===d && !a.left_date).map(a=>a.name); }
+function appApplicantsForDept(d){
+  if (!d) return [];
+  // 各部門申請人＝該部門的人：工程管理部＝工地主任；其他部門＝該部門簽核人員（不混入工地主任）
+  let list = (d==='工程管理部')
+    ? (typeof activeSupervisors==='function'?activeSupervisors():[]).map(s=>s.name)
+    : (typeof approvers!=='undefined'?approvers:[]).filter(a=>a && a.dept===d && !a.left_date).map(a=>a.name);
+  // 只在「登入者本人」屬此部門、又不在名單時補他自己（如管理員葉馨雅本人登入才出現，其他人登入看不到）
+  try { const me=(typeof loginPersonName==='function')?loginPersonName():''; if (me && typeof loginDept==='function' && loginDept()===d && !list.some(n=>nameMatches(n,me))) list.unshift(me); } catch(e){}
+  return [...new Set(list)];
+}
 function appDeptChange(){ const d=document.getElementById('ar-dept').value; const sel=document.getElementById('ar-applicant'); if(!sel) return; sel.innerHTML='<option value="">請選擇</option>'+appApplicantsForDept(d).map(n=>`<option>${appEsc(n)}</option>`).join(''); }
 // 維運案場：從既有申請單收集標註【維運】的自填工程名稱（去重、排序），供工程名稱下拉「維運案場」群組使用
 function maintSiteNames(){ const set=new Set(); (appRequests||[]).forEach(r=>{ const n=(r.site_name||'').trim(); if(n.includes('【維運】')) set.add(n); }); return [...set].sort(); }
