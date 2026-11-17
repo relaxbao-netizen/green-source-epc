@@ -2246,6 +2246,25 @@ function siteDefaultSupervisor(siteId){
   try { const names = (typeof myNames === 'function') ? myNames() : new Set(); const mine = pms.find(p => [...names].some(n => nameMatches(n, p))); if (mine) return mine; } catch (e) {}
   return pms[0];
 }
+// 登入者對應到主任清單的全名（填表人通常就是工地主任本人）；登入者非主任(如管理員)回空
+function loginSupervisorName(){
+  try {
+    if (typeof isLoggedIn === 'function' && !isLoggedIn()) return '';
+    const names = (typeof myNames === 'function') ? myNames() : new Set();
+    if (!names.size) return '';
+    const svList = (typeof activeSupervisors === 'function') ? activeSupervisors() : ((typeof supervisors !== 'undefined' ? supervisors : []).filter(s => !s.left_date));
+    const hit = svList.find(sv => sv && sv.name && [...names].some(n => nameMatches(n, sv.name)));
+    return hit ? hit.name : '';
+  } catch (e) { return ''; }
+}
+// 登入帳號本人姓名：是主任→主任清單全名；非主任→登入者姓名(去掉 @域名／_英文 後綴)；未登入回空。全站「填東西的人」欄位預設用這個。
+function loginPersonName(){
+  const sup = loginSupervisorName(); if (sup) return sup;
+  if (typeof isLoggedIn === 'function' && !isLoggedIn()) return '';
+  return (currentUser && currentUser.name) ? String(currentUser.name).split('@')[0].split('_')[0].trim() : '';
+}
+// 工地主任預設值：統一用登入帳號本人（仍可下拉改選）
+function defaultSupervisor(siteId){ return loginPersonName(); }
 // 把工地主任下拉設成某姓名（選項沒有就補一個）；name 空則不動
 function setSupSelectValue(sel, name){
   if (!sel) return;
@@ -2258,7 +2277,7 @@ function setSupSelectValue(sel, name){
 // 注意：兩個容器的表單都用 sc-site/sc-supervisor 同一組 id，故限定在同一張卡內找 sup，避免抓到另一容器殘留的表單
 document.addEventListener('change', e => {
   if (e.target && e.target.id === 'sc-site') {
-    const def = siteDefaultSupervisor(e.target.value);
+    const def = defaultSupervisor(e.target.value);
     if (!def) return;
     const card = e.target.closest('.card');
     const sup = card ? card.querySelector('#sc-supervisor') : document.getElementById('sc-supervisor');
@@ -2271,7 +2290,7 @@ function scInitSiteSup(rec, scope){
   scope = scope || document;
   const site = scope.querySelector('#sc-site'), sup = scope.querySelector('#sc-supervisor');
   if (!site || !sup || sup.value) return;
-  const def = siteDefaultSupervisor(site.value);
+  const def = defaultSupervisor(site.value);
   if (def) setSupSelectValue(sup, def);
 }
 
@@ -4518,7 +4537,7 @@ async function dlLoadForm() {
   let _dlCurSup;
   const _dlSiteChanged = (_dlLastSiteForSup !== undefined && String(_dlLastSiteForSup) !== String(siteRaw));
   if (existing && _dlLastSiteForSup === undefined) _dlCurSup = existing.supervisor || '';
-  else if (_dlLastSiteForSup === undefined || _dlSiteChanged) _dlCurSup = siteDefaultSupervisor(siteRaw) || _prevSel || (existing ? (existing.supervisor || '') : '');
+  else if (_dlLastSiteForSup === undefined || _dlSiteChanged) _dlCurSup = defaultSupervisor(siteRaw) || _prevSel || (existing ? (existing.supervisor || '') : '');
   else _dlCurSup = _prevSel;
   _dlLastSiteForSup = siteRaw;
   if (_dlSvSel) {
@@ -5005,7 +5024,7 @@ function tbShowForm(logId, presetSite) {
       <span id="tb-save-msg" style="align-self:center;font-size:13px"></span>
     </div>`;
   const sel = document.getElementById('tb-site'); if (sel && defSite != null) sel.value = String(defSite);
-  if (!rec) { const _sup = document.getElementById('tb-supervisor'); if (_sup && !_sup.value) setSupSelectValue(_sup, siteDefaultSupervisor(sel ? sel.value : '')); }
+  if (!rec) { const _sup = document.getElementById('tb-supervisor'); if (_sup && !_sup.value) setSupSelectValue(_sup, defaultSupervisor(sel ? sel.value : '')); }
   tbLoadWbsItems();
   tbRenderHazards();
   tbRenderPhotos();
@@ -5014,7 +5033,7 @@ function tbShowForm(logId, presetSite) {
 function tbOnSiteChange() {
   tbItemsSel = new Set(); tbCustomItems = []; tbItemNotes = {}; tbLoadWbsItems();
   const sel = document.getElementById('tb-site'), sup = document.getElementById('tb-supervisor');
-  if (sel && sup) setSupSelectValue(sup, siteDefaultSupervisor(sel.value));
+  if (sel && sup) setSupSelectValue(sup, defaultSupervisor(sel.value));
 }
 function tbLoadWbsItems() {
   const sel = document.getElementById('tb-site'); const s = (sel && sel.value) ? siteById(Number(sel.value)) : null;
@@ -9278,7 +9297,8 @@ function openEquipBorrow(i) {
   const deptOrder = [...new Set([...APP_DEPTS, ...Object.keys(byDept)])].filter(d => byDept[d]);
   document.getElementById('eb-borrower').innerHTML =
     '<option value="">請選擇</option>' + deptOrder.map(d => `<optgroup label="${d}">${byDept[d].map(n => `<option value="${n}">${n}</option>`).join('')}</optgroup>`).join('');
-  document.getElementById('eb-borrower').value = '';
+  // 借用人預設帶登入帳號本人（選項裡有才帶，仍可下拉改選）
+  { const _sel = document.getElementById('eb-borrower'); const _nm = (typeof loginPersonName === 'function') ? loginPersonName() : ''; const _opt = _nm ? [...(_sel.options)].find(o => o.value && nameMatches(o.value, _nm)) : null; _sel.value = _opt ? _opt.value : ''; }
   document.getElementById('eb-borrow-date').value = localDate(new Date());
   // 案場下拉：未完工案場優先在前，其餘（含已完工）列於後，另含「未指定」
   const siteName = s => s.label || s.name;
@@ -10033,9 +10053,11 @@ function appFormHTML(){
   const maintOpts=maintNames.length ? `<optgroup label="維運案場">${maintNames.map(n=>`<option>${appEsc(n)}</option>`).join('')}</optgroup>` : '';
   const siteOpts=activeOpts + (doneOpts ? `<optgroup label="已完工">${doneOpts}</optgroup>` : '') + maintOpts;
   const deptList=[...new Set([...approvers.map(a=>a.dept).filter(Boolean), '工程管理部'])].sort();
-  const deptOpts=deptList.map(d=>`<option>${appEsc(d)}</option>`).join('');
-  const firstDept=deptList[0]||'';
-  const nameOpts=appApplicantsForDept(firstDept).map(n=>`<option>${appEsc(n)}</option>`).join('');
+  const _myName=(typeof loginPersonName==='function')?loginPersonName():'';
+  const _myDept=(_myName && typeof appDeptOfPerson==='function')?appDeptOfPerson(_myName):'';
+  const firstDept=(_myDept && deptList.includes(_myDept))?_myDept:(deptList[0]||'');   // 預設申請單位＝登入者部門
+  const deptOpts=deptList.map(d=>`<option ${d===firstDept?'selected':''}>${appEsc(d)}</option>`).join('');
+  const nameOpts=appApplicantsForDept(firstDept).map(n=>`<option ${(_myName && nameMatches(n,_myName))?'selected':''}>${appEsc(n)}</option>`).join('');   // 預設申請人＝登入者本人（仍可下拉改選）
   return `<div class="card" style="padding:18px 20px">
    <div class="form-grid">
     <div class="form-field"><label>流水號</label><input id="ar-serial" value="${appGenSerial()}" maxlength="5" inputmode="numeric" pattern="\\d{5}" oninput="appSerialInput(this)"></div>
