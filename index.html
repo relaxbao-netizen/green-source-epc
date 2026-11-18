@@ -8220,15 +8220,13 @@ function renderWbsInputs() {
   // 人工改過(鎖定)的欄位 → 數字用琥珀色，和系統自動值區分（僅視覺，仍可編輯）
   const _ezNorm = x => String(x || '').replace(/[-/]/g, '').trim();
   const lockOf = (nm) => {
+    // 顏色規則：工項有 ezTeam 基準(ez)時，任何欄位「現值 ≠ ezTeam 原值」→ 琥珀；一樣 → 黑。
+    // 未同步到 ezTeam 的工項(無 ez) → 一律黑。不再綁手動鎖 m（m 僅供同步工具保護手動欄用）。
     const o = (editingWbsDates && editingWbsDates[nm]) || {};
-    const ez = (o.ez && typeof o.ez === 'object') ? o.ez : {};
-    const raw = {};
-    if (o.m === true) { raw.ps = raw.pe = raw.as = raw.ae = 1; }
-    else if (Array.isArray(o.m)) o.m.forEach(f => raw[f] = 1);
+    const ez = (o.ez && typeof o.ez === 'object') ? o.ez : null;
+    if (!ez) return {};
     const s = {};
-    // 只有「ezTeam 有該欄原值(ez 快照) 且 現值與它不一致」才標琥珀；
-    // 沒有 ezTeam 基準可比(尚未同步)或現值與基準相同 → 一律黑色
-    Object.keys(raw).forEach(f => { const e = ez[f]; if (e != null && e !== '' && _ezNorm(o[f]) !== _ezNorm(e)) s[f] = 1; });
+    ['ps', 'pe', 'as', 'ae'].forEach(f => { if (_ezNorm(o[f]) !== _ezNorm(ez[f])) s[f] = 1; });
     return s;
   };
   const LKC = '#b45309';
@@ -8292,6 +8290,25 @@ function updateDerivedCells() {
   });
   const totA = grid.querySelector('[data-total-ad]'); if (totA) totA.textContent = totalAd > 0 ? totalAd + ' 天' : '—';
   grid.querySelectorAll('input[data-ad]').forEach(inp => { if (inp.value) return; const a = as[inp.dataset.ad] ? as[inp.dataset.ad].replace(/-/g, '/') : ''; inp.placeholder = a ? String(workdaysBetween(a, todayStr)) : '天'; });
+  wbsRecolor();   // 依「現值 vs ezTeam 原值」即時上色（打字當下就變）
+}
+// 即時上色：工項有 ezTeam 基準(ez)時，欄位現值 ≠ ezTeam 原值 → 琥珀；一樣或未同步 → 黑
+function wbsRecolor() {
+  const grid = document.getElementById('sf-wbs-grid'); if (!grid || !editingWbsDates) return;
+  const LKC = '#b45309';
+  const nz = x => String(x || '').replace(/[-/]/g, '').trim();
+  const amber = (nm, f, val) => {
+    const o = editingWbsDates[nm]; if (!o) return false;
+    const ez = (o.ez && typeof o.ez === 'object') ? o.ez : null; if (!ez) return false;
+    return nz(val) !== nz(ez[f]);
+  };
+  const paint = (inp, on) => { inp.style.color = on ? LKC : ''; inp.style.fontWeight = on ? '600' : ''; };
+  grid.querySelectorAll('input[data-item][data-field="ps"]').forEach(i => paint(i, amber(i.dataset.item, 'ps', i.value)));
+  grid.querySelectorAll('input[data-item][data-field="as"]').forEach(i => paint(i, amber(i.dataset.item, 'as', i.value)));
+  grid.querySelectorAll('input[data-aeinput]').forEach(i => paint(i, amber(i.dataset.aeinput, 'ae', i.value)));
+  grid.querySelectorAll('input[data-ad]').forEach(i => { const tr = i.closest('tr'); const ae = tr && tr.querySelector('input[data-aeinput]'); paint(i, amber(i.dataset.ad, 'ae', ae ? ae.value : '')); });
+  grid.querySelectorAll('td[data-pecell]').forEach(td => { const nm = td.getAttribute('data-pecell'); const pe = td.textContent === '—' ? '' : td.textContent; const on = amber(nm, 'pe', pe); td.style.color = on ? LKC : 'var(--muted)'; });
+  grid.querySelectorAll('input[data-pd]').forEach(i => { const tr = i.closest('tr'); const td = tr && tr.querySelector('td[data-pecell]'); const pe = td ? (td.textContent === '—' ? '' : td.textContent) : ''; paint(i, amber(i.dataset.pd, 'pe', pe)); });
 }
 // 取同一列的 實際開始/實際工期/實際完成 三個輸入
 function _wbsRowActual(el) {
