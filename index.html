@@ -4171,9 +4171,9 @@ const IC_MAT_Q = [
 let icMatCfg = null, icMatEditingId = null;
 function icMatRowHtml(r, idx) {
   r = r || {};
-  const inp = (cls, v) => `<input class="${cls}" value="${appEsc(v || '')}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
+  const inp = (cls, v, attr='') => `<input class="${cls}" value="${appEsc(v || '')}" ${attr} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">`;
   const td = h => `<td style="padding:3px 4px">${h}</td>`;
-  return `<tr><td style="padding:3px 4px;text-align:center;color:var(--muted);font-size:12px" class="ic-mno"></td>${td(inp('ic-mname', r.name))}${td(inp('ic-mspec', r.spec))}${td(inp('ic-mbrand', r.brand))}${td(inp('ic-mqty', r.qty))}${td(inp('ic-mnote', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this);icMatRenumber()" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
+  return `<tr><td style="padding:3px 4px;text-align:center;color:var(--muted);font-size:12px" class="ic-mno"></td>${td(inp('ic-mname', r.name))}${td(inp('ic-mspec', r.spec))}${td(inp('ic-mbrand', r.brand))}${td(inp('ic-mqty', r.qty, 'type="number" min="0" step="any" inputmode="decimal"'))}${td(inp('ic-mnote', r.note))}<td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this);icMatRenumber()" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td></tr>`;
 }
 function icMatRenumber() { document.querySelectorAll('#ic-mat-rows tbody tr').forEach((tr, i) => { const c = tr.querySelector('.ic-mno'); if (c) c.textContent = (i + 1); }); }
 function icMatForm(rec, presetSite) {
@@ -10150,7 +10150,7 @@ function appFormHTML(){
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
-   <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
+   <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px"><thead><tr><th style="text-align:center">項次</th><th style="text-align:center">品項名稱</th><th style="text-align:center">數量</th><th style="text-align:center">單位</th><th style="text-align:center">金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
    <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
@@ -10161,11 +10161,11 @@ function appFormHTML(){
 function renderAppItems(){
   const tb=document.getElementById('ar-items'); if(!tb) return;
   tb.innerHTML = appItems.length ? appItems.map((it,i)=>`<tr>
-    <td>${i+1}</td>
+    <td style="text-align:center">${i+1}</td>
     <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:60px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" placeholder="總價" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td style="text-align:center"><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td style="text-align:center"><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:60px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td style="text-align:center"><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" placeholder="總價" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
   </tr>`).join('') : '';
   // 最後一列固定為可點擊的「＋ 新增明細」（取代原右上按鈕）
