@@ -10151,7 +10151,7 @@ function appFormHTML(){
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
    <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px"><thead><tr><th style="text-align:center">項次</th><th style="text-align:center">品項名稱</th><th style="text-align:center">數量</th><th style="text-align:center">單位</th><th style="text-align:center">金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
-   <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
+   <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
      <button class="btn-primary" id="ar-submit-btn" onclick="submitAppRequest()">送出申請</button>
@@ -10163,9 +10163,9 @@ function renderAppItems(){
   tb.innerHTML = appItems.length ? appItems.map((it,i)=>`<tr>
     <td style="text-align:center">${i+1}</td>
     <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td style="text-align:center"><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td style="text-align:center"><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:60px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td style="text-align:center"><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" placeholder="總價" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
   </tr>`).join('') : '';
   // 最後一列固定為可點擊的「＋ 新增明細」（取代原右上按鈕）
