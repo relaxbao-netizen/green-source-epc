@@ -520,9 +520,12 @@ a.ac-phone:hover { background: #f1f5f9; color: var(--accent, #0891b2); }
 #app-sign-overlay { z-index: 250; }
 #eb-borrower optgroup { font-weight: normal; }
 .modal-overlay.open { display: flex; }
+/* 彈窗開著時鎖住背景底頁捲動：滑鼠滾輪只捲彈窗、不捲背景 */
+body.modal-open { overflow: hidden; }
 .modal-box {
   background: #fff; border-radius: 16px; width: 1040px; max-width: 95vw;
   max-height: 88vh; overflow-y: auto;
+  overscroll-behavior: contain;   /* 捲到頂/底不連鎖到背景 */
   box-shadow: 0 20px 60px rgba(0,0,0,.18);
   animation: modalIn .22s ease;
 }
@@ -11100,6 +11103,17 @@ function startAutoRefresh() {
   window.addEventListener('pointerdown', _onActivity, { passive: true });
   window.addEventListener('keydown', _onActivity, { passive: true });
 }
+// 彈窗開著時鎖背景捲動：統一監看所有 .modal-overlay 的 class 變化，任一開著就給 body 加 modal-open
+function setupModalScrollLock() {
+  const sync = () => {
+    const anyOpen = !!document.querySelector('.modal-overlay.open');
+    document.body.classList.toggle('modal-open', anyOpen);
+  };
+  const obs = new MutationObserver(sync);
+  document.querySelectorAll('.modal-overlay').forEach(ov => obs.observe(ov, { attributes: true, attributeFilter: ['class'] }));
+  sync();
+}
+setupModalScrollLock();
 initApp();
 // ===================== 👷 工地小人：今日戰情速報 =====================
 const MASCOT_TIPS = [
