@@ -9599,7 +9599,7 @@ async function appSaveHoldNote(id){
   await appReloadRender(); appViewReq(id);
 }
 function appTier(amt){ if(amt==null) return '待定'; const n=Number(amt)||0; return n>=1000000?'100萬以上':n>=100000?'10萬~100萬':'10萬以下'; }
-function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.qty)||0)*(Number(it.price)||0),0); }
+function appItemsTotal(){ return appItems.reduce((s,it)=>s+(Number(it.amount)||0),0); }
 // 金額顯示：只有「沒填」（null）才顯示「待定」；填 0 是真正的金額「NT$ 0」
 function appAmt(n){ return (n==null) ? '待定' : ('NT$ '+appMoney(n)); }
 // 明細金額加總
@@ -9670,7 +9670,7 @@ function renderApproval(){
   if(!el) return;
   if(!sb){ el.innerHTML='<div class="card" style="padding:20px;color:var(--muted)">需連接雲端才能使用申請簽核系統。</div>'; return; }
   if(appSection==='dash') el.innerHTML = appDashboardHTML(appSelectedExportYm());
-  else if(appSection==='new'){ arTotalManual=false; el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
+  else if(appSection==='new'){ arTotalManual=false; appItems=[{name:'',qty:'',unit:'',amount:''}]; el.innerHTML = appFormHTML(); renderAppItems(); appUpdateTotal(); appNewBills=[]; appNewBillsRender(); appNewCostToggle(); }
   else if(appSection==='sign') el.innerHTML = appSignListHTML();
   else if(appSection==='query'){ const _qf=appCaptureQueryFilters(); el.innerHTML = appQueryHTML(); appQueryRefreshOptions(); appRestoreQueryFilters(_qf); runAppQuery(); }
   else if(appSection==='people') el.innerHTML = appPeopleHTML();
@@ -10150,7 +10150,7 @@ function appFormHTML(){
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
-   <div style="overflow-x:auto"><table class="prog-table" style="min-width:600px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>單價</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
+   <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px"><thead><tr><th>項次</th><th>品項名稱</th><th>數量</th><th>單位</th><th>金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
    <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:90px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px" placeholder="例：因業主變更設備配置位置，導致電纜長度增加48米，需額外採購材料及施工工資。"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
@@ -10165,14 +10165,13 @@ function renderAppItems(){
     <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:70px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:60px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input type="number" value="${it.price}" oninput="appItems[${i}].price=this.value;appUpdateTotal()" style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td style="text-align:right" class="ar-amt">${appMoney((Number(it.qty)||0)*(Number(it.price)||0))}</td>
+    <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" placeholder="總價" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
   </tr>`).join('') : '';
   // 最後一列固定為可點擊的「＋ 新增明細」（取代原右上按鈕）
-  tb.innerHTML += `<tr><td colspan="7" onclick="addAppItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${appItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`;
+  tb.innerHTML += `<tr><td colspan="6" onclick="addAppItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${appItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`;
 }
-function addAppItem(){ appItems.push({name:'',qty:1,unit:'式',price:0}); renderAppItems(); appUpdateTotal(); }
+function addAppItem(){ appItems.push({name:'',qty:'',unit:'',amount:''}); renderAppItems(); appUpdateTotal(); }
 // 新增申請表單的「請款對象明細」（費用歸屬＝需向客戶請款時顯示）
 let appNewBills = [];
 function appNewBillsSum(){ return appNewBills.reduce((s,b)=>s+(Number(b.amount)||0),0); }
@@ -10223,11 +10222,10 @@ function appSiteSelectChange(){ const sel=document.getElementById('ar-site'), in
 function appSiteNameFromForm(){ const v=(document.getElementById('ar-site')?document.getElementById('ar-site').value:'').trim(); if(v==='__custom__'){ let c=(document.getElementById('ar-site-custom')?document.getElementById('ar-site-custom').value:'').trim(); if(c && !c.includes('【維運】')) c+='【維運】'; return c; } return v; }
 function appUpdateTotal(){
   const el=document.getElementById('ar-total'); if(el && !arTotalManual){ const t=appItemsTotal(); el.value = t>0 ? appMoney(t) : ''; } // 明細有金額才自動帶入，否則留空（待定）
-  document.querySelectorAll('#ar-items tr').forEach((tr,i)=>{ const c=tr.querySelector('.ar-amt'); if(c&&appItems[i]) c.textContent=appMoney((Number(appItems[i].qty)||0)*(Number(appItems[i].price)||0)); });
 }
 function appDraftFromForm(){
   const g=id=>{ const e=document.getElementById(id); return e?e.value:''; };
-  const _itemsSum=appItems.filter(it=>it.name).reduce((a,it)=>a+((Number(it.qty)||0)*(Number(it.price)||0)),0);
+  const _itemsSum=appItems.filter(it=>it.name).reduce((a,it)=>a+(Number(it.amount)||0),0);
   let total=appTotalValue(); // 以欄位（可手動）的總額為準（空白＝待定null；填 0＝真正的 0）
   if(total==null && _itemsSum>0) total=_itemsSum; // 總額留空但明細有金額→用明細加總(不再是待定)
   const bill=g('ar-cost')==='需向客戶請款';
@@ -10239,7 +10237,7 @@ function appDraftFromForm(){
     client_bills: bills, client_amount: bill?bills.reduce((s,b)=>s+b.amount,0):0,
     invoice_date: (bill&&bills.length===1)?bills[0].invoice_date:null, payment_date: (bill&&bills.length===1)?bills[0].payment_date:null,
     reason_text:(g('ar-note')||'').trim(), total_amount:total, amount_tier:appTier(total),
-    items: appItems.filter(it=>it.name).map(it=>({name:it.name,qty:Number(it.qty)||0,unit:it.unit||'',price:Number(it.price)||0,amount:(Number(it.qty)||0)*(Number(it.price)||0)})),
+    items: appItems.filter(it=>it.name).map(it=>({name:it.name,qty:(it.qty===''||it.qty==null)?'':(Number(it.qty)||0),unit:it.unit||'',price:0,amount:Number(it.amount)||0})),
     sign_chain: appChain(total).map(role=>({role,approver:null,action:null,comment:'',signed_at:null})),
     cur_step:0, status:'pending',
   };
