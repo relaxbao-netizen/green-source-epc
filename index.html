@@ -8226,8 +8226,9 @@ function renderWbsInputs() {
     if (o.m === true) { raw.ps = raw.pe = raw.as = raw.ae = 1; }
     else if (Array.isArray(o.m)) o.m.forEach(f => raw[f] = 1);
     const s = {};
-    // 手動值已與 ezTeam 原值(ez 快照)一致 → 視為已回自動、不再標琥珀；ez 缺(尚未同步)則維持原本行為
-    Object.keys(raw).forEach(f => { if (_ezNorm(o[f]) !== _ezNorm(ez[f])) s[f] = 1; });
+    // 只有「ezTeam 有該欄原值(ez 快照) 且 現值與它不一致」才標琥珀；
+    // 沒有 ezTeam 基準可比(尚未同步)或現值與基準相同 → 一律黑色
+    Object.keys(raw).forEach(f => { const e = ez[f]; if (e != null && e !== '' && _ezNorm(o[f]) !== _ezNorm(e)) s[f] = 1; });
     return s;
   };
   const LKC = '#b45309';
