@@ -7941,7 +7941,12 @@ async function loadFromCloud() {
     ]);
     const logRes = { data: logAll, error: logAll ? null : true };
     if (siteRes.error) throw siteRes.error;
-    if (siteRes.data && siteRes.data.length) sites = siteRes.data.map(rowToSite);
+    if (siteRes.data && siteRes.data.length) {
+      sites = siteRes.data.map(rowToSite);
+      // DB 的 pct 欄位是舊快照；一律用 siteActualPct 重算，否則背景重載後 pct 變回舊值 → 切頁(人力/進度)顯示錯進度
+      sites.forEach(s => { s.pct = (s.wbs || s.wbs_dates || s.wbs_comp || s.wbs_days || (s.wbs_items && s.wbs_items.length)) ? siteActualPct(s) : Math.floor(Number(s.pct) || 0); });
+      sites.forEach(s => { s.status = computeStatus(s); });
+    }
     if (!svRes.error && svRes.data && svRes.data.length) {
       supervisors = svRes.data.map(r => ({ name: r.name, color: r.color || '#3b82f6', phone: r.phone || '', email: r.email || '', sites: r.sites || [], avatar: r.avatar || '', role: r.role || '工地主任', left_date: r.left_date || '' }));
     }
