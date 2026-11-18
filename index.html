@@ -8218,11 +8218,21 @@ function renderWbsInputs() {
   const comp = Object.keys(curC).length ? curC : (editingWbsComp || {});
   const dv = (nm, f) => { const o = dates[nm]; const v = o && o[f]; return v ? String(v).replace(/\//g, '-') : ''; };
   // 人工改過(鎖定)的欄位 → 數字用琥珀色，和系統自動值區分（僅視覺，仍可編輯）
-  const lockOf = (nm) => { const o = (editingWbsDates && editingWbsDates[nm]) || {}; if (o.m === true) return { ps:1, pe:1, as:1, ae:1 }; const s = {}; if (Array.isArray(o.m)) o.m.forEach(f => s[f] = 1); return s; };
+  const _ezNorm = x => String(x || '').replace(/[-/]/g, '').trim();
+  const lockOf = (nm) => {
+    const o = (editingWbsDates && editingWbsDates[nm]) || {};
+    const ez = (o.ez && typeof o.ez === 'object') ? o.ez : {};
+    const raw = {};
+    if (o.m === true) { raw.ps = raw.pe = raw.as = raw.ae = 1; }
+    else if (Array.isArray(o.m)) o.m.forEach(f => raw[f] = 1);
+    const s = {};
+    // 手動值已與 ezTeam 原值(ez 快照)一致 → 視為已回自動、不再標琥珀；ez 缺(尚未同步)則維持原本行為
+    Object.keys(raw).forEach(f => { if (_ezNorm(o[f]) !== _ezNorm(ez[f])) s[f] = 1; });
+    return s;
+  };
   const LKC = '#b45309';
   const lkStyle = (nm, f) => lockOf(nm)[f] ? `color:${LKC};font-weight:600;` : '';
-  const isLocked = (nm) => { const o = (editingWbsDates && editingWbsDates[nm]) || {}; return o.m === true || (Array.isArray(o.m) && o.m.length > 0); };
-  const unlockBtn = (nm) => (typeof isAdmin === 'function' && isAdmin() && isLocked(nm)) ? ` <button type="button" onclick="wbsUnlockRow('${String(nm).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" title="清除此列手動鎖定，恢復與 ezTeam 自動同步（琥珀色會消失，下次同步會依 ezTeam 更新）" style="border:1px solid #f59e0b;background:#fffbeb;color:#b45309;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🔓自動</button>` : '';   // 僅管理員可見；放在完成率右邊欄
+  // 琥珀/黑色純靠「現值 vs ezTeam 原值(.ez)」自動比對：一樣→黑、不一樣→琥珀；無手動解鎖鈕
   const onin = f => f === 'ps' ? ' oninput="updatePlannedEnd();updateDerivedCells()"' : f === 'as' ? ' oninput="updateActualStart();syncActualFromStart(this);updateDerivedCells()"' : '';
   const dIn = (nm, f) => `<input type="date" data-item="${appEsc(nm)}" data-field="${f}" value="${dv(nm, f)}"${onin(f)} style="width:100%;box-sizing:border-box;font-size:12px;${lkStyle(nm, f)}">`;
   const cIn = (nm) => `<input type="number" min="0" max="100" step="0.1" data-comp="${appEsc(nm)}" value="${comp[nm] != null && comp[nm] !== '' ? comp[nm] : ''}" placeholder="自動" title="選填：手動覆寫完成率（可到小數點 1 位），留空則依日期自動計算" style="width:100%;box-sizing:border-box;font-size:12px">`;
@@ -8242,25 +8252,18 @@ function renderWbsInputs() {
   cats.forEach((cat, ci) => {
     const nameCell = `<td style="font-weight:700;white-space:nowrap"><span style="color:var(--accent2);margin-right:6px">${ci + 1}.</span>${cat.name}</td>`;
     if (!cat.subs.length) {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${pdIn(cat.name)}</td>${peCell(cat.name)}<td>${dIn(cat.name, 'as')}</td><td>${adIn(cat.name)}</td><td>${aeIn(cat.name)}</td><td>${cIn(cat.name)}</td><td style="text-align:center">${unlockBtn(cat.name)}</td></tr>`;
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td>${dIn(cat.name, 'ps')}</td><td>${pdIn(cat.name)}</td>${peCell(cat.name)}<td>${dIn(cat.name, 'as')}</td><td>${adIn(cat.name)}</td><td>${aeIn(cat.name)}</td><td>${cIn(cat.name)}</td></tr>`;
     } else {
-      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="8" style="color:var(--muted);font-size:12px">（填各子項）</td></tr>`;
-      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);white-space:nowrap">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td>${peCell(nm)}<td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td><td>${aeIn(nm)}</td><td>${cIn(nm)}</td><td style="text-align:center">${unlockBtn(nm)}</td></tr>`; });
+      rows += `<tr style="border-top:1px solid var(--border)">${nameCell}<td colspan="7" style="color:var(--muted);font-size:12px">（填各子項）</td></tr>`;
+      cat.subs.forEach(sub => { const nm = typeof sub === 'string' ? sub : sub.name; rows += `<tr style="background:#fafafa"><td style="padding-left:28px;font-size:12px;color:var(--muted);white-space:nowrap">└ ${nm}</td><td>${dIn(nm, 'ps')}</td><td>${pdIn(nm)}</td>${peCell(nm)}<td>${dIn(nm, 'as')}</td><td>${adIn(nm)}</td><td>${aeIn(nm)}</td><td>${cIn(nm)}</td></tr>`; });
     }
   });
-  const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2);white-space:nowrap">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td data-total-ad style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td></td></tr>`;
+  const totalRow = `<tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--accent2);white-space:nowrap">總工期</td><td></td><td data-total-pd style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td><td data-total-ad style="text-align:center;color:var(--accent2);white-space:nowrap">—</td><td></td><td></td></tr>`;
   document.getElementById('sf-wbs-grid').innerHTML =
-    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:22%">施工項目</th><th>預計開始</th><th style="width:8%">預計工期</th><th>預計完成</th><th>實際開始</th><th style="width:8%">實際工期</th><th>實際完成</th><th style="width:8%">完成率%</th><th style="width:9%"></th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
+    `<table class="wbs-table" style="width:100%;table-layout:fixed"><thead><tr><th style="width:22%">施工項目</th><th>預計開始</th><th style="width:8%">預計工期</th><th>預計完成</th><th>實際開始</th><th style="width:8%">實際工期</th><th>實際完成</th><th style="width:8%">完成率%</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>`;
   updatePlannedEnd();
   updateActualStart();
   updateDerivedCells();
-}
-// 「🔓恢復自動」：清掉該工項的手動鎖定→琥珀消失、恢復與 ezTeam 自動同步（存檔也不再沿用舊鎖）
-function wbsUnlockRow(nm) {
-  if (typeof isAdmin === 'function' && !isAdmin()) return;   // 僅管理員
-  if (editingWbsDates && editingWbsDates[nm]) delete editingWbsDates[nm].m;   // 清鎖；日期值不動（重繪時由現有輸入值保留）
-  editingWbsUnlocked.add(nm);
-  if (typeof renderWbsInputs === 'function') renderWbsInputs();   // 重繪：琥珀消失、按鈕消失（值用 collectWbsDates 保留）
 }
 // 更新各列「預計完成／實際完成」唯讀格、最下方「總工期」、及進行中「實際工期」的灰字提示
 function updateDerivedCells() {
@@ -8555,12 +8558,17 @@ async function saveSiteForm() {
   (function(){
     const F = ['ps','pe','as','ae'];
     const orig = (existing && existing.wbs_dates && typeof existing.wbs_dates === 'object') ? existing.wbs_dates : {};
+    const _nz = x => String(x || '').replace(/[-/]/g, '').trim();
     Object.keys(_dates).forEach(nm => {
       const o = orig[nm] || {};
+      const ez = (o.ez && typeof o.ez === 'object') ? o.ez : null;
+      if (ez) _dates[nm].ez = ez; // 保留 ezTeam 原值快照（collectWbsDates 不含，供下次比對自動解鎖）
       // 按過「恢復自動」的工項：不沿用舊手動鎖（等於解鎖）；其餘沿用
       const prev = editingWbsUnlocked.has(nm) ? [] : (Array.isArray(o.m) ? o.m.slice() : (o.m === true ? F.slice() : [])); // 相容舊的布林 m(整項鎖)
       const lock = new Set(prev.filter(f => F.includes(f)));
       F.forEach(f => { if ((_dates[nm][f] || '') !== (o[f] || '')) lock.add(f); }); // 這次改動到的欄位
+      // 值已與 ezTeam 原值一致的欄位 → 自動解鎖（不留手動鎖，下次同步交還 ezTeam）
+      if (ez) F.forEach(f => { if (lock.has(f) && _nz(_dates[nm][f]) === _nz(ez[f])) lock.delete(f); });
       const arr = [...lock].sort();
       if (arr.length) _dates[nm].m = arr; // 只鎖改過的欄位，不是整項
     });
