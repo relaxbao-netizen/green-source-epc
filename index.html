@@ -11076,10 +11076,24 @@ async function autoRefreshTick() {
   } catch (e) { /* 靜默，下一輪再試 */ }
   finally { _autoRefreshBusy = false; }
 }
+let _lastRefreshAt = Date.now();
+async function autoRefreshKick() {
+  // 回到前景就立刻同步一次（切回分頁／視窗重新取得焦點／bfcache 還原／電腦睡醒）
+  if (document.hidden) return;
+  await autoRefreshTick();
+  _lastRefreshAt = Date.now();
+}
 function startAutoRefresh() {
   _lastSitesSig = _sitesSig(); _lastApprSig = _apprSig();
-  setInterval(autoRefreshTick, 25000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) autoRefreshTick(); }); // 切回分頁馬上同步一次
+  setInterval(() => { autoRefreshTick().then(() => { _lastRefreshAt = Date.now(); }); }, 25000);
+  // 多重觸發，避免「分頁仍是前景但視窗失焦 / 瀏覽器凍結背景計時器 / 睡眠喚醒」時看到舊畫面
+  document.addEventListener('visibilitychange', autoRefreshKick);  // 切回分頁
+  window.addEventListener('focus', autoRefreshKick);               // 視窗重新取得焦點（切回別的程式再回來）
+  window.addEventListener('pageshow', autoRefreshKick);            // bfcache 還原（上一頁/下一頁回來）
+  // 計時器可能被瀏覽器節流/凍結：每次使用者互動時，若距上次刷新已超過 30 秒就補一次
+  const _onActivity = () => { if (!document.hidden && Date.now() - _lastRefreshAt > 30000) autoRefreshKick(); };
+  window.addEventListener('pointerdown', _onActivity, { passive: true });
+  window.addEventListener('keydown', _onActivity, { passive: true });
 }
 initApp();
 // ===================== 👷 工地小人：今日戰情速報 =====================
