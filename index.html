@@ -4653,7 +4653,7 @@ function dlItemRowHtml(it) {
   return `<tr>
     ${td(nameCell)}
     ${td(ip('dli-today', it.today, '', 'type="number" min="0" step="any" inputmode="decimal" oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
-    ${td(ip('dli-unit', it.unit))}
+    ${td(ip('dli-unit', it.unit, '', 'onblur="dlUnitBlur(this)"'))}
     ${td(ip('dli-hours', it.hours, '', 'type="number" min="0" step="any" inputmode="decimal"'))}
     ${td(ip('dli-note', it.note))}
     <td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td>
@@ -4681,6 +4681,16 @@ function dlRecalcCum(todayInput) {
   const today = parseFloat(todayInput.value);
   const v = prior + (isNaN(today) ? 0 : today);
   cum.value = v ? v : '';
+}
+// 單位欄防呆：離開欄位時，若整格是「純數字」(如 3、80)→ 清掉並閃紅提示（數量應填左邊「本日完成」）
+function dlUnitBlur(el) {
+  const v = (el.value || '').trim();
+  if (v && /^[0-9]+(\.[0-9]+)?$/.test(v)) {
+    el.value = '';
+    el.placeholder = '單位非數字';
+    el.style.borderColor = 'var(--danger)';
+    setTimeout(() => { el.style.borderColor = ''; el.placeholder = ''; }, 2500);
+  }
 }
 function dlWorkerRowHtml(w) {
   w = w || {};
