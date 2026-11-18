@@ -4652,9 +4652,9 @@ function dlItemRowHtml(it) {
   const nameCell = `<select class="dli-name" onchange="${recalc}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 6px;font-size:13px;box-sizing:border-box">${selOpts}</select>`;
   return `<tr>
     ${td(nameCell)}
-    ${td(ip('dli-today', it.today, '', 'oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
-    ${td(ip('dli-unit', it.unit))}
-    ${td(ip('dli-hours', it.hours))}
+    ${td(ip('dli-today', it.today, '數量', 'type="number" min="0" step="any" inputmode="decimal" oninput="dlRecalcCum(this)"') + `<input type="hidden" class="dli-cum" value="${appEsc(it.cum || '')}">`)}
+    ${td(ip('dli-unit', it.unit, '式/座/m…'))}
+    ${td(ip('dli-hours', it.hours, '小時', 'type="number" min="0" step="any" inputmode="decimal"'))}
     ${td(ip('dli-note', it.note))}
     <td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td>
   </tr>`;
@@ -4689,7 +4689,7 @@ function dlWorkerRowHtml(w) {
   const recalc = `dlRecalcWorkerCum(this.closest('tr').querySelector('.dlw-today'))`;
   return `<tr>
     ${td(ip('dlw-trade', w.trade, '', 'list="dl-trade-list" oninput="' + recalc + '"'))}
-    ${td(ip('dlw-today', w.today, '', 'oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
+    ${td(ip('dlw-today', w.today, '人數', 'type="number" min="0" step="1" inputmode="numeric" oninput="dlRecalcWorkerCum(this)"') + `<input type="hidden" class="dlw-cum" value="${appEsc(w.cum || '')}">`)}
     ${td(ip('dlw-note', w.note))}
     <td style="padding:3px 4px;text-align:center"><button onclick="dlDelRow(this)" style="border:none;background:none;cursor:pointer;color:var(--danger);font-size:16px">×</button></td>
   </tr>`;
