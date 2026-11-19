@@ -2241,6 +2241,25 @@ function appShowDispDays(siteId, supervisor) {
 function pmList(s){ return String((s&&s.pm)||'').split(/[,、]+/).map(x=>x.trim()).filter(Boolean); }
 function pmHas(s,name){ return pmList(s).includes(name); }
 function pmText(s){ return pmList(s).join('、'); }
+// 主要/次要：pm 清單第一位＝主要，其餘＝次要（只有一位時不分）
+function pmIsPrimary(s, name){ const a = pmList(s); return a.length > 1 && a[0] === name; }
+function pmRankBadge(primary){ return `<span style="font-size:10px;color:#fff;background:${primary ? '#059669' : '#94a3b8'};border-radius:4px;padding:1px 6px;margin-left:5px;font-weight:600;vertical-align:middle">${primary ? '主要' : '次要'}</span>`; }
+// 詳情彈窗用：多位時每位帶主要/次要標籤（逐行）；一位時純姓名
+function pmTextRanked(s){ const a = pmList(s); if (a.length <= 1) return appEsc(a[0] || ''); return a.map((n, i) => appEsc(n) + pmRankBadge(i === 0)).join('<br>'); }
+// 編輯案場：工地主任「主要」單選同步——只對已勾選者顯示主要鈕，沒選主要時自動補第一個被勾選者
+function sfPmSync(){
+  const wrap = document.getElementById('sf-pm'); if (!wrap) return;
+  const items = [...wrap.querySelectorAll('.sf-pm-item')];
+  let anyPrimary = false;
+  items.forEach(it => {
+    const cb = it.querySelector('.sf-pm-cb'), pr = it.querySelector('.sf-pm-prim-wrap'), radio = it.querySelector('.sf-pm-primary');
+    if (!cb || !pr || !radio) return;
+    pr.style.display = cb.checked ? 'inline-flex' : 'none';
+    if (!cb.checked) radio.checked = false;
+    if (cb.checked && radio.checked) anyPrimary = true;
+  });
+  if (!anyPrimary) { const first = items.find(it => { const cb = it.querySelector('.sf-pm-cb'); return cb && cb.checked; }); if (first) { const r = first.querySelector('.sf-pm-primary'); if (r) r.checked = true; } }
+}
 // 選案場→預設工地主任：無 PM→空；一位→該位；多位→優先取登入帳號對得上的那位，否則第一位（一律仍可改選）
 function siteDefaultSupervisor(siteId){
   const s = (siteId !== '' && siteId != null) ? siteById(Number(siteId)) : null;
@@ -6133,7 +6152,7 @@ function renderHR() {
       if (!s) return '';
       return `
       <div class="hd-site-row" onclick="openModal(${s.id})" style="cursor:pointer">
-        <span class="hd-site-name">${s.name}</span>
+        <span class="hd-site-name">${s.name}${pmList(s).length > 1 ? pmRankBadge(pmList(s)[0] === sv.name) : ''}</span>
         <div class="hd-bar-wrap">
           <div class="hd-bar" style="display:flex;overflow:hidden">
             <div class="hd-fill ${fillClass(s.status)}" style="width:${s.pct}%;border-radius:0"></div>
@@ -6920,7 +6939,7 @@ function openModal(id) {
     <div class="modal-grid">
       <div class="modal-info" style="background:#f8fafc;border-radius:10px;padding:16px">
         <div class="info-row"><span class="info-label">業主</span><span class="info-val">${s.owner}</span></div>
-        <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${pmText(s)}</span></div>
+        <div class="info-row"><span class="info-label">工地主任</span><span class="info-val">${pmTextRanked(s)}</span></div>
         <div class="info-row"><span class="info-label">案場業務</span><span class="info-val">${s.sales || '—'}</span></div>
         <div class="info-row"><span class="info-label">案場地址</span><span class="info-val" style="font-size:12px">${s.addr}</span></div>
         <div class="info-row"><span class="info-label">類型</span><span class="info-val">${s.type}</span></div>
@@ -8525,7 +8544,9 @@ function openSiteForm(id) {
   const pms = orderedSupervisors().filter(v => v.role !== '工程部主管').map(v => v.name);
   const chosenPm = s ? pmList(s) : [];
   chosenPm.forEach(n => { if (!pms.includes(n)) pms.push(n); });
-  document.getElementById('sf-pm').innerHTML = pms.map(p => `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:400;white-space:nowrap"><input type="checkbox" class="sf-pm-cb" value="${appEsc(p)}"${chosenPm.includes(p) ? ' checked' : ''}>${appEsc(p)}</label>`).join('');
+  const primaryPm = chosenPm[0] || '';
+  document.getElementById('sf-pm').innerHTML = pms.map(p => `<span class="sf-pm-item" style="display:inline-flex;align-items:center;gap:8px;white-space:nowrap"><label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;font-weight:400"><input type="checkbox" class="sf-pm-cb" value="${appEsc(p)}"${chosenPm.includes(p) ? ' checked' : ''} onchange="sfPmSync()">${appEsc(p)}</label><label class="sf-pm-prim-wrap" style="display:${chosenPm.includes(p) ? 'inline-flex' : 'none'};align-items:center;gap:3px;font-size:11px;color:#059669;cursor:pointer"><input type="radio" name="sf-pm-primary" class="sf-pm-primary" value="${appEsc(p)}"${p === primaryPm ? ' checked' : ''}>主要</label></span>`).join('');
+  sfPmSync();
   // 案場業務下拉：列出業務部(GSBU)全員（角色「業務」或部門 GSBU，含業務主管 Gio）；編輯舊案時保留原業務名
   const salesNames = approvers.filter(a => (a.role === '業務' || a.dept === 'GSBU') && !a.left_date).map(a => a.name);
   if (s && s.sales && !salesNames.includes(s.sales)) salesNames.push(s.sales);
@@ -8579,7 +8600,7 @@ async function saveSiteForm() {
   }
   const row = {
     name: val('sf-name'), label: val('sf-label'), region: val('sf-region'), city: val('sf-city'),
-    type: val('sf-type'), owner: val('sf-owner'), pm: [...document.querySelectorAll('.sf-pm-cb:checked')].map(o=>o.value).join(','), sales: val('sf-sales'), addr: val('sf-addr'),
+    type: val('sf-type'), owner: val('sf-owner'), pm: (function(){ const checked=[...document.querySelectorAll('.sf-pm-cb:checked')].map(o=>o.value); const pr=document.querySelector('.sf-pm-primary:checked'); let primary=pr?pr.value:''; if(!checked.includes(primary)) primary=checked[0]||''; return (primary?[primary,...checked.filter(n=>n!==primary)]:checked).join(','); })(), sales: val('sf-sales'), addr: val('sf-addr'),
     mw: num('sf-mw') || 0, skw: num('sf-skw') || 0, mwh: num('sf-mwh') || 0,
     start_date: val('sf-start').replace(/-/g, '/'), end_date: val('sf-end').replace(/-/g, '/'), // 存回 YYYY/MM/DD
     contract_start: val('sf-contract-start').replace(/-/g, '/'), contract_end: val('sf-contract-end').replace(/-/g, '/'),
