@@ -10217,7 +10217,7 @@ function appFormHTML(){
     <div class="form-field"><label>申請單位 *</label><select id="ar-dept" onchange="appDeptChange()">${deptOpts}</select></div>
     <div class="form-field"><label>申請人 *</label><select id="ar-applicant"><option value="">請選擇</option>${nameOpts}</select></div>
     <div class="form-field"><label>申請原因</label><select id="ar-reason" onchange="appReasonToggle()"><option value="" selected>請選擇</option>${APP_REASONS.map(d=>`<option>${d}</option>`).join('')}</select><input id="ar-reason-other" placeholder="請填寫其他原因" style="display:none;margin-top:6px"></div>
-    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="" placeholder="金額未定可留空（顯示待定）" inputmode="numeric" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
+    <div class="form-field"><label>追加款總額</label><input id="ar-total" value="" placeholder="金額未定可留空（顯示待定）" inputmode="numeric" autocomplete="off" name="ar-total-noac" oninput="this.value=this.value.replace(/[^\\d]/g,'');arTotalManual=true"></div>
     <div class="form-field"><label>費用歸屬</label><select id="ar-cost" onchange="appNewCostToggle()"><option value="" selected>請選擇</option><option>綠源自行吸收</option><option>需向客戶請款</option><option>已含於原成本</option></select></div>
    </div>
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
@@ -10663,7 +10663,7 @@ function appViewReq(id){
         ? `${pending?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡在誰（可手動指定）</div>
              <select id="app-hold-who" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:inherit">${appHoldWhoOptions(r)}</select></div>`:''}
            <div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註</div>
-             <textarea id="app-hold-note" rows="2" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
+             <textarea id="app-hold-note" rows="1" style="width:100%;box-sizing:border-box;height:38px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
            <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存</button></div>`
         : (r.hold_note?`<div style="font-size:13px;color:var(--text);margin-top:6px">📝 ${appEsc(r.hold_note)}</div>`:'');
       return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${editBox}</div>`;
