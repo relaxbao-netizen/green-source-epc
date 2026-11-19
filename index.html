@@ -10224,7 +10224,7 @@ function appFormHTML(){
    <div id="ar-bill-sec" style="display:none;margin-top:12px"><div style="display:flex;align-items:center"><span class="wbs-title">請款對象明細</span><span id="ar-bill-sum" style="margin-left:10px;font-size:12px;color:var(--muted)"></span></div><div id="ar-bills"></div></div>
    <div style="margin-top:14px;display:flex;align-items:center"><span class="wbs-title">追加明細</span></div>
    <div style="overflow-x:auto"><table class="prog-table" style="min-width:520px"><thead><tr><th style="text-align:center">項次</th><th style="text-align:center">品項名稱</th><th style="text-align:center">數量</th><th style="text-align:center">單位</th><th style="text-align:center">金額</th><th></th></tr></thead><tbody id="ar-items"></tbody></table></div>
-   <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" style="width:100%;box-sizing:border-box;height:56px;padding:8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px"></textarea></div>
+   <div class="form-field" style="margin-top:14px"><label>原因說明</label><textarea id="ar-note" rows="1" style="width:100%;box-sizing:border-box;height:31px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px"></textarea></div>
    <div id="ar-error" style="color:var(--danger);font-size:13px;display:none;margin:8px 0"></div>
    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
      <button class="btn-primary" id="ar-submit-btn" onclick="submitAppRequest()">送出申請</button>
@@ -10235,10 +10235,10 @@ function renderAppItems(){
   const tb=document.getElementById('ar-items'); if(!tb) return;
   tb.innerHTML = appItems.length ? appItems.map((it,i)=>`<tr>
     <td style="text-align:center">${i+1}</td>
-    <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-    <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:right;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+    <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+    <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+    <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:right;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
   </tr>`).join('') : '';
   // 最後一列固定為可點擊的「＋ 新增明細」（取代原右上按鈕）
@@ -10664,7 +10664,7 @@ function appViewReq(id){
         ? `${pending?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡在誰（可手動指定）</div>
              <select id="app-hold-who" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:inherit">${appHoldWhoOptions(r)}</select></div>`:''}
            <div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註</div>
-             <textarea id="app-hold-note" rows="1" style="width:100%;box-sizing:border-box;height:38px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
+             <textarea id="app-hold-note" rows="1" style="width:100%;box-sizing:border-box;height:34.8px;font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
            <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存</button></div>`
         : (r.hold_note?`<div style="font-size:13px;color:var(--text);margin-top:6px">📝 ${appEsc(r.hold_note)}</div>`:'');
       return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${editBox}</div>`;
@@ -10748,10 +10748,10 @@ function appEditRenderItems(){
   const lock=appEditDateOnly; const dis=lock?'disabled':'';
   el.innerHTML='<table class="prog-table" style="width:100%;min-width:0"><thead><tr><th>品項</th><th>數量</th><th>單位</th><th>金額</th><th></th></tr></thead><tbody>'+
     (editItems.length?editItems.map((it,i)=>`<tr>
-      <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" ${dis} style="width:100%;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" ${dis} style="width:64px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" ${dis} style="width:54px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
-      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value;updateEditTotal()" ${dis} style="width:90px;border:1px solid var(--border);border-radius:6px;padding:4px"></td>
+      <td><input value="${appEsc(it.name)}" oninput="editItems[${i}].name=this.value" ${dis} style="width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+      <td><input value="${appEsc(String(it.qty??''))}" oninput="editItems[${i}].qty=this.value" ${dis} style="width:64px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+      <td><input value="${appEsc(it.unit)}" oninput="editItems[${i}].unit=this.value" ${dis} style="width:54px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+      <td><input type="number" value="${Number(it.amount)||0}" oninput="editItems[${i}].amount=this.value;updateEditTotal()" ${dis} style="width:90px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
       <td>${lock?'':`<button onclick="editItems.splice(${i},1);appEditRenderItems()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:14px">✕</button>`}</td>
     </tr>`).join(''):'')+
     (lock?'':`<tr><td colspan="5" onclick="appEditAddItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${editItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`)+`</tbody></table>`;
