@@ -10237,7 +10237,7 @@ function renderAppItems(){
     <td style="text-align:center">${i+1}</td>
     <td><input value="${appEsc(it.name)}" oninput="appItems[${i}].name=this.value" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
     <td><input type="number" value="${it.qty}" oninput="appItems[${i}].qty=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
-    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
+    <td><input value="${appEsc(it.unit)}" oninput="appItems[${i}].unit=this.value" onblur="appUnitBlur(this,${i})" style="width:100%;box-sizing:border-box;text-align:center;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
     <td><input type="number" value="${(it.amount===0||it.amount==null||it.amount==='')?'':it.amount}" oninput="appItems[${i}].amount=this.value;appUpdateTotal()" style="width:100%;box-sizing:border-box;text-align:right;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px"></td>
     <td><button onclick="appItems.splice(${i},1);renderAppItems();appUpdateTotal()" style="border:none;background:none;color:var(--danger);cursor:pointer;font-size:15px">✕</button></td>
   </tr>`).join('') : '';
@@ -10245,6 +10245,8 @@ function renderAppItems(){
   tb.innerHTML += `<tr><td colspan="6" onclick="addAppItem()" style="cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:10px 8px;text-align:center">＋ 新增明細${appItems.length ? '' : '（尚無明細，點此新增）'}</td></tr>`;
 }
 function addAppItem(){ appItems.push({name:'',qty:'',unit:'',amount:''}); renderAppItems(); appUpdateTotal(); }
+// 單位欄不可為純數字：失焦時若整格是數字就清空並提示
+function appUnitBlur(el,i){ const v=(el.value||'').trim(); if(v && /^[0-9]+(\.[0-9]+)?$/.test(v)){ el.value=''; if(appItems[i])appItems[i].unit=''; el.placeholder='單位非數字'; el.style.borderColor='var(--danger)'; setTimeout(()=>{el.style.borderColor='';el.placeholder='';},2500); } }
 // 新增申請表單的「請款對象明細」（費用歸屬＝需向客戶請款時顯示）
 let appNewBills = [];
 function appNewBillsSum(){ return appNewBills.reduce((s,b)=>s+(Number(b.amount)||0),0); }
