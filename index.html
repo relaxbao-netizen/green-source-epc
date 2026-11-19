@@ -27,6 +27,7 @@
   --font: 'Segoe UI', system-ui, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+textarea { resize: none; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; overflow-x: hidden; }
 
 /* NAV */
@@ -10663,7 +10664,7 @@ function appViewReq(id){
         ? `${pending?`<div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡在誰（可手動指定）</div>
              <select id="app-hold-who" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:inherit">${appHoldWhoOptions(r)}</select></div>`:''}
            <div style="margin-top:8px"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">卡關備註</div>
-             <textarea id="app-hold-note" rows="1" style="width:100%;box-sizing:border-box;height:38px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
+             <textarea id="app-hold-note" rows="1" style="width:100%;box-sizing:border-box;height:38px;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:8px" placeholder="例如：協理出差，改請總經理代簽">${appEsc(r.hold_note||'')}</textarea></div>
            <div style="text-align:right;margin-top:6px"><button class="btn-secondary" style="padding:5px 12px;font-size:12px" onclick="appSaveHoldNote(${r.id})">儲存</button></div>`
         : (r.hold_note?`<div style="font-size:13px;color:var(--text);margin-top:6px">📝 ${appEsc(r.hold_note)}</div>`:'');
       return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-top:8px">${whoLine}${editBox}</div>`;
