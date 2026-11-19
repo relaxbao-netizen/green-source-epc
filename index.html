@@ -613,8 +613,8 @@ body.modal-open { overflow: hidden; }
 #taiwan-map.has-sel .lbl { opacity: .18; }
 #taiwan-map.has-sel .lbl.lbl-sel { opacity: 1; fill: #065f46; }
 /* 放大時圖釘/頭貼反向縮小（維持原大小，避免被一起放大而擠在一起）；--mapk=目前縮放倍率 */
-#mapWrap.zoomed .map-pin { transform: translate(-50%, -50%) scale(calc(.8 / var(--mapk, 1))); }
-#mapWrap.zoomed .sv-mark { transform: translate(-50%, -50%) scale(calc(.8 / var(--mapk, 1))); }
+#mapWrap.zoomed .map-pin { transform: translate(-50%, -50%) scale(calc(1.25 / var(--mapk, 1))); }
+#mapWrap.zoomed .sv-mark { transform: translate(-50%, -50%) scale(calc(1.25 / var(--mapk, 1))); }
 #mapWrap.zoomed .sv-mark:hover { transform: translate(-50%, -50%) scale(calc(1.7 / var(--mapk, 1))); z-index: 20; }
 #taiwan-map .lbl { font-size: 7.5px; fill: #475569; font-family: sans-serif; text-anchor: middle; pointer-events: none; font-weight: 700; }
 #taiwan-map .lbl-e { fill: #475569; }
