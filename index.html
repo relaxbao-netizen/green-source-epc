@@ -157,9 +157,11 @@ nav > * { flex-shrink: 0; }
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
 .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 
-.taiwan-svg-wrap { background: #bfdbfe; margin: 0 -20px; }  /* 藍色左右滿版：抵銷 map-card 的 20px 內距、延伸到卡片邊緣 */
-#mapInner { position: relative; width: 100%; max-width: 280px; margin: 0 auto; }
+.taiwan-svg-wrap { background: #bfdbfe; margin: 0 -20px; position: relative; }  /* 藍色左右滿版：抵銷 map-card 的 20px 內距、延伸到卡片邊緣 */
+#mapWrap.zoomed { overflow: hidden; }   /* 放大時才裁切（平常讓頭貼可戳出框）*/
+#mapInner { position: relative; width: 100%; max-width: 280px; margin: 0 auto; transition: transform .45s cubic-bezier(.4,0,.2,1); transform-origin: 0 0; }
 #mapInner svg { width: 100%; display: block; }
+#map-zoom-reset { position: absolute; top: 8px; right: 8px; z-index: 6; display: none; background: rgba(255,255,255,.92); border: 1px solid #cbd5e1; border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 
 .map-pin {
   position: absolute; transform: translate(-50%, -50%);
@@ -863,6 +865,7 @@ body.modal-open { overflow: hidden; }
           <!-- Popup (JS controlled) -->
           <div class="pin-popup" id="pin-popup"></div>
         </div>
+        <button id="map-zoom-reset" onclick="mapZoomReset()" title="縮小回全台">🔍 縮小</button>
       </div>
     </div>
 
@@ -7438,6 +7441,34 @@ function shiftMapDay(delta) {
   mapViewDate = (ns === today) ? null : ns;
   renderTaiwanMap();
 }
+// 點縣市放大：對 #mapInner 做 CSS translate+scale（頭貼用 % 定位，會跟著一起放大對位）
+let _mapZoomCounty = null;
+function mapZoomApply(d, geoPath){
+  const inner = document.getElementById('mapInner'), wrap = document.getElementById('mapWrap');
+  if (!inner || !d) return;
+  const b = geoPath.bounds(d);                        // [[x0,y0],[x1,y1]]（SVG 座標 0..260 / 0..510）
+  const W = 260, H = 510, pad = 1.55;
+  const cx = (b[0][0] + b[1][0]) / 2, cy = (b[0][1] + b[1][1]) / 2;
+  const bw = Math.max(1, b[1][0] - b[0][0]), bh = Math.max(1, b[1][1] - b[0][1]);
+  let k = Math.min(W / (bw * pad), H / (bh * pad));
+  k = Math.max(1.4, Math.min(k, 6));                  // 縮放倍率夾在 1.4~6 倍
+  const txp = (0.5 - k * (cx / W)) * 100, typ = (0.5 - k * (cy / H)) * 100;
+  inner.style.transform = `translate(${txp}%, ${typ}%) scale(${k})`;
+  if (wrap) wrap.classList.add('zoomed');
+  const btn = document.getElementById('map-zoom-reset'); if (btn) btn.style.display = 'block';
+}
+function mapZoomTo(d, geoPath){
+  if (!d) return;
+  if (_mapZoomCounty === d.properties.COUNTYNAME){ mapZoomReset(); return; }  // 再點同縣市→縮小
+  _mapZoomCounty = d.properties.COUNTYNAME;
+  mapZoomApply(d, geoPath);
+}
+function mapZoomReset(){
+  _mapZoomCounty = null;
+  const inner = document.getElementById('mapInner'); if (inner) inner.style.transform = '';
+  const wrap = document.getElementById('mapWrap'); if (wrap) wrap.classList.remove('zoomed');
+  const btn = document.getElementById('map-zoom-reset'); if (btn) btn.style.display = 'none';
+}
 async function renderTaiwanMap() {
   const W = 260, H = 510;
   if (!_topoCache) _topoCache = await d3.json('https://cdn.jsdelivr.net/npm/taiwan-atlas/counties-10t.json');
@@ -7455,7 +7486,10 @@ async function renderTaiwanMap() {
     .data(main.features)
     .join('path')
     .attr('class', 'cn')
-    .attr('d', geoPath);
+    .attr('d', geoPath)
+    .on('click', function(event, d){ mapZoomTo(d, geoPath); });   // 點縣市→放大該區（再點同縣市或「縮小」鈕→回全台）
+  // 若目前有放大中的縣市，重繪後維持該縮放
+  if (_mapZoomCounty) { const d = main.features.find(f => f.properties.COUNTYNAME === _mapZoomCounty); if (d) mapZoomApply(d, geoPath); else mapZoomReset(); }
 
   svg.selectAll('text.lbl')
     .data(main.features)
