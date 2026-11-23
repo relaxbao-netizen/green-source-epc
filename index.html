@@ -5618,6 +5618,9 @@ function drawDailyLog() {
   const effMark = (r, d) => (r.overrides || {})[String(d)] || autoMark(r, d);
   // 逾期未繳：仍是 x（該交沒交）且該日已過 3 日曆天門檻
   const isOverdueMiss = (r, d) => effMark(r, d) === 'x' && `${dailyLogYm}-${String(d).padStart(2, '0')}` <= _overdueThr;
+  // 曾逾期（供紅底保留）：目前逾期未交，或已被記進 r.late（補交成 ○ 後仍留紅底標記）
+  const _lateSet = r => { const a = r.late; return Array.isArray(a) ? new Set(a.map(Number)) : new Set(); };
+  const wasLate = (r, d) => isOverdueMiss(r, d) || _lateSet(r).has(d);
   // 案場排序照工程進度總覽（進度高→低、再開工日、完工日）
   const dateCmp2 = (x, y) => { if (!x && !y) return 0; if (!x) return 1; if (!y) return -1; return x.localeCompare(y); };
   const orderedSites = (typeof sites !== 'undefined' ? sites : []).slice().sort((a, b) => (b.pct - a.pct) || dateCmp2(a.start, b.start) || dateCmp2(a.end, b.end));
@@ -5684,10 +5687,9 @@ function drawDailyLog() {
     return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${cells}<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看逾期日期" style="text-align:center;font-weight:700;cursor:pointer">${s.overdueTotal}</td></tr>`;
   }).join('');
   const overTotalAll = Object.values(summary).reduce((t, s) => t + s.overdueTotal, 0);
-  html += `<div class="section-title no-line" style="font-size:15px;margin-top:4px;display:flex;align-items:center;gap:8px">⚠️ 逾期未繳 <span style="font-size:12px;color:var(--muted);font-weight:400">（超過 3 天仍未交，${dailyLogYm.replace('-', ' 年 ')} 月）</span></div>`;
-  html += `<div class="card" style="margin-bottom:16px">${overRows
-    ? `<div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}逾期</th>`).join('')}<th style="text-align:center">合計逾期</th></tr></thead><tbody>${overRows}</tbody></table></div>`
-    : '<div style="padding:16px;text-align:center;color:#16a34a">本月無逾期未繳 🎉</div>'}</div>`;
+  html += `<div class="section-title no-line" style="font-size:15px;margin-top:4px;display:flex;align-items:center;gap:8px">逾期未繳 <span style="font-size:12px;color:var(--muted);font-weight:400">（超過 3 天未交）</span></div>`;
+  const overBody = overRows || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無逾期未繳 🎉</td></tr>`;
+  html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}逾期</th>`).join('')}<th style="text-align:center">合計逾期</th></tr></thead><tbody>${overBody}</tbody></table></div></div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -5697,11 +5699,12 @@ function drawDailyLog() {
       const cells = Array.from({ length: days }, (_, k) => {
         const d = k + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
         const v = effMark(r, d);
-        const overdue = isOverdueMiss(r, d);   // 逾期未繳：淡紅底（同進度延誤色）標明顯
-        const color = overdue ? 'color:#dc2626;' : (v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : '')));
+        const overdue = wasLate(r, d);   // 曾逾期：淡紅底（同進度延誤色）保留，就算補交成 ○ 底色一樣紅
+        const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : (overdue ? 'color:#dc2626;' : '')));
         const bg = overdue ? 'background:#fee2e2;' : (off ? 'background:#f1f5f9;' : '');
         const cd = can('dailylog.edit');
-        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="${overdue ? '逾期未繳（超過3天）— ' : ''}點擊切換：○ / x / - / 自動"` : (overdue ? ' title="逾期未繳（超過3天）"' : '')} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
+        const tip = overdue ? (v === '○' ? '此日曾逾期（已補交）— ' : '逾期未繳（超過3天）— ') : '';
+        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="${tip}點擊切換：○ / x / - / 自動"` : (tip ? ` title="${tip.replace(/ — $/, '')}"` : '')} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       const nameTd = ms
@@ -5713,6 +5716,19 @@ function drawDailyLog() {
       <div class="card" style="margin-bottom:16px"><div class="daily-scroll" style="overflow-x:auto"><table class="prog-table daily-grid" style="font-size:12px"><thead><tr><th>#</th><th>案場名稱</th>${th}</tr></thead><tbody>${body}</tbody></table></div></div>`;
   });
   cont.innerHTML = html;
+  // 記錄「曾逾期」：管理員開頁時，把當下逾期未交的日子寫進 late 欄（補交成 ○ 後紅底仍保留）。管理員寫入不進稽核，不會洗版
+  if (typeof isAdmin === 'function' && isAdmin() && typeof sb !== 'undefined') {
+    shownForms.forEach(({ frows }) => frows.forEach(r => {
+      const set = _lateSet(r);
+      let changed = false;
+      for (let d = 1; d <= days; d++) { if (isOverdueMiss(r, d) && !set.has(d)) { set.add(d); changed = true; } }
+      if (changed) {
+        const arr = [...set].sort((a, b) => a - b);
+        r.late = arr;
+        try { sb.from('daily_log_status').update({ late: arr }).eq('id', r.id).then(() => {}, () => {}); } catch (e) {}
+      }
+    }));
+  }
   // 捲動：同月份重畫還原原位；顯示當月則把「今天」欄靠在凍結欄右側；其他月份靠最左
   drawDailyLog._prevYm = dailyLogYm;
   const now = new Date();
