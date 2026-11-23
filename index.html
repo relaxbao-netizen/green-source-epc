@@ -2258,6 +2258,8 @@ function pmIsPrimary(s, name){ const a = pmList(s); return a.length > 1 && a[0] 
 function pmRankBadge(primary){ return `<span style="font-size:10px;color:#fff;background:${primary ? '#059669' : '#94a3b8'};border-radius:4px;padding:1px 6px;margin-left:5px;font-weight:600;vertical-align:middle">${primary ? '主要' : '次要'}</span>`; }
 // 詳情彈窗用：多位時每位帶主要/次要標籤（逐行）；一位時純姓名
 function pmTextRanked(s){ const a = pmList(s); if (a.length <= 1) return appEsc(a[0] || ''); return a.map((n, i) => appEsc(n) + pmRankBadge(i === 0)).join('<br>'); }
+// 把一組責任主任名單依案場「主要→次要」排序（照 site.pm 順序；不在名單者排後、保留原順序）
+function pmSortNames(s, names){ const o = pmList(s); return [...names].sort((a, b) => { const ia = o.indexOf(a), ib = o.indexOf(b); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib); }); }
 // 編輯案場：工地主任「主要」單選同步——只對已勾選者顯示主要鈕，沒選主要時自動補第一個被勾選者
 function sfPmSync(){
   const wrap = document.getElementById('sf-pm'); if (!wrap) return;
@@ -5671,7 +5673,7 @@ function drawDailyLog() {
     const nameTd = msR
       ? `<td style="text-align:left;cursor:pointer" onclick="openModal(${msR.id})" title="檢視案場資料">${appEsc(name)}</td>`
       : `<td style="text-align:left">${appEsc(name)}</td>`;
-    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`;
+    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc(pmSortNames(msR, [...s.resp]).join('、')) || '—'}</td>${formsShown.map(f => missCell(name, f, s.forms[f] || 0)).join('')}<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看缺交日期" style="text-align:center;font-weight:700;cursor:pointer">${s.total}</td></tr>`;
   }).join('')
     || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
   html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
@@ -5684,7 +5686,7 @@ function drawDailyLog() {
     const cells = formsShown.map(f => { const n = (s.overdueByForm[f] || []).length; return n > 0
       ? `<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','${f}')" title="點看逾期日期" style="text-align:center;color:#dc2626;font-weight:600;cursor:pointer">${n}</td>`
       : `<td style="text-align:center;color:var(--muted)">0</td>`; }).join('');
-    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${cells}<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看逾期日期" style="text-align:center;font-weight:700;cursor:pointer">${s.overdueTotal}</td></tr>`;
+    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc(pmSortNames(msR, [...s.resp]).join('、')) || '—'}</td>${cells}<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看逾期日期" style="text-align:center;font-weight:700;cursor:pointer">${s.overdueTotal}</td></tr>`;
   }).join('');
   const overTotalAll = Object.values(summary).reduce((t, s) => t + s.overdueTotal, 0);
   html += `<div class="section-title" style="font-size:15px;margin-top:4px;display:flex;align-items:center;gap:8px">逾期未繳 <span style="font-size:12px;color:var(--muted);font-weight:400">（超過 3 天未交）</span></div>`;
@@ -5758,7 +5760,7 @@ function appShowMissDays(name, form) {
     if (!site) return '';
     const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
     const ppl = [...new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(g => g.site_id === site.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)).map(g => g.supervisor))];
-    return ppl.length ? `　<b>${appEsc(ppl.join('、'))}</b>` : '';
+    return ppl.length ? `　<b>${appEsc(pmSortNames(site, ppl).join('、'))}</b>` : '';
   };
   const line = (f, d) => `${dailyLogYm}-${String(d).padStart(2, '0')}（週${wk[new Date(y, m - 1, d).getDay()]}）${whoOn(d)}`;
   let items, n, sub;
@@ -5783,7 +5785,7 @@ function appShowOverdueDays(name, form) {
     if (!site) return '';
     const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
     const ppl = [...new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(g => g.site_id === site.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)).map(g => g.supervisor))];
-    return ppl.length ? `　<b>${appEsc(ppl.join('、'))}</b>` : '';
+    return ppl.length ? `　<b>${appEsc(pmSortNames(site, ppl).join('、'))}</b>` : '';
   };
   const line = (f, d) => `${dailyLogYm}-${String(d).padStart(2, '0')}（週${wk[new Date(y, m - 1, d).getDay()]}）${whoOn(d)}`;
   let items, n, sub;
