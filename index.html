@@ -2667,6 +2667,7 @@ let dailyLogRows = [];
 let dailyLogYm = null;
 let dailyLogDirty = new Set(); // 尚未儲存的手動變更格子（key = "列id|日"）
 let dailyMissDetail = {};      // 案場名稱 → { 表單: [缺繳日] }（供點數字看日期）
+let dailyOverdueDetail = {};   // 案場名稱 → { 表單: [逾期未繳日] }（過了 3 日曆天仍未交）
 async function loadDailyLog() {
   if (!sb) return;
   const { data, error } = await sb.from('daily_log_status').select('*').order('project');
@@ -5600,6 +5601,8 @@ function drawDailyLog() {
   const dispDay = new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(r => (r.log_date || '').slice(0, 7) === dailyLogYm && r.site_id != null).map(r => r.site_id + '|' + r.log_date));
   // 自動值：有交→○；否則當日有派工→x、當日沒派工→-；無資料(未來)→空白
   const _todayStr = (typeof localDate === 'function') ? localDate(new Date()) : new Date().toISOString().slice(0, 10);
+  // 逾期判定：某天日誌超過 3 個「日曆天」仍未交就算逾期（週一的 → 週四就逾期）。門檻日＝今天往前 3 天，缺繳日 ≤ 門檻日即逾期
+  const _overdueThr = (() => { const t = new Date(); t.setDate(t.getDate() - 3); return (typeof localDate === 'function') ? localDate(t) : t.toISOString().slice(0, 10); })();
   const DL_TB_EXEMPT = new Set(['法蘭摩沙', '台積電AP7']);   // 這些案場預設不用寫工具箱會議紀錄，不列入缺繳
   const autoMark = (r, d) => {
     const ms = matchSite(r.project);
@@ -5613,6 +5616,8 @@ function drawDailyLog() {
   };
   // 生效值：手動 override 優先，否則用自動值
   const effMark = (r, d) => (r.overrides || {})[String(d)] || autoMark(r, d);
+  // 逾期未繳：仍是 x（該交沒交）且該日已過 3 日曆天門檻
+  const isOverdueMiss = (r, d) => effMark(r, d) === 'x' && `${dailyLogYm}-${String(d).padStart(2, '0')}` <= _overdueThr;
   // 案場排序照工程進度總覽（進度高→低、再開工日、完工日）
   const dateCmp2 = (x, y) => { if (!x && !y) return 0; if (!x) return 1; if (!y) return -1; return x.localeCompare(y); };
   const orderedSites = (typeof sites !== 'undefined' ? sites : []).slice().sort((a, b) => (b.pct - a.pct) || dateCmp2(a.start, b.start) || dateCmp2(a.end, b.end));
@@ -5634,12 +5639,14 @@ function drawDailyLog() {
     frows.forEach(r => {
       const ms = matchSite(r.project);
       const key = ms ? ms.name : r.project;
-      const s = summary[key] || (summary[key] = { resp: new Set(), forms: {}, missByForm: {}, total: 0 });
-      let miss = 0;
+      const s = summary[key] || (summary[key] = { resp: new Set(), forms: {}, missByForm: {}, total: 0, overdueByForm: {}, overdueTotal: 0 });
+      let miss = 0, over = 0;
       for (let d = 1; d <= days; d++) {
         if (effMark(r, d) !== 'x') continue;
         miss++;
         (s.missByForm[form] = s.missByForm[form] || []).push(d);
+        const od = isOverdueMiss(r, d);
+        if (od) { over++; (s.overdueByForm[form] = s.overdueByForm[form] || []).push(d); }
         if (ms) {
           const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
           supLogsAll.forEach(g => { if (g.site_id === ms.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)) s.resp.add(g.supervisor); });
@@ -5647,10 +5654,12 @@ function drawDailyLog() {
       }
       s.forms[form] = (s.forms[form] || 0) + miss;
       s.total += miss;
+      s.overdueTotal += over;
     });
   });
   dailyMissDetail = {};
-  Object.entries(summary).forEach(([name, s]) => { dailyMissDetail[name] = s.missByForm; });
+  dailyOverdueDetail = {};
+  Object.entries(summary).forEach(([name, s]) => { dailyMissDetail[name] = s.missByForm; dailyOverdueDetail[name] = s.overdueByForm; });
   const missCell = (name, f, n) => n > 0
     ? `<td onclick="appShowMissDays('${appEsc(name).replace(/'/g, "\\'")}','${f}')" title="點看缺交日期" style="text-align:center;color:#dc2626;font-weight:600;cursor:pointer">${n}</td>`
     : `<td style="text-align:center;color:var(--muted)">0</td>`;
@@ -5663,6 +5672,22 @@ function drawDailyLog() {
   }).join('')
     || `<tr><td colspan="${3 + formsShown.length + 1}" style="text-align:center;color:var(--muted);padding:10px">本月無缺繳 🎉</td></tr>`;
   html += `<div class="card" style="margin-bottom:16px"><div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}缺繳</th>`).join('')}<th style="text-align:center">合計缺繳</th></tr></thead><tbody>${sumRows}</tbody></table></div></div>`;
+  // 逾期未繳統計卡：超過 3 日曆天仍未交（可追繳）
+  const overRows = Object.entries(summary).filter(([, s]) => s.overdueTotal > 0).sort((a, b) => b[1].overdueTotal - a[1].overdueTotal).map(([name, s], i) => {
+    const msR = matchSite(name);
+    const nameTd = msR
+      ? `<td style="text-align:left;cursor:pointer" onclick="openModal(${msR.id})" title="檢視案場資料">${appEsc(name)}</td>`
+      : `<td style="text-align:left">${appEsc(name)}</td>`;
+    const cells = formsShown.map(f => { const n = (s.overdueByForm[f] || []).length; return n > 0
+      ? `<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','${f}')" title="點看逾期日期" style="text-align:center;color:#dc2626;font-weight:600;cursor:pointer">${n}</td>`
+      : `<td style="text-align:center;color:var(--muted)">0</td>`; }).join('');
+    return `<tr><td style="text-align:center">${i + 1}</td>${nameTd}<td style="text-align:left">${appEsc([...s.resp].join('、')) || '—'}</td>${cells}<td onclick="appShowOverdueDays('${appEsc(name).replace(/'/g, "\\'")}','__total__')" title="點看逾期日期" style="text-align:center;font-weight:700;cursor:pointer">${s.overdueTotal}</td></tr>`;
+  }).join('');
+  const overTotalAll = Object.values(summary).reduce((t, s) => t + s.overdueTotal, 0);
+  html += `<div class="section-title no-line" style="font-size:15px;margin-top:4px;display:flex;align-items:center;gap:8px">⚠️ 逾期未繳 <span style="font-size:12px;color:var(--muted);font-weight:400">（超過 3 天仍未交，${dailyLogYm.replace('-', ' 年 ')} 月）</span></div>`;
+  html += `<div class="card" style="margin-bottom:16px">${overRows
+    ? `<div style="overflow-x:auto"><table class="prog-table" style="font-size:13px"><thead><tr><th>#</th><th style="text-align:left">案場名稱</th><th style="text-align:left">工地主任</th>${formsShown.map(f => `<th style="text-align:center">${appEsc(dlFormLabel(f))}逾期</th>`).join('')}<th style="text-align:center">合計逾期</th></tr></thead><tbody>${overRows}</tbody></table></div>`
+    : '<div style="padding:16px;text-align:center;color:#16a34a">本月無逾期未繳 🎉</div>'}</div>`;
   shownForms.forEach(({ form, frows }) => {
     const th = Array.from({ length: days }, (_, i) => {
       const d = i + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
@@ -5672,10 +5697,11 @@ function drawDailyLog() {
       const cells = Array.from({ length: days }, (_, k) => {
         const d = k + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
         const v = effMark(r, d);
-        const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : ''));
-        const bg = off ? 'background:#f1f5f9;' : '';
+        const overdue = isOverdueMiss(r, d);   // 逾期未繳：淡紅底（同進度延誤色）標明顯
+        const color = overdue ? 'color:#dc2626;' : (v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : '')));
+        const bg = overdue ? 'background:#fee2e2;' : (off ? 'background:#f1f5f9;' : '');
         const cd = can('dailylog.edit');
-        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="點擊切換：○ / x / - / 自動"` : ''} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
+        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="${overdue ? '逾期未繳（超過3天）— ' : ''}點擊切換：○ / x / - / 自動"` : (overdue ? ' title="逾期未繳（超過3天）"' : '')} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       const nameTd = ms
@@ -5729,6 +5755,31 @@ function appShowMissDays(name, form) {
     n = days.length; items = days.map(d => line(form, d)).join('<br>'); sub = dlFormLabel(form);
   }
   appShowResultModal(`${name}　${sub}缺繳（${n}天）`, `<div style="padding:4px 2px;font-size:14px;line-height:1.9">${items || '—'}</div>`);
+}
+// 點逾期數字 → 顯示是哪幾天逾期未繳
+function appShowOverdueDays(name, form) {
+  const byForm = dailyOverdueDetail[name] || {};
+  const wk = ['日', '一', '二', '三', '四', '五', '六'];
+  const [y, m] = dailyLogYm.split('-').map(Number);
+  const site = (typeof sites !== 'undefined' ? sites : []).find(s => s.name === name);
+  const engMgrs = new Set((typeof supervisors !== 'undefined' ? supervisors : []).filter(v => v.role === '工程部主管').map(v => v.name));
+  const whoOn = d => {
+    if (!site) return '';
+    const date = `${dailyLogYm}-${String(d).padStart(2, '0')}`;
+    const ppl = [...new Set((typeof supLogs !== 'undefined' ? supLogs : []).filter(g => g.site_id === site.id && g.log_date === date && g.supervisor && !engMgrs.has(g.supervisor)).map(g => g.supervisor))];
+    return ppl.length ? `　<b>${appEsc(ppl.join('、'))}</b>` : '';
+  };
+  const line = (f, d) => `${dailyLogYm}-${String(d).padStart(2, '0')}（週${wk[new Date(y, m - 1, d).getDay()]}）${whoOn(d)}`;
+  let items, n, sub;
+  if (form === '__total__') {
+    const parts = Object.keys(byForm).map(f => `<div style="font-weight:600;margin:6px 0 2px">${appEsc(dlFormLabel(f))}</div>` + (byForm[f] || []).slice().sort((a, b) => a - b).map(d => line(f, d)).join('<br>'));
+    n = Object.values(byForm).reduce((t, a) => t + a.length, 0);
+    items = parts.join(''); sub = '合計';
+  } else {
+    const dd = (byForm[form] || []).slice().sort((a, b) => a - b);
+    n = dd.length; items = dd.map(d => line(form, d)).join('<br>'); sub = dlFormLabel(form);
+  }
+  appShowResultModal(`${name}　${sub}逾期未繳（${n}天）`, `<div style="padding:4px 2px;font-size:14px;line-height:1.9">${items || '—'}</div>`);
 }
 // 點擊儲存格手動切換：自動 → ○ → x → -（再回自動）。只在本地暫存，按「儲存」才寫入
 function appCycleDailyMark(id, day) {
