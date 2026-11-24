@@ -5701,12 +5701,12 @@ function drawDailyLog() {
       const cells = Array.from({ length: days }, (_, k) => {
         const d = k + 1, off = !!autoOffLabel(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
         const v = effMark(r, d);
-        const overdue = wasLate(r, d);   // 曾逾期：淡紅底（同進度延誤色）保留，就算補交成 ○ 底色一樣紅
+        const overdue = (v === 'x' || v === '○') && wasLate(r, d);   // 曾逾期：淡紅底保留（補交成 ○ 也紅）；但改成「-(不用交)」就不算、紅底消失
         const color = v === 'x' ? 'color:#dc2626;' : (v === '○' ? 'color:#16a34a;' : (v === '-' ? 'color:#64748b;' : (overdue ? 'color:#dc2626;' : '')));
         const bg = overdue ? 'background:#fee2e2;' : (off ? 'background:#f1f5f9;' : '');
         const cd = can('dailylog.edit');
         const tip = overdue ? (v === '○' ? '此日曾逾期（已補交）— ' : '逾期未繳（超過3天）— ') : '';
-        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="${tip}點擊切換：○ / x / - / 自動"` : (tip ? ` title="${tip.replace(/ — $/, '')}"` : '')} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
+        return `<td data-id="${r.id}" data-d="${d}" data-auto="${autoMark(r, d)}" data-off="${off ? 1 : ''}" data-late="${wasLate(r, d) ? 1 : ''}"${cd ? ` onclick="appCycleDailyMark(${r.id},${d})" title="${tip}點擊切換：○ / x / - / 自動"` : (tip ? ` title="${tip.replace(/ — $/, '')}"` : '')} style="${bg}${color}text-align:center${cd ? ';cursor:pointer' : ''}">${v}</td>`;
       }).join('');
       const ms = matchSite(r.project);
       const nameTd = ms
@@ -5724,6 +5724,8 @@ function drawDailyLog() {
       const set = _lateSet(r);
       let changed = false;
       for (let d = 1; d <= days; d++) { if (isOverdueMiss(r, d) && !set.has(d)) { set.add(d); changed = true; } }
+      // 已被改成「-(當天不用交)」的日子，從 late 移除 → 紅底永久消失
+      [...set].forEach(dd => { if (effMark(r, dd) === '-') { set.delete(dd); changed = true; } });
       if (changed) {
         const arr = [...set].sort((a, b) => a - b);
         r.late = arr;
@@ -5832,7 +5834,11 @@ function _updateDailyCell(id, day, overrideVal) {
   if (!td) return;
   const v = overrideVal !== '' ? overrideVal : (td.dataset.auto || '');
   td.textContent = v;
-  td.style.color = v === 'x' ? '#dc2626' : (v === '○' ? '#16a34a' : (v === '-' ? '#64748b' : ''));
+  // 逾期淡紅底：只有標 x／○ 且該日曾逾期才紅；改成「-(不用交)」或清空就立刻移除紅底（切回 x/○ 也即時恢復）
+  const late = td.dataset.late === '1';
+  const showRed = (v === 'x' || v === '○') && late;
+  td.style.color = showRed ? '#dc2626' : (v === 'x' ? '#dc2626' : (v === '○' ? '#16a34a' : (v === '-' ? '#64748b' : '')));
+  td.style.background = showRed ? '#fee2e2' : (td.dataset.off === '1' ? '#f1f5f9' : '');
 }
 // 儲存手動變更：寫入 overrides 並鎖定該列（locked），自動刷新不再覆蓋
 async function appSaveDailyOverrides() {
