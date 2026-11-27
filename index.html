@@ -7595,9 +7595,30 @@ async function renderTaiwanMap() {
   const wrap = document.getElementById('mapInner');
   const popup = document.getElementById('pin-popup');
   wrap.querySelectorAll('.map-pin, .sv-mark, .sv-line, .sv-leave-box').forEach(el => el.remove());
+  // 先算出所有案場圖釘的螢幕座標
+  const sitePts = [];
   sites.forEach(s => {
     if (!s.lng || !s.lat) return;
     const [x, y] = projection([s.lng, s.lat]);
+    sitePts.push({ s, x, y });
+  });
+  // 防重疊：相距過近的案場圖釘互相推開（只動顯示位置、不改座標資料；如東元湖口與景碩）
+  const PIN_MIND = 20;   // px，兩圖釘最小間距
+  for (let iter = 0; iter < 80; iter++) {
+    let moved = false;
+    for (let i = 0; i < sitePts.length; i++) for (let j = i + 1; j < sitePts.length; j++) {
+      const a = sitePts[i], b = sitePts[j];
+      let dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy);
+      if (dist < PIN_MIND) {
+        if (dist < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; dist = Math.hypot(dx, dy) || 1; }
+        const push = (PIN_MIND - dist) / 2, ux = dx / dist, uy = dy / dist;
+        a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  sitePts.forEach(({ s, x, y }) => {
     const pin = document.createElement('div');
     pin.className = 'map-pin';
     pin.style.top = (y / H * 100) + '%';
@@ -7725,14 +7746,14 @@ async function renderTaiwanMap() {
       };
       const forceLeft = /法蘭摩沙|景碩/.test(loc.label || '');   // 法蘭、景碩案場頭貼一律靠左（西岸）
       const angs = forceLeft ? [Math.PI] : [0, Math.PI]; // 只考慮水平：右、左
-      const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 136, 148, 160, 176, 192]; // 自動長度：由短到長，取剛好離陸者（內陸位置需更長才推得到海）
+      const DEPTHS = [44, 52, 60, 68, 76, 84, 92, 100, 108, 116, 124, 136, 148, 160, 176, 192, 208, 224, 240, 260, 280]; // 自動長度：由短到長，取剛好離陸／不與別人重疊者（延長可把擠在一起的頭貼拉開）
       let bestScore = Infinity;
       for (const ang of angs) {
         for (const depth of DEPTHS) {
           const o = offsetsFor(ang, depth);
           const avatarLand = o.arr.filter(p => markOnLand(p.mlx, p.mly)).length;
           // 與其他已放置頭貼重疊的數量
-          const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 32)).length;
+          const overlap = o.arr.filter(p => placedPts.some(q => Math.hypot((baseX + p.mlx) - q.x, (baseY + p.mly) - q.y) < 48)).length;
           // 本候選白線與已放置白線交叉的數量（避免像連連看）
           const lineA = { x: baseX, y: baseY }, lineB = { x: baseX + o.ancX, y: baseY + o.ancY };
           const cross = placedLines.filter(L => segCross(lineA, lineB, L.a, L.b)).length;
